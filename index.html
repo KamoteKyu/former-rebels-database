@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>FORMER REBELS DATABASE SYSTEM</title>
+  <link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+
+<!-- LOGIN SCREEN -->
+<div id="loginScreen" class="login-screen">
+  <div class="login-card">
+    <div class="login-logo">
+      <div class="shield-icon"><img src="Province_of_Occidental_Mindoro_seal.svg.png" class="login-logo-img" alt="Logo"/></div>
+      <h1>FORMER REBELS<br>DATABASE SYSTEM</h1>
+      <p class="login-subtitle">AUTHORIZED PERSONNEL ONLY</p>
+    </div>
+    <div class="login-form">
+      <div class="form-group">
+        <label>USERNAME</label>
+        <input type="text" id="loginUser" placeholder="Enter username" autocomplete="off"/>
+      </div>
+      <div class="form-group">
+        <label>PASSWORD</label>
+        <div class="pw-wrap">
+          <input type="password" id="loginPass" placeholder="Enter password"/>
+          <span class="pw-toggle" onclick="togglePw()">👁</span>
+        </div>
+      </div>
+      <div id="loginError" class="login-error"></div>
+      <button class="btn-login" onclick="doLogin()">LOGIN</button>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN APP -->
+<div id="mainApp" class="main-app hidden">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-logo"><img src="Province_of_Occidental_Mindoro_seal.svg.png" class="sidebar-logo-img" alt="Logo"/></div>
+      <div class="sidebar-title">
+        <span class="sidebar-main">FR DATABASE</span>
+        <span class="sidebar-sub">MANAGEMENT SYSTEM</span>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="#" class="nav-item active" onclick="showPage('dashboard')">
+        <span class="nav-icon">📊</span><span>DASHBOARD</span>
+      </a>
+      <a href="#" class="nav-item" onclick="showPage('records')">
+        <span class="nav-icon">📋</span><span>RECORDS</span>
+      </a>
+      <a href="#" class="nav-item" onclick="showPage('addRecord')">
+        <span class="nav-icon">➕</span><span>ADD RECORD</span>
+      </a>
+      <a href="#" class="nav-item admin-only" onclick="showPage('users')">
+        <span class="nav-icon">👥</span><span>USER MANAGEMENT</span>
+      </a>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="user-info">
+        <span class="user-avatar">👤</span>
+        <div>
+          <div id="sidebarUsername" class="user-name"></div>
+          <div id="sidebarRole" class="user-role"></div>
+        </div>
+      </div>
+      <button class="btn-logout" onclick="doLogout()">LOGOUT</button>
+    </div>
+  </aside>
+
+  <!-- CONTENT AREA -->
+  <main class="content-area">
+    <div class="topbar">
+      <button class="menu-toggle" onclick="toggleSidebar()">☰</button>
+      <h2 id="pageTitle">DASHBOARD</h2>
+      <div class="topbar-right">
+        <span id="topbarUser" class="topbar-user"></span>
+        <span id="currentDateTime" class="topbar-time"></span>
+      </div>
+    </div>
+
+    <!-- DASHBOARD PAGE -->
+    <div id="page-dashboard" class="page active">
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-icon">👥</div>
+          <div class="stat-info">
+            <div class="stat-num" id="statTotal">0</div>
+            <div class="stat-label">TOTAL RECORDS</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">♂️</div>
+          <div class="stat-info">
+            <div class="stat-num" id="statMale">0</div>
+            <div class="stat-label">MALE</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">♀️</div>
+          <div class="stat-info">
+            <div class="stat-num" id="statFemale">0</div>
+            <div class="stat-label">FEMALE</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">📅</div>
+          <div class="stat-info">
+            <div class="stat-num" id="statThisYear">0</div>
+            <div class="stat-label">SURRENDERED THIS YEAR</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">🔴</div>
+          <div class="stat-info">
+            <div class="stat-num" id="statRegularNPA">0</div>
+            <div class="stat-label">REGULAR NPA</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">🟡</div>
+          <div class="stat-info">
+            <div class="stat-num" id="statMilisyang">0</div>
+            <div class="stat-label">MILISYANG BAYAN</div>
+          </div>
+        </div>
+      </div>
+      <div class="dashboard-tables">
+
+        <!-- ASSISTANCE REPORT -->
+        <div class="dash-table-card" style="margin-bottom:20px">
+          <div class="dash-card-header">
+            <h3>📊 ASSISTANCE PROVIDED — REPORT</h3>
+            <span id="asstTotalBadge" class="asst-total-badge">0 TOTAL BENEFICIARIES</span>
+          </div>
+          <div class="asst-chart-wrap">
+            <div id="asstBars" class="asst-bars"></div>
+          </div>
+          <table class="data-table asst-summary-table" style="margin-top:16px">
+            <thead>
+              <tr>
+                <th>TYPE OF ASSISTANCE</th>
+                <th style="text-align:center">NO. OF BENEFICIARIES</th>
+                <th style="text-align:center">% OF TOTAL RECORDS</th>
+                <th style="text-align:center">COVERAGE BAR</th>
+              </tr>
+            </thead>
+            <tbody id="asstTableBody"></tbody>
+            <tfoot id="asstTableFoot"></tfoot>
+          </table>
+        </div>
+
+        <!-- MEMBERSHIP TYPE REPORT -->
+        <div class="dash-table-card" style="margin-bottom:20px">
+          <div class="dash-card-header">
+            <h3>🪖 MEMBERSHIP TYPE — BREAKDOWN</h3>
+            <span id="membershipTotalBadge" class="asst-total-badge">0 WITH MEMBERSHIP TYPE</span>
+          </div>
+          <div class="membership-report-grid">
+            <div class="membership-donut-wrap">
+              <canvas id="membershipDonut" width="160" height="160"></canvas>
+              <div class="donut-legend" id="donutLegend"></div>
+            </div>
+            <table class="data-table" style="flex:1">
+              <thead>
+                <tr>
+                  <th>MEMBERSHIP TYPE</th>
+                  <th style="text-align:center">COUNT</th>
+                  <th style="text-align:center">% OF TOTAL</th>
+                  <th style="text-align:center">BREAKDOWN BAR</th>
+                </tr>
+              </thead>
+              <tbody id="membershipTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- RECENT RECORDS -->
+        <div class="dash-table-card">
+          <h3>🕐 RECENT RECORDS</h3>
+          <table class="data-table" id="recentTable">
+            <thead>
+              <tr><th>NAME</th><th>DATE SURRENDERED</th><th>AREA OF OPERATION</th><th>STATUS</th></tr>
+            </thead>
+            <tbody id="recentTableBody"></tbody>
+          </table>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- RECORDS PAGE -->
+    <div id="page-records" class="page">
+      <div class="page-toolbar">
+        <input type="text" id="searchInput" class="search-input" placeholder="SEARCH BY NAME, ALIAS, UNIT..." oninput="filterRecords()"/>
+        <button class="btn-primary" onclick="showPage('addRecord')">+ ADD NEW RECORD</button>
+        <button class="btn-secondary" onclick="exportCSV()">⬇ EXPORT CSV</button>
+      </div>
+      <div class="table-wrapper">
+        <table class="data-table" id="recordsTable">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>ID PHOTO</th>
+              <th>FULL NAME</th>
+              <th>ALIAS</th>
+              <th>SEX</th>
+              <th>AGE</th>
+              <th>UNIT</th>
+              <th>DATE SURRENDERED</th>
+              <th>AREA OF OPERATION</th>
+              <th>ACTIONS</th>
+            </tr>
+          </thead>
+          <tbody id="recordsTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ADD / EDIT RECORD PAGE -->
+    <div id="page-addRecord" class="page">
+      <div class="form-card">
+        <div class="form-card-header">
+          <h3 id="formTitle">ADD NEW RECORD</h3>
+          <button class="btn-secondary" onclick="showPage('records')">← BACK TO RECORDS</button>
+        </div>
+        <form id="recordForm" onsubmit="saveRecord(event)">
+          <input type="hidden" id="recordId"/>
+
+          <!-- PART I -->
+          <div class="form-section">
+            <div class="section-header">
+              <span class="section-badge">PART I</span>
+              <h4>PERSONAL DETAILS</h4>
+            </div>
+            <div class="form-layout">
+              <!-- ID Picture upload top-right -->
+              <div class="id-photo-area">
+                <div class="id-photo-box" id="idPhotoBox" onclick="document.getElementById('idPhotoInput').click()">
+                  <img id="idPhotoPreview" src="" alt="" style="display:none"/>
+                  <div id="idPhotoPlaceholder">
+                    <span>📷</span>
+                    <p>2x2 ID PHOTO</p>
+                    <small>CLICK TO UPLOAD</small>
+                  </div>
+                </div>
+                <input type="file" id="idPhotoInput" accept="image/*" style="display:none" onchange="previewIdPhoto(event)"/>
+                <button type="button" class="btn-remove-photo" id="removePhotoBtn" onclick="removeIdPhoto()" style="display:none">✕ REMOVE</button>
+              </div>
+
+              <div class="form-fields">
+                <div class="form-row three-col">
+                  <div class="form-group">
+                    <label>LAST NAME <span class="req">*</span></label>
+                    <input type="text" id="lastName" required placeholder="LAST NAME" style="text-transform:uppercase"/>
+                  </div>
+                  <div class="form-group">
+                    <label>FIRST NAME <span class="req">*</span></label>
+                    <input type="text" id="firstName" required placeholder="FIRST NAME" style="text-transform:uppercase"/>
+                  </div>
+                  <div class="form-group">
+                    <label>MIDDLE NAME</label>
+                    <input type="text" id="middleName" placeholder="MIDDLE NAME" style="text-transform:uppercase"/>
+                  </div>
+                </div>
+                <div class="form-row two-col">
+                  <div class="form-group">
+                    <label>KNOWN ALIAS</label>
+                    <input type="text" id="alias" placeholder="KNOWN ALIAS / CODENAME" style="text-transform:uppercase"/>
+                  </div>
+                  <div class="form-group">
+                    <label>DATE OF BIRTH <span class="req">*</span></label>
+                    <input type="date" id="dob" required onchange="calcAge()"/>
+                  </div>
+                </div>
+                <div class="form-row three-col">
+                  <div class="form-group">
+                    <label>AGE</label>
+                    <input type="text" id="age" readonly placeholder="AUTO-CALCULATED" class="readonly-field"/>
+                  </div>
+                  <div class="form-group">
+                    <label>SEX <span class="req">*</span></label>
+                    <select id="sex" required>
+                      <option value="">-- SELECT --</option>
+                      <option value="MALE">MALE</option>
+                      <option value="FEMALE">FEMALE</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label>CIVIL STATUS <span class="req">*</span></label>
+                    <select id="civilStatus" required>
+                      <option value="">-- SELECT --</option>
+                      <option value="SINGLE">SINGLE</option>
+                      <option value="MARRIED">MARRIED</option>
+                      <option value="WIDOW/WIDOWER">WIDOW/WIDOWER</option>
+                      <option value="LIVE-IN">LIVE-IN</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="form-row one-col">
+                  <div class="form-group">
+                    <label>TRIBAL GROUP</label>
+                    <select id="tribalGroup">
+                      <option value="">-- SELECT --</option>
+                      <option value="IRAYA">IRAYA</option>
+                      <option value="ALANGAN">ALANGAN</option>
+                      <option value="TADYAWAN">TADYAWAN</option>
+                      <option value="TAU-BUHID">TAU-BUHID</option>
+                      <option value="BANGON">BANGON</option>
+                      <option value="HANUNUO">HANUNUO</option>
+                      <option value="BUHID">BUHID</option>
+                      <option value="RATAGNON">RATAGNON</option>
+                      <option value="OTHERS">OTHERS</option>
+                      <option value="NO TRIBAL GROUP">NO TRIBAL GROUP</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- PART II -->
+          <div class="form-section">
+            <div class="section-header">
+              <span class="section-badge">PART II</span>
+              <h4>HISTORY IN THE MOVEMENT</h4>
+            </div>
+            <div class="form-row three-col">
+              <div class="form-group">
+                <label>UNIT</label>
+                <input type="text" id="unit" placeholder="UNIT" style="text-transform:uppercase"/>
+              </div>
+              <div class="form-group">
+                <label>POSITION</label>
+                <input type="text" id="position" placeholder="POSITION / RANK" style="text-transform:uppercase"/>
+              </div>
+              <div class="form-group">
+                <label>MEMBERSHIP TYPE</label>
+                <select id="membershipType">
+                  <option value="">-- SELECT --</option>
+                  <option value="REGULAR NPA">REGULAR NPA</option>
+                  <option value="MILISYANG BAYAN">MILISYANG BAYAN</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-row two-col">
+              <div class="form-group">
+                <label>AREA OF OPERATION</label>
+                <select id="areaOfOperation">
+                  <option value="">-- SELECT --</option>
+                  <option value="SOUTHERN PART OF MINDORO">SOUTHERN PART OF MINDORO</option>
+                  <option value="NORTHERN PART OF MINDORO">NORTHERN PART OF MINDORO</option>
+                  <option value="MINDORO ISLAND">MINDORO ISLAND</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>YEARS IN THE MOVEMENT</label>
+                <input type="number" id="yearsInMovement" placeholder="NUMBER OF YEARS" min="0"/>
+              </div>
+            </div>
+            <div class="form-row two-col">
+              <div class="form-group">
+                <label>DATE SURRENDERED</label>
+                <input type="date" id="dateSurrendered"/>
+              </div>
+              <div class="form-group">
+                <label>REFERRING UNIT</label>
+                <input type="text" id="referringUnit" placeholder="REFERRING UNIT" style="text-transform:uppercase"/>
+              </div>
+            </div>
+          </div>
+
+          <!-- PART III -->
+          <div class="form-section">
+            <div class="section-header">
+              <span class="section-badge">PART III</span>
+              <h4>REINTEGRATION AND MONITORING</h4>
+            </div>
+            <div class="form-group">
+              <label>ASSISTANCE PROVIDED</label>
+              <div class="checkbox-grid">
+                <label class="checkbox-item"><input type="checkbox" id="asst_eclip" value="E-CLIP"/><span>E-CLIP</span></label>
+                <label class="checkbox-item"><input type="checkbox" id="asst_fea" value="FEA REMUNERATION"/><span>FEA REMUNERATION</span></label>
+                <label class="checkbox-item"><input type="checkbox" id="asst_livelihood" value="LIVELIHOOD"/><span>LIVELIHOOD</span></label>
+                <label class="checkbox-item"><input type="checkbox" id="asst_medical" value="MEDICAL"/><span>MEDICAL</span></label>
+                <label class="checkbox-item"><input type="checkbox" id="asst_educational" value="EDUCATIONAL"/><span>EDUCATIONAL</span></label>
+                <label class="checkbox-item"><input type="checkbox" id="asst_credentials" value="ISSUANCE OF CREDENTIALS"/><span>ISSUANCE OF CREDENTIALS</span></label>
+                <label class="checkbox-item"><input type="checkbox" id="asst_philhealth" value="PHILHEALTH"/><span>PHILHEALTH</span></label>
+                <label class="checkbox-item others-item">
+                  <input type="checkbox" id="asst_others" value="OTHERS" onchange="toggleOthersSpec()"/>
+                  <span>OTHERS (SPECIFY):</span>
+                  <input type="text" id="asst_others_spec" class="others-spec" placeholder="SPECIFY..." style="display:none;text-transform:uppercase"/>
+                </label>
+              </div>
+            </div>
+
+            <!-- Valid ID Upload Section -->
+            <div class="form-group">
+              <label>VALID ID(S) <small>(JPEG, JPG)</small></label>
+              <div id="validIdContainer" class="upload-list-container"></div>
+              <button type="button" class="btn-add-upload" onclick="addValidIdSlot()">+ ADD VALID ID</button>
+            </div>
+          </div>
+
+          <!-- PART IV -->
+          <div class="form-section">
+            <div class="section-header">
+              <span class="section-badge">PART IV</span>
+              <h4>SOCIAL CASE PROFILE</h4>
+            </div>
+            <div class="form-group">
+              <label>JAPIC CERTIFICATE <small>(JPG, JPEG, PDF)</small></label>
+              <div class="upload-box-single" id="japicBox" onclick="document.getElementById('japicInput').click()">
+                <div id="japicPlaceholder">
+                  <span>📄</span>
+                  <p>JOINT AFP-PNP INTELLIGENCE COMMITTEE (JAPIC) CERTIFICATE</p>
+                  <small>CLICK TO UPLOAD (JPG, JPEG, PDF)</small>
+                </div>
+                <div id="japicPreview" style="display:none"></div>
+              </div>
+              <input type="file" id="japicInput" accept=".jpg,.jpeg,.pdf" style="display:none" onchange="previewJapic(event)"/>
+              <button type="button" class="btn-remove-small" id="removeJapicBtn" onclick="removeJapic()" style="display:none">✕ REMOVE JAPIC FILE</button>
+            </div>
+            <div class="form-group">
+              <label>SOCIAL CASE STUDY REPORT</label>
+              <textarea id="socialCaseReport" rows="8" placeholder="ENTER SOCIAL CASE STUDY REPORT HERE..." style="text-transform:uppercase"></textarea>
+            </div>
+          </div>
+
+          <div class="form-actions">
+            <button type="button" class="btn-secondary" onclick="resetForm()">CLEAR FORM</button>
+            <button type="submit" class="btn-primary">💾 SAVE RECORD</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- USER MANAGEMENT PAGE -->
+    <div id="page-users" class="page">
+      <div class="form-card">
+        <div class="form-card-header">
+          <h3>USER MANAGEMENT</h3>
+          <span class="admin-badge">ADMIN ONLY</span>
+        </div>
+        <div class="users-grid">
+          <div class="users-list-panel">
+            <h4>SYSTEM USERS</h4>
+            <div id="usersList"></div>
+          </div>
+          <div class="users-form-panel">
+            <h4 id="userFormTitle">ADD OPERATOR</h4>
+            <div class="form-group">
+              <label>USERNAME</label>
+              <input type="text" id="newUsername" placeholder="USERNAME" style="text-transform:uppercase"/>
+            </div>
+            <div class="form-group">
+              <label>PASSWORD</label>
+              <input type="password" id="newPassword" placeholder="PASSWORD"/>
+            </div>
+            <div class="form-group">
+              <label>CONFIRM PASSWORD</label>
+              <input type="password" id="confirmPassword" placeholder="CONFIRM PASSWORD"/>
+            </div>
+            <div id="userFormError" class="login-error"></div>
+            <div class="form-actions">
+              <button type="button" class="btn-secondary" onclick="cancelUserEdit()">CANCEL</button>
+              <button type="button" class="btn-primary" onclick="saveUser()">SAVE USER</button>
+            </div>
+            <div class="operator-limit-note">
+              <span id="operatorCount">0</span>/5 OPERATORS USED
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- VIEW RECORD MODAL -->
+<div id="viewModal" class="modal-overlay hidden">
+  <div class="modal-card">
+    <div class="modal-header">
+      <h3>RECORD DETAILS</h3>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div id="modalContent" class="modal-body"></div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeModal()">CLOSE</button>
+      <button class="btn-primary" onclick="editFromModal()">✏ EDIT RECORD</button>
+    </div>
+  </div>
+</div>
+
+<!-- DELETE CONFIRM MODAL -->
+<div id="deleteModal" class="modal-overlay hidden">
+  <div class="modal-card small-modal">
+    <div class="modal-header danger">
+      <h3>⚠ CONFIRM DELETE</h3>
+      <button class="modal-close" onclick="closeDeleteModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <p>ARE YOU SURE YOU WANT TO DELETE THIS RECORD?<br>THIS ACTION CANNOT BE UNDONE.</p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeDeleteModal()">CANCEL</button>
+      <button class="btn-danger" onclick="confirmDelete()">DELETE RECORD</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST NOTIFICATION -->
+<div id="toast" class="toast hidden"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
