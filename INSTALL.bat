@@ -1,6 +1,6 @@
 @echo off
 setlocal enabledelayedexpansion
-title FORMER REBELS DATABASE SYSTEM — INSTALLER
+title FORMER REBELS DATABASE MANAGEMENT SYSTEM — INSTALLER
 
 :: ── CONFIG ────────────────────────────────────────────────────────────────────
 set "APP_URL=https://ocmfrdb.vercel.app"
@@ -13,7 +13,7 @@ set "SHORTCUT_START=%APPDATA%\Microsoft\Windows\Start Menu\Programs\%APP_NAME%.l
 :: ── MENU ──────────────────────────────────────────────────────────────────────
 echo.
 echo  =====================================================
-echo   FORMER REBELS DATABASE SYSTEM
+echo   FORMER REBELS DATABASE MANAGEMENT SYSTEM
 echo   Provincial Social Welfare and Development Office
 echo   Occidental Mindoro
 echo  =====================================================
@@ -71,10 +71,10 @@ if not "!CHROME!"=="" (
 echo  [2/3] Creating shortcuts...
 
 :: ── DESKTOP SHORTCUT ──────────────────────────────────────────────────────────
-powershell -NoProfile -Command "$ws=New-Object -ComObject WScript.Shell; $sc=$ws.CreateShortcut('%SHORTCUT_DESKTOP%'); $sc.TargetPath='%LAUNCHER%'; $sc.WorkingDirectory='%LAUNCHER_DIR%'; $sc.Description='Former Rebels Database System'; $sc.IconLocation='shell32.dll,14'; $sc.Save();"
+powershell -NoProfile -Command "$ws=New-Object -ComObject WScript.Shell; $sc=$ws.CreateShortcut('%SHORTCUT_DESKTOP%'); $sc.TargetPath='%LAUNCHER%'; $sc.WorkingDirectory='%LAUNCHER_DIR%'; $sc.Description='Former Rebels Database Management System'; $sc.IconLocation='shell32.dll,14'; $sc.Save();"
 
 :: ── START MENU SHORTCUT ───────────────────────────────────────────────────────
-powershell -NoProfile -Command "$ws=New-Object -ComObject WScript.Shell; $sc=$ws.CreateShortcut('%SHORTCUT_START%'); $sc.TargetPath='%LAUNCHER%'; $sc.WorkingDirectory='%LAUNCHER_DIR%'; $sc.Description='Former Rebels Database System'; $sc.IconLocation='shell32.dll,14'; $sc.Save();"
+powershell -NoProfile -Command "$ws=New-Object -ComObject WScript.Shell; $sc=$ws.CreateShortcut('%SHORTCUT_START%'); $sc.TargetPath='%LAUNCHER%'; $sc.WorkingDirectory='%LAUNCHER_DIR%'; $sc.Description='Former Rebels Database Management System'; $sc.IconLocation='shell32.dll,14'; $sc.Save();"
 
 echo  [3/3] Done!
 echo.
