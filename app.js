@@ -280,13 +280,25 @@ function showPage(page) {
   if (page === 'dashboard') {
     updateStorageBar();
     dbGetAll().then(function(records) { allRecordsCache = records; renderDashboard(records); })
-      .catch(function(err) { showToast('ERROR LOADING DATA: ' + err.message, 'error'); });
+      .catch(function(err) {
+        if (err.code === 'permission-denied') {
+          showToast('PERMISSION DENIED — CHECK FIRESTORE RULES', 'error');
+        } else {
+          showToast('ERROR LOADING DATA: ' + err.message, 'error');
+        }
+      });
   }
   if (page === 'records') {
     document.getElementById('recordsTableBody').innerHTML =
       '<tr><td colspan="10" style="text-align:center;padding:20px;color:var(--text3)">LOADING...</td></tr>';
     dbGetAll().then(function(records) { allRecordsCache = records; renderRecords(records); })
-      .catch(function(err) { showToast('ERROR LOADING DATA: ' + err.message, 'error'); });
+      .catch(function(err) {
+        if (err.code === 'permission-denied') {
+          showToast('PERMISSION DENIED — CHECK FIRESTORE RULES', 'error');
+        } else {
+          showToast('ERROR LOADING DATA: ' + err.message, 'error');
+        }
+      });
   }
   if (page === 'addRecord' && !editingRecordId) { resetForm(); document.getElementById('formTitle').textContent = 'ADD NEW RECORD'; }
   if (page === 'users') renderUsers();
@@ -1184,19 +1196,22 @@ document.getElementById('cameraModal').addEventListener('click',function(e){if(e
 // -- BOOT (Firebase Auth state) -------------------------------
 auth.onAuthStateChanged(function(user) {
   if (user) {
-    // Wait for auth token to propagate before hitting Firestore
     user.getIdToken(true).then(function() {
-      return getUserRole(user.uid);
-    }).then(function(profile) {
-      if (!profile) {
-        auth.signOut(); return;
-      }
+      return db.collection('users').doc(user.uid).get();
+    }).then(function(doc) {
+      if (!doc.exists) { auth.signOut(); return; }
+      var profile = doc.data();
       currentUser = { uid: user.uid, email: user.email, username: profile.username, role: profile.role };
       onLoginSuccess();
     }).catch(function(err) {
-      console.error('Auth state error:', err);
-      auth.signOut();
+      console.error('Boot error:', err.code, err.message);
+      // If permissions error on users doc, still let user in as OPERATOR
+      if (err.code === 'permission-denied') {
+        currentUser = { uid: user.uid, email: user.email, username: user.email.split('@')[0].toUpperCase(), role: 'OPERATOR' };
+        onLoginSuccess();
+      } else {
+        auth.signOut();
+      }
     });
   }
-  // else: stay on login screen
 });
