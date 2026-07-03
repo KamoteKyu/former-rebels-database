@@ -268,6 +268,32 @@ function showToast(msg, type) {
   window._toastTimer = setTimeout(function() { t.classList.add('hidden'); }, 3500);
 }
 
+// -- CHIME SOUND (Web Audio API) ------------------------------
+function playChime() {
+  try {
+    var ctx = new (window.AudioContext || window.webkitAudioContext)();
+    // Three ascending notes: C5 → E5 → G5
+    var notes = [523.25, 659.25, 783.99];
+    notes.forEach(function(freq, i) {
+      var osc   = ctx.createOscillator();
+      var gain  = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      var start = ctx.currentTime + i * 0.18;
+      var end   = start + 0.35;
+      gain.gain.setValueAtTime(0, start);
+      gain.gain.linearRampToValueAtTime(0.25, start + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, end);
+      osc.start(start);
+      osc.stop(end);
+    });
+  } catch(e) {
+    // Audio not available — silent fail
+  }
+}
+
 function calcAge() {
   var dob = document.getElementById('dob').value;
   if (!dob) { document.getElementById('age').value = ''; syncSeniorCitizenSector(); return; }
@@ -984,6 +1010,7 @@ function saveRecord(event) {
   uploadRecordFiles(record).then(function(r) {
     return dbPut(r);
   }).then(function() {
+    playChime();
     showToast(isEdit?'RECORD UPDATED SUCCESSFULLY':'RECORD SAVED SUCCESSFULLY','success');
     editingRecordId = null;
     allRecordsCache = [];
