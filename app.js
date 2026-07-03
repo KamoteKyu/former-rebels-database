@@ -1014,25 +1014,67 @@ function saveRecord(event) {
   }
 
   var isEdit = !!editingRecordId;
-  showToast('SAVING RECORD...','info');
 
-  uploadRecordFiles(record).then(function(r) {
-    return dbPut(r);
-  }).then(function() {
-    playChime();
-    showToast(isEdit?'RECORD UPDATED SUCCESSFULLY':'RECORD SAVED SUCCESSFULLY','success');
-    editingRecordId = null;
-    allRecordsCache = [];
-    // Force fresh fetch then navigate to records
-    dbGetAll().then(function(records) {
-      allRecordsCache = records;
-      showPage('records');
-    }).catch(function() {
-      showPage('records');
+  // -- DUPLICATE CHECK -----------------------------------------
+  // Block if another record already has same Last Name + First Name + DOB
+  showToast('CHECKING FOR DUPLICATES...', 'info');
+  db.collection('records')
+    .where('lastName',    '==', record.lastName)
+    .where('firstName',   '==', record.firstName)
+    .where('dob',         '==', record.dob)
+    .get({ source: 'server' })
+    .then(function(snap) {
+      var duplicate = null;
+      snap.docs.forEach(function(d) {
+        // Ignore the record being edited
+        if (d.id !== record.id) duplicate = d.data();
+      });
+      if (duplicate) {
+        showToast(
+          'DUPLICATE ENTRY — ' + duplicate.lastName + ', ' + duplicate.firstName +
+          ' (DOB: ' + formatDate(duplicate.dob) + ') ALREADY EXISTS.',
+          'error'
+        );
+        return;
+      }
+      // No duplicate — proceed with save
+      showToast('SAVING RECORD...', 'info');
+      uploadRecordFiles(record).then(function(r) {
+        return dbPut(r);
+      }).then(function() {
+        playChime();
+        showToast(isEdit ? 'RECORD UPDATED SUCCESSFULLY' : 'RECORD SAVED SUCCESSFULLY', 'success');
+        editingRecordId = null;
+        allRecordsCache = [];
+        dbGetAll().then(function(records) {
+          allRecordsCache = records;
+          showPage('records');
+        }).catch(function() {
+          showPage('records');
+        });
+      }).catch(function(err) {
+        showToast('ERROR SAVING RECORD: ' + err.message, 'error');
+      });
+    })
+    .catch(function(err) {
+      // If duplicate check fails (e.g. missing Firestore index), proceed anyway
+      console.warn('[FRDB] Duplicate check failed:', err.message);
+      showToast('SAVING RECORD...', 'info');
+      uploadRecordFiles(record).then(function(r) {
+        return dbPut(r);
+      }).then(function() {
+        playChime();
+        showToast(isEdit ? 'RECORD UPDATED SUCCESSFULLY' : 'RECORD SAVED SUCCESSFULLY', 'success');
+        editingRecordId = null;
+        allRecordsCache = [];
+        dbGetAll().then(function(records) {
+          allRecordsCache = records;
+          showPage('records');
+        }).catch(function() { showPage('records'); });
+      }).catch(function(err) {
+        showToast('ERROR SAVING RECORD: ' + err.message, 'error');
+      });
     });
-  }).catch(function(err) {
-    showToast('ERROR SAVING RECORD: '+err.message,'error');
-  });
 }
 
 // -- RESET FORM -----------------------------------------------
