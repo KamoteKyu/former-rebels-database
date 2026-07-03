@@ -1021,8 +1021,11 @@ function onMedicalConditionChange() { var val=document.getElementById('medicalCo
 function onTribalGroupChange() { var val=document.getElementById('tribalGroup').value,ipCb=document.getElementById('sec_ip');if(val&&val!=='NO TRIBAL GROUP')ipCb.checked=true;else if(val==='NO TRIBAL GROUP')ipCb.checked=false; }
 
 // -- SAVE RECORD (with Firebase Storage upload) ---------------
+var isSaving = false; // guard against double-submit
+
 function saveRecord(event) {
   event.preventDefault();
+  if (isSaving) return; // already saving — ignore extra clicks
   var sectorChecked = SECTOR_IDS.some(function(id){return document.getElementById(id).checked;});
   var sectorErr = document.getElementById('sectorError');
   if(!sectorChecked){sectorErr.style.display='block';document.getElementById('sec_farmer').scrollIntoView({behavior:'smooth',block:'center'});return;}
@@ -1117,10 +1120,15 @@ function saveRecord(event) {
         return;
       }
       // No duplicate — proceed with save
+      isSaving = true;
+      var saveBtn = document.querySelector('#recordForm button[type="submit"]');
+      if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = '⏳ SAVING...'; }
       showToast('SAVING RECORD...', 'info');
       uploadRecordFiles(record).then(function(r) {
         return dbPut(r);
       }).then(function() {
+        isSaving = false;
+        if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = '💾 SAVE RECORD'; }
         playChime();
         showToast(isEdit ? 'RECORD UPDATED SUCCESSFULLY' : 'RECORD SAVED SUCCESSFULLY', 'success');
         editingRecordId = null;
@@ -1132,16 +1140,23 @@ function saveRecord(event) {
           showPage('records');
         });
       }).catch(function(err) {
+        isSaving = false;
+        if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = '💾 SAVE RECORD'; }
         showToast('ERROR SAVING RECORD: ' + err.message, 'error');
       });
     })
     .catch(function(err) {
       // If duplicate check fails (e.g. missing Firestore index), proceed anyway
       console.warn('[FRDB] Duplicate check failed:', err.message);
+      isSaving = true;
+      var saveBtn = document.querySelector('#recordForm button[type="submit"]');
+      if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = '⏳ SAVING...'; }
       showToast('SAVING RECORD...', 'info');
       uploadRecordFiles(record).then(function(r) {
         return dbPut(r);
       }).then(function() {
+        isSaving = false;
+        if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = '💾 SAVE RECORD'; }
         playChime();
         showToast(isEdit ? 'RECORD UPDATED SUCCESSFULLY' : 'RECORD SAVED SUCCESSFULLY', 'success');
         editingRecordId = null;
@@ -1151,6 +1166,8 @@ function saveRecord(event) {
           showPage('records');
         }).catch(function() { showPage('records'); });
       }).catch(function(err) {
+        isSaving = false;
+        if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = '💾 SAVE RECORD'; }
         showToast('ERROR SAVING RECORD: ' + err.message, 'error');
       });
     });
