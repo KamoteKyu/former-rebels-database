@@ -85,6 +85,10 @@
 
     <!-- DASHBOARD PAGE -->
     <div id="page-dashboard" class="page active">
+      <div id="recoveryBanner" style="display:none;background:rgba(248,81,73,.1);border:1px solid rgba(248,81,73,.3);border-radius:8px;padding:12px 16px;margin-bottom:16px;align-items:center;gap:12px;flex-wrap:wrap">
+        <span style="color:#f85149;font-size:0.78rem;flex:1">&#9888; NO RECORDS FOUND IN DATABASE. IF YOU HAD RECORDS BEFORE, CLICK RECOVER.</span>
+        <button class="btn-primary" onclick="recoverData()" style="background:#f85149">RECOVER DATA</button>
+      </div>
       <div class="stats-grid">
         <div class="stat-card">
           <div class="stat-icon">👥</div>
@@ -108,13 +112,6 @@
           </div>
         </div>
         <div class="stat-card">
-          <div class="stat-icon">📅</div>
-          <div class="stat-info">
-            <div class="stat-num" id="statThisYear">0</div>
-            <div class="stat-label">SURRENDERED THIS YEAR</div>
-          </div>
-        </div>
-        <div class="stat-card">
           <div class="stat-icon">🔴</div>
           <div class="stat-info">
             <div class="stat-num" id="statRegularNPA">0</div>
@@ -129,7 +126,51 @@
           </div>
         </div>
       </div>
+      <div class="dashboard-toolbar">
+        <button type="button" class="btn-primary" onclick="generateReport()">📄 GENERATE REPORT</button>
+      </div>
+
+      <!-- STORAGE USAGE BAR -->
+      <div class="storage-bar-card">
+        <div class="storage-bar-header">
+          <span class="storage-bar-title">💾 STORAGE USAGE</span>
+          <span id="storageUsedLabel" class="storage-used-label">CALCULATING...</span>
+        </div>
+        <div class="storage-bar-track">
+          <div id="storageBarFill" class="storage-bar-fill" style="width:0%"></div>
+        </div>
+        <div class="storage-bar-footer">
+          <span id="storageUsedBytes">—</span>
+          <span id="storageAvailBytes">—</span>
+        </div>
+        <div id="storageWarning" class="storage-warning" style="display:none">
+          ⚠ STORAGE IS RUNNING LOW. CONSIDER EXPORTING AND CLEARING OLD RECORDS.
+        </div>
+      </div>
       <div class="dashboard-tables">
+
+        <!-- SURRENDER BY YEAR REPORT -->
+        <div class="dash-table-card" style="margin-bottom:20px">
+          <div class="dash-card-header">
+            <h3>📅 SURRENDER BY YEAR</h3>
+            <span id="surrenderYearTotalBadge" class="asst-total-badge">0 WITH DATE</span>
+          </div>
+          <div class="asst-chart-wrap">
+            <div id="surrenderYearBars" class="asst-bars"></div>
+          </div>
+          <table class="data-table asst-summary-table" style="margin-top:16px">
+            <thead>
+              <tr>
+                <th>YEAR</th>
+                <th style="text-align:center">COUNT</th>
+                <th style="text-align:center">% OF TOTAL</th>
+                <th style="text-align:center">BREAKDOWN BAR</th>
+              </tr>
+            </thead>
+            <tbody id="surrenderYearTableBody"></tbody>
+            <tfoot id="surrenderYearTableFoot"></tfoot>
+          </table>
+        </div>
 
         <!-- ASSISTANCE REPORT -->
         <div class="dash-table-card" style="margin-bottom:20px">
@@ -179,14 +220,145 @@
           </div>
         </div>
 
-        <!-- RECENT RECORDS -->
-        <div class="dash-table-card">
-          <h3>🕐 RECENT RECORDS</h3>
-          <table class="data-table" id="recentTable">
+        <!-- TRIBAL GROUP REPORT -->
+        <div class="dash-table-card" style="margin-bottom:20px">
+          <div class="dash-card-header">
+            <h3>🏔️ TRIBAL GROUP — BREAKDOWN</h3>
+            <span id="tribalTotalBadge" class="asst-total-badge">0 WITH TRIBAL GROUP</span>
+          </div>
+          <div class="membership-report-grid">
+            <div class="membership-donut-wrap">
+              <canvas id="tribalDonut" width="160" height="160"></canvas>
+              <div class="donut-legend" id="tribalLegend"></div>
+            </div>
+            <table class="data-table" style="flex:1">
+              <thead>
+                <tr>
+                  <th>TRIBAL GROUP</th>
+                  <th style="text-align:center">COUNT</th>
+                  <th style="text-align:center">% OF TOTAL</th>
+                  <th style="text-align:center">BREAKDOWN BAR</th>
+                </tr>
+              </thead>
+              <tbody id="tribalTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- AGE BRACKET REPORT -->
+        <div class="dash-table-card" style="margin-bottom:20px">
+          <div class="dash-card-header">
+            <h3>🥧 AGE BRACKET — DISTRIBUTION</h3>
+            <span id="ageTotalBadge" class="asst-total-badge">0 WITH AGE DATA</span>
+          </div>
+          <div class="membership-report-grid">
+            <div class="membership-donut-wrap">
+              <canvas id="agePieChart" width="200" height="200"></canvas>
+              <div class="donut-legend" id="agePieLegend"></div>
+            </div>
+            <table class="data-table" style="flex:1">
+              <thead>
+                <tr>
+                  <th>AGE BRACKET</th>
+                  <th style="text-align:center">COUNT</th>
+                  <th style="text-align:center">% OF TOTAL</th>
+                  <th style="text-align:center">DISTRIBUTION BAR</th>
+                </tr>
+              </thead>
+              <tbody id="ageTableBody"></tbody>
+              <tfoot id="ageTableFoot"></tfoot>
+            </table>
+          </div>
+        </div>
+
+        <!-- 4Ps REPORT -->
+        <div class="dash-table-card" style="margin-bottom:20px">
+          <div class="dash-card-header">
+            <h3>🏠 4Ps BENEFICIARIES — BREAKDOWN</h3>
+            <span id="fourPsTotalBadge" class="asst-total-badge">0 4Ps BENEFICIARIES</span>
+          </div>
+          <div class="asst-chart-wrap">
+            <div id="fourPsBars" class="asst-bars"></div>
+          </div>
+          <table class="data-table asst-summary-table" style="margin-top:16px">
             <thead>
-              <tr><th>NAME</th><th>DATE SURRENDERED</th><th>AREA OF OPERATION</th><th>STATUS</th></tr>
+              <tr>
+                <th>4Ps STATUS</th>
+                <th style="text-align:center">COUNT</th>
+                <th style="text-align:center">% OF TOTAL</th>
+                <th style="text-align:center">BREAKDOWN BAR</th>
+              </tr>
             </thead>
-            <tbody id="recentTableBody"></tbody>
+            <tbody id="fourPsTableBody"></tbody>
+          </table>
+        </div>
+
+        <!-- SECTOR BREAKDOWN REPORT -->
+        <div class="dash-table-card" style="margin-bottom:20px">
+          <div class="dash-card-header">
+            <h3>👥 SECTOR — BREAKDOWN</h3>
+            <span id="sectorTotalBadge" class="asst-total-badge">0 WITH SECTOR</span>
+          </div>
+          <div class="asst-chart-wrap">
+            <div id="sectorBars" class="asst-bars"></div>
+          </div>
+          <table class="data-table asst-summary-table" style="margin-top:16px">
+            <thead>
+              <tr>
+                <th>SECTOR</th>
+                <th style="text-align:center">COUNT</th>
+                <th style="text-align:center">% OF TOTAL</th>
+                <th style="text-align:center">BREAKDOWN BAR</th>
+              </tr>
+            </thead>
+            <tbody id="sectorTableBody"></tbody>
+            <tfoot id="sectorTableFoot"></tfoot>
+          </table>
+        </div>
+
+        <!-- MUNICIPALITY BREAKDOWN REPORT -->
+        <div class="dash-table-card" style="margin-bottom:20px">
+          <div class="dash-card-header">
+            <h3>📍 MUNICIPALITY — BREAKDOWN</h3>
+            <span id="municipalityTotalBadge" class="asst-total-badge">0 WITH MUNICIPALITY</span>
+          </div>
+          <div class="asst-chart-wrap">
+            <div id="municipalityBars" class="asst-bars"></div>
+          </div>
+          <table class="data-table asst-summary-table" style="margin-top:16px">
+            <thead>
+              <tr>
+                <th>MUNICIPALITY</th>
+                <th style="text-align:center">COUNT</th>
+                <th style="text-align:center">% OF TOTAL</th>
+                <th style="text-align:center">BREAKDOWN BAR</th>
+              </tr>
+            </thead>
+            <tbody id="municipalityTableBody"></tbody>
+            <tfoot id="municipalityTableFoot"></tfoot>
+          </table>
+        </div>
+
+        <!-- REFERRING UNIT BREAKDOWN REPORT -->
+        <div class="dash-table-card" style="margin-bottom:20px">
+          <div class="dash-card-header">
+            <h3>🏛️ REFERRING UNIT — BREAKDOWN</h3>
+            <span id="referringUnitTotalBadge" class="asst-total-badge">0 WITH REFERRING UNIT</span>
+          </div>
+          <div class="asst-chart-wrap">
+            <div id="referringUnitBars" class="asst-bars"></div>
+          </div>
+          <table class="data-table asst-summary-table" style="margin-top:16px">
+            <thead>
+              <tr>
+                <th>REFERRING UNIT</th>
+                <th style="text-align:center">COUNT</th>
+                <th style="text-align:center">% OF TOTAL</th>
+                <th style="text-align:center">BREAKDOWN BAR</th>
+              </tr>
+            </thead>
+            <tbody id="referringUnitTableBody"></tbody>
+            <tfoot id="referringUnitTableFoot"></tfoot>
           </table>
         </div>
 
@@ -199,6 +371,8 @@
         <input type="text" id="searchInput" class="search-input" placeholder="SEARCH BY NAME, ALIAS, UNIT..." oninput="filterRecords()"/>
         <button class="btn-primary" onclick="showPage('addRecord')">+ ADD NEW RECORD</button>
         <button class="btn-secondary" onclick="exportCSV()">⬇ EXPORT CSV</button>
+        <button class="btn-secondary" onclick="document.getElementById('csvImportInput').click()">⬆ IMPORT CSV</button>
+        <input type="file" id="csvImportInput" accept=".csv" style="display:none" onchange="importCSVFile(event)"/>
       </div>
       <div class="table-wrapper">
         <table class="data-table" id="recordsTable">
@@ -240,15 +414,18 @@
             <div class="form-layout">
               <!-- ID Picture upload top-right -->
               <div class="id-photo-area">
-                <div class="id-photo-box" id="idPhotoBox" onclick="document.getElementById('idPhotoInput').click()">
+                <div class="id-photo-box" id="idPhotoBox">
                   <img id="idPhotoPreview" src="" alt="" style="display:none"/>
                   <div id="idPhotoPlaceholder">
                     <span>📷</span>
                     <p>2x2 ID PHOTO</p>
-                    <small>CLICK TO UPLOAD</small>
                   </div>
                 </div>
                 <input type="file" id="idPhotoInput" accept="image/*" style="display:none" onchange="previewIdPhoto(event)"/>
+                <div class="id-photo-btns">
+                  <button type="button" class="btn-photo-action" onclick="document.getElementById('idPhotoInput').click()">📁 UPLOAD</button>
+                  <button type="button" class="btn-photo-action" onclick="openCamera()">📸 CAMERA</button>
+                </div>
                 <button type="button" class="btn-remove-photo" id="removePhotoBtn" onclick="removeIdPhoto()" style="display:none">✕ REMOVE</button>
               </div>
 
@@ -301,22 +478,122 @@
                     </select>
                   </div>
                 </div>
-                <div class="form-row one-col">
+                <div class="form-row three-col">
                   <div class="form-group">
-                    <label>TRIBAL GROUP</label>
-                    <select id="tribalGroup">
+                    <label>BARANGAY</label>
+                    <input type="text" id="addressBarangay" placeholder="BARANGAY" style="text-transform:uppercase"/>
+                  </div>
+                  <div class="form-group">
+                    <label>MUNICIPALITY / CITY</label>
+                    <select id="addressMunicipality" style="display:block">
                       <option value="">-- SELECT --</option>
-                      <option value="IRAYA">IRAYA</option>
-                      <option value="ALANGAN">ALANGAN</option>
-                      <option value="TADYAWAN">TADYAWAN</option>
-                      <option value="TAU-BUHID">TAU-BUHID</option>
-                      <option value="BANGON">BANGON</option>
-                      <option value="HANUNUO">HANUNUO</option>
-                      <option value="BUHID">BUHID</option>
-                      <option value="RATAGNON">RATAGNON</option>
-                      <option value="OTHERS">OTHERS</option>
-                      <option value="NO TRIBAL GROUP">NO TRIBAL GROUP</option>
+                      <option value="SAN JOSE">SAN JOSE</option>
+                      <option value="MAGSAYSAY">MAGSAYSAY</option>
+                      <option value="RIZAL">RIZAL</option>
+                      <option value="CALINTAAN">CALINTAAN</option>
+                      <option value="SABLAYAN">SABLAYAN</option>
+                      <option value="STA. CRUZ">STA. CRUZ</option>
+                      <option value="MAMBURAO">MAMBURAO</option>
+                      <option value="PALUAN">PALUAN</option>
+                      <option value="ABRA DE ILOG">ABRA DE ILOG</option>
+                      <option value="LOOC">LOOC</option>
+                      <option value="LUBANG">LUBANG</option>
                     </select>
+                    <input type="text" id="addressMunicipalityText" placeholder="MUNICIPALITY / CITY" style="display:none;text-transform:uppercase"/>
+                  </div>
+                  <div class="form-group">
+                    <label>PROVINCE</label>
+                    <select id="addressProvince" onchange="onProvinceChange()">
+                      <option value="OCCIDENTAL MINDORO">OCCIDENTAL MINDORO</option>
+                      <option value="ORIENTAL MINDORO">ORIENTAL MINDORO</option>
+                      <option value="OUTSIDE MINDORO">OUTSIDE MINDORO</option>
+                    </select>
+                  </div>
+                </div>
+                  <div class="form-row three-col">
+                  <div class="form-group">
+                    <label>RELIGION <span class="req">*</span></label>
+                    <select id="religion" required onchange="onReligionChange()">
+                      <option value="">-- SELECT --</option>
+                      <option value="CATHOLIC">CATHOLIC</option>
+                      <option value="SEVENTH DAY ADVENTIST">SEVENTH DAY ADVENTIST</option>
+                      <option value="CHRISTIAN">CHRISTIAN</option>
+                      <option value="IGLESIA NI CRISTO">IGLESIA NI CRISTO</option>
+                      <option value="OTHERS">OTHERS</option>
+                    </select>
+                  </div>
+                  <div class="form-group conditional-spec-group" id="religionOthersGroup" style="display:none">
+                    <label>SPECIFY RELIGION <span class="req">*</span></label>
+                    <input type="text" id="religionOthers" class="conditional-spec" placeholder="SPECIFY RELIGION..." style="text-transform:uppercase"/>
+                  </div>
+                  <div class="form-group">
+                    <label>CONTACT NUMBER</label>
+                    <input type="text" id="contactNumber" placeholder="CONTACT NUMBER"/>
+                  </div>
+                  <div class="form-group">
+                    <label>4Ps <span class="req">*</span></label>
+                    <select id="fourPs" required>
+                      <option value="">-- SELECT --</option>
+                      <option value="YES">YES</option>
+                      <option value="NO">NO</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="form-row two-col form-row--align-start">
+                  <div class="form-col-stack">
+                    <div class="form-group">
+                      <label>MEDICAL CONDITION <span class="req">*</span></label>
+                      <select id="medicalCondition" required onchange="onMedicalConditionChange()">
+                        <option value="">-- SELECT --</option>
+                        <option value="YES">YES</option>
+                        <option value="NO">NO</option>
+                      </select>
+                    </div>
+                    <div class="form-group conditional-spec-group" id="medicalConditionSpecGroup" style="display:none">
+                      <label>SPECIFY MEDICAL CONDITION</label>
+                      <input type="text" id="medicalConditionSpec" class="conditional-spec" placeholder="SPECIFY MEDICAL CONDITION..." style="text-transform:uppercase"/>
+                    </div>
+                    <div class="form-group">
+                      <label>TRIBAL GROUP</label>
+                      <select id="tribalGroup" onchange="onTribalGroupChange()">
+                        <option value="">-- SELECT --</option>
+                        <option value="IRAYA">IRAYA</option>
+                        <option value="ALANGAN">ALANGAN</option>
+                        <option value="TADYAWAN">TADYAWAN</option>
+                        <option value="TAU-BUID">TAU-BUID</option>
+                        <option value="BANGON">BANGON</option>
+                        <option value="BUHID">BUHID</option>
+                        <option value="HANUNUO">HANUNUO</option>
+                        <option value="RATAGNON">RATAGNON</option>
+                        <option value="OTHERS">OTHERS</option>
+                        <option value="NO TRIBAL GROUP">NO TRIBAL GROUP</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div class="form-col-stack form-col-stack--sector">
+                  <div class="form-group form-group--sector">
+                    <label>SECTOR <span class="req">*</span></label>
+                    <div id="sectorError" class="field-error" style="display:none;color:#f85149;font-size:0.75rem;margin-bottom:4px">PLEASE SELECT AT LEAST ONE SECTOR.</div>
+                    <div class="sector-grid">
+                      <label class="checkbox-item"><input type="checkbox" id="sec_farmer" value="FARMER/FISHERFOLK"/><span>FARMER/FISHERFOLK</span></label>
+                      <label class="checkbox-item"><input type="checkbox" id="sec_women" value="WOMEN"/><span>WOMEN</span></label>
+                      <label class="checkbox-item"><input type="checkbox" id="sec_pwd" value="PWD" onchange="togglePwdSpec()"/><span>PWD</span></label>
+                      <label class="checkbox-item"><input type="checkbox" id="sec_youth" value="CHILDREN AND YOUTH"/><span>CHILDREN AND YOUTH</span></label>
+                      <label class="checkbox-item"><input type="checkbox" id="sec_senior" value="SENIOR CITIZEN"/><span>SENIOR CITIZEN</span></label>
+                      <label class="checkbox-item"><input type="checkbox" id="sec_solo_parent" value="SOLO PARENT"/><span>SOLO PARENT</span></label>
+                      <label class="checkbox-item"><input type="checkbox" id="sec_ip" value="INDIGENOUS PEOPLE"/><span>INDIGENOUS PEOPLE</span></label>
+                      <label class="checkbox-item"><input type="checkbox" id="sec_urban_poor" value="URBAN POOR"/><span>URBAN POOR</span></label>
+                      <label class="checkbox-item others-item">
+                        <input type="checkbox" id="sec_others" value="OTHERS" onchange="toggleSectorOthersSpec()"/>
+                        <span>OTHERS (SPECIFY):</span>
+                        <input type="text" id="sec_others_spec" class="others-spec" placeholder="SPECIFY..." style="display:none;text-transform:uppercase"/>
+                      </label>
+                    </div>
+                  </div>
+                    <div class="form-group conditional-spec-group" id="pwdDisabilityRow" style="display:none">
+                      <label>SPECIFY DISABILITY (PWD)</label>
+                      <input type="text" id="pwdDisability" class="conditional-spec" placeholder="SPECIFY DISABILITY..." style="text-transform:uppercase"/>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -362,14 +639,44 @@
                 <input type="number" id="yearsInMovement" placeholder="NUMBER OF YEARS" min="0"/>
               </div>
             </div>
-            <div class="form-row two-col">
-              <div class="form-group">
-                <label>DATE SURRENDERED</label>
-                <input type="date" id="dateSurrendered"/>
+            <div class="form-row two-col form-row--align-start">
+              <div class="form-col-stack">
+                <div class="form-group">
+                  <label>DATE SURRENDERED</label>
+                  <input type="date" id="dateSurrendered"/>
+                </div>
+                <div class="form-group">
+                  <label>PENDING CASE <span class="req">*</span></label>
+                  <select id="pendingCase" required>
+                    <option value="">-- SELECT --</option>
+                    <option value="YES">YES</option>
+                    <option value="NO">NO</option>
+                  </select>
+                </div>
               </div>
               <div class="form-group">
-                <label>REFERRING UNIT</label>
-                <input type="text" id="referringUnit" placeholder="REFERRING UNIT" style="text-transform:uppercase"/>
+                <label>REFERRING UNIT <span class="req">*</span></label>
+                <select id="referringUnit" required onchange="onReferringUnitChange()">
+                  <option value="">-- SELECT --</option>
+                  <option value="102nd SAC">102nd SAC</option>
+                  <option value="1st Infantry &quot;Always First&quot; Battalion">1st Infantry "Always First" Battalion</option>
+                  <option value="1st OMPMFC">1st OMPMFC</option>
+                  <option value="203rd Infantry &quot;Bantay Kapayapaan&quot; Brigade">203rd Infantry "Bantay Kapayapaan" Brigade</option>
+                  <option value="23MICO">23MICO</option>
+                  <option value="2CMO Battalion">2CMO Battalion</option>
+                  <option value="2nd OMPMFC">2nd OMPMFC</option>
+                  <option value="402nd B MC RMFB 4B">402nd B MC RMFB 4B</option>
+                  <option value="405th B MC RMFB 4B">405th B MC RMFB 4B</option>
+                  <option value="4th Infantry &quot;Scorpion&quot; Battalion">4th Infantry "Scorpion" Battalion</option>
+                  <option value="68th Infantry &quot;Kaagapay&quot; Battalion">68th Infantry "Kaagapay" Battalion</option>
+                  <option value="76th Infantry &quot;Victrix&quot; Battalion">76th Infantry "Victrix" Battalion</option>
+                  <option value="ISAFP">ISAFP</option>
+                  <option value="PIT Occidental Mindoro RIU 4B">PIT Occidental Mindoro RIU 4B</option>
+                  <option value="OTHERS">OTHERS</option>
+                </select>
+                <div class="form-group conditional-spec-group" id="referringUnitOthersGroup" style="display:none;margin-top:6px">
+                  <input type="text" id="referringUnitOthers" class="conditional-spec" placeholder="SPECIFY REFERRING UNIT..." style="text-transform:uppercase"/>
+                </div>
               </div>
             </div>
           </div>
@@ -426,8 +733,17 @@
               <button type="button" class="btn-remove-small" id="removeJapicBtn" onclick="removeJapic()" style="display:none">✕ REMOVE JAPIC FILE</button>
             </div>
             <div class="form-group">
-              <label>SOCIAL CASE STUDY REPORT</label>
-              <textarea id="socialCaseReport" rows="8" placeholder="ENTER SOCIAL CASE STUDY REPORT HERE..." style="text-transform:uppercase"></textarea>
+              <label>SOCIAL CASE STUDY REPORT <small>(PDF, JPG, JPEG, DOC, DOCX)</small></label>
+              <div class="upload-box-single" id="socialCaseBox" onclick="document.getElementById('socialCaseInput').click()">
+                <div id="socialCasePlaceholder">
+                  <span>📋</span>
+                  <p>SOCIAL CASE STUDY REPORT</p>
+                  <small>CLICK TO UPLOAD (PDF, JPG, JPEG, DOC, DOCX)</small>
+                </div>
+                <div id="socialCasePreview" style="display:none"></div>
+              </div>
+              <input type="file" id="socialCaseInput" accept=".pdf,.jpg,.jpeg,.doc,.docx" style="display:none" onchange="previewSocialCase(event)"/>
+              <button type="button" class="btn-remove-small" id="removeSocialCaseBtn" onclick="removeSocialCase()" style="display:none">✕ REMOVE SOCIAL CASE FILE</button>
             </div>
           </div>
 
@@ -475,6 +791,30 @@
             </div>
           </div>
         </div>
+
+        <!-- CHANGE ADMIN PASSWORD -->
+        <div class="change-pw-panel">
+          <h4>🔑 CHANGE ADMIN PASSWORD</h4>
+          <div class="change-pw-grid">
+            <div class="form-group">
+              <label>CURRENT PASSWORD</label>
+              <input type="password" id="adminCurrentPw" placeholder="CURRENT PASSWORD"/>
+            </div>
+            <div class="form-group">
+              <label>NEW PASSWORD</label>
+              <input type="password" id="adminNewPw" placeholder="NEW PASSWORD"/>
+            </div>
+            <div class="form-group">
+              <label>CONFIRM NEW PASSWORD</label>
+              <input type="password" id="adminConfirmPw" placeholder="CONFIRM NEW PASSWORD"/>
+            </div>
+          </div>
+          <div id="adminPwError" class="login-error"></div>
+          <div class="form-actions" style="margin-top:10px">
+            <button type="button" class="btn-primary" onclick="changeAdminPassword()">🔒 UPDATE PASSWORD</button>
+          </div>
+        </div>
+
       </div>
     </div>
 
@@ -491,6 +831,7 @@
     <div id="modalContent" class="modal-body"></div>
     <div class="modal-footer">
       <button class="btn-secondary" onclick="closeModal()">CLOSE</button>
+      <button class="btn-print" onclick="printRecord()">🖨 PRINT</button>
       <button class="btn-primary" onclick="editFromModal()">✏ EDIT RECORD</button>
     </div>
   </div>
@@ -515,6 +856,24 @@
 
 <!-- TOAST NOTIFICATION -->
 <div id="toast" class="toast hidden"></div>
+
+<!-- CAMERA MODAL -->
+<div id="cameraModal" class="modal-overlay hidden">
+  <div class="modal-card camera-modal-card">
+    <div class="modal-header">
+      <h3>📸 TAKE PHOTO</h3>
+      <button class="modal-close" onclick="closeCamera()">✕</button>
+    </div>
+    <div class="modal-body camera-modal-body">
+      <video id="cameraStream" autoplay playsinline></video>
+      <canvas id="cameraCanvas" style="display:none"></canvas>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeCamera()">CANCEL</button>
+      <button class="btn-primary" onclick="capturePhoto()">📸 CAPTURE</button>
+    </div>
+  </div>
+</div>
 
 <script src="app.js"></script>
 </body>
