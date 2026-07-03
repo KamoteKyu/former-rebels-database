@@ -66,17 +66,37 @@ function dbDelete(id) {
 // -- FIREBASE STORAGE UPLOAD ----------------------------------
 function uploadFile(path, dataUrl) {
   if (!dataUrl) return Promise.resolve(null);
-  // Already a cloud URL — no need to re-upload
+  // Already a cloud URL
   if (dataUrl.startsWith('https://firebasestorage') || dataUrl.startsWith('https://storage.googleapis')) {
     return Promise.resolve(dataUrl);
   }
-  // If it's a base64 data URL, try Storage upload; fall back to base64 in Firestore
-  var ref = storage.ref(path);
-  return ref.putString(dataUrl, 'data_url').then(function() {
-    return ref.getDownloadURL();
-  }).catch(function(err) {
-    console.warn('Storage upload failed, storing as base64:', err.code);
-    return dataUrl; // fallback — store base64 directly in Firestore
+  // Skip Storage entirely if no bucket configured — save base64 to Firestore
+  if (!firebaseConfig.storageBucket) return Promise.resolve(dataUrl);
+
+  return new Promise(function(resolve) {
+    var settled = false;
+    // Timeout: if Storage doesn't respond in 12s, fall back to base64
+    var timer = setTimeout(function() {
+      if (!settled) {
+        settled = true;
+        console.warn('Storage upload timed out, using base64 fallback');
+        resolve(dataUrl);
+      }
+    }, 12000);
+
+    var ref = storage.ref(path);
+    ref.putString(dataUrl, 'data_url').then(function() {
+      return ref.getDownloadURL();
+    }).then(function(url) {
+      if (!settled) { settled = true; clearTimeout(timer); resolve(url); }
+    }).catch(function(err) {
+      if (!settled) {
+        settled = true;
+        clearTimeout(timer);
+        console.warn('Storage upload failed (' + err.code + '), using base64 fallback');
+        resolve(dataUrl);
+      }
+    });
   });
 }
 
@@ -881,7 +901,7 @@ function saveRecord(event) {
   }
 
   var isEdit = !!editingRecordId;
-  showToast('UPLOADING FILES...','info');
+  showToast('SAVING RECORD...','info');
 
   uploadRecordFiles(record).then(function(r) {
     return dbPut(r);
