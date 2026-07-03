@@ -19,34 +19,48 @@ const db      = firebase.firestore();
 const storage = firebase.storage();
 
 // -- FIRESTORE HELPERS ----------------------------------------
+// Returns a promise that resolves only when auth is confirmed ready
+function waitForAuth() {
+  return new Promise(function(resolve) {
+    var unsubscribe = auth.onAuthStateChanged(function(user) {
+      unsubscribe();
+      resolve(user);
+    });
+  });
+}
+
 function dbGetAll() {
-  return db.collection('records').orderBy('createdAt', 'desc').get().then(function(snap) {
-    return snap.docs.map(function(d) { return Object.assign({ id: d.id }, d.data()); });
-  }).catch(function(err) {
-    // If ordering fails (no index yet), fall back to unordered
-    if (err.code === 'failed-precondition') {
-      return db.collection('records').get().then(function(snap) {
-        return snap.docs.map(function(d) { return Object.assign({ id: d.id }, d.data()); });
-      });
-    }
-    return Promise.reject(err);
+  return waitForAuth().then(function() {
+    return db.collection('records').orderBy('createdAt', 'desc').get().then(function(snap) {
+      return snap.docs.map(function(d) { return Object.assign({ id: d.id }, d.data()); });
+    }).catch(function(err) {
+      if (err.code === 'failed-precondition') {
+        return db.collection('records').get().then(function(snap) {
+          return snap.docs.map(function(d) { return Object.assign({ id: d.id }, d.data()); });
+        });
+      }
+      return Promise.reject(err);
+    });
   });
 }
 
 function dbPut(record) {
   var id = record.id || genId();
   record.id = id;
-  // Firestore documents have a 1MB limit — strip oversized base64 fields
   var safe = Object.assign({}, record);
   if (safe.idPhoto && safe.idPhoto.startsWith('data:') && safe.idPhoto.length > 900000) {
-    safe.idPhoto = null; // too large for Firestore — needs Storage
-    showToast('ID PHOTO TOO LARGE FOR DIRECT SAVE — PLEASE SET UP FIREBASE STORAGE', 'error');
+    safe.idPhoto = null;
+    showToast('ID PHOTO TOO LARGE — PLEASE SET UP FIREBASE STORAGE', 'error');
   }
-  return db.collection('records').doc(id).set(safe);
+  return waitForAuth().then(function() {
+    return db.collection('records').doc(id).set(safe);
+  });
 }
 
 function dbDelete(id) {
-  return db.collection('records').doc(id).delete();
+  return waitForAuth().then(function() {
+    return db.collection('records').doc(id).delete();
+  });
 }
 
 // -- FIREBASE STORAGE UPLOAD ----------------------------------
