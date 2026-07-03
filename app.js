@@ -336,13 +336,13 @@ function doLogin() {
   auth.signInWithEmailAndPassword(email, p)
     .then(function(cred) {
       err.textContent = '';
-      // Set a basic currentUser immediately so app doesn't freeze
-      // The boot onAuthStateChanged will enrich it with Firestore profile
+      // Determine role by email — only admin@frdb.local is ADMIN
+      var role = cred.user.email === 'admin@frdb.local' ? 'ADMIN' : 'OPERATOR';
       currentUser = {
         uid:      cred.user.uid,
         email:    cred.user.email,
         username: u.toUpperCase(),
-        role:     'ADMIN'
+        role:     role
       };
       onLoginSuccess();
     })
@@ -1435,25 +1435,31 @@ document.getElementById('cameraModal').addEventListener('click',function(e){if(e
 // -- BOOT (Firebase Auth state) -------------------------------
 auth.onAuthStateChanged(function(user) {
   if (user) {
-    // Already logged in from a previous session — restore session
-    // Only run if currentUser isn't already set (avoid double-trigger on fresh login)
     if (!currentUser) {
+      // Determine role by email — only admin@frdb.local is ADMIN
+      var defaultRole = user.email === 'admin@frdb.local' ? 'ADMIN' : 'OPERATOR';
       currentUser = {
         uid:      user.uid,
         email:    user.email,
         username: user.email.split('@')[0].toUpperCase(),
-        role:     'ADMIN'
+        role:     defaultRole
       };
-      // Try to enrich with Firestore profile — but don't block on it
+      // Try to enrich with Firestore profile
       db.collection('users').doc(user.uid).get()
         .then(function(doc) {
           if (doc.exists) {
             var p = doc.data();
             currentUser.username = p.username || currentUser.username;
-            currentUser.role     = p.role     || currentUser.role;
+            // Only trust Firestore role if it matches the email-based rule
+            var firestoreRole = p.role || defaultRole;
+            currentUser.role = (user.email === 'admin@frdb.local') ? 'ADMIN' : firestoreRole === 'ADMIN' ? 'OPERATOR' : firestoreRole;
             document.getElementById('sidebarUsername').textContent = currentUser.username;
             document.getElementById('sidebarRole').textContent     = currentUser.role;
             document.getElementById('topbarUser').textContent      = currentUser.username + ' (' + currentUser.role + ')';
+            // Update admin-only nav visibility based on confirmed role
+            document.querySelectorAll('.admin-only').forEach(function(el) {
+              el.style.display = currentUser.role === 'ADMIN' ? 'flex' : 'none';
+            });
           }
         })
         .catch(function(err) {
