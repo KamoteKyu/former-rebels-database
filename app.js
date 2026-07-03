@@ -22,6 +22,14 @@ const storage = firebase.storage();
 function dbGetAll() {
   return db.collection('records').orderBy('createdAt', 'desc').get().then(function(snap) {
     return snap.docs.map(function(d) { return Object.assign({ id: d.id }, d.data()); });
+  }).catch(function(err) {
+    // If ordering fails (no index yet), fall back to unordered
+    if (err.code === 'failed-precondition') {
+      return db.collection('records').get().then(function(snap) {
+        return snap.docs.map(function(d) { return Object.assign({ id: d.id }, d.data()); });
+      });
+    }
+    return Promise.reject(err);
   });
 }
 
@@ -226,8 +234,9 @@ function onLoginSuccess() {
   document.querySelectorAll('.admin-only').forEach(function(el) {
     el.style.display = currentUser.role === 'ADMIN' ? 'flex' : 'none';
   });
-  showPage('dashboard');
   startClock();
+  // Small delay ensures Firestore receives the auth token before first read
+  setTimeout(function() { showPage('dashboard'); }, 800);
 }
 
 function doLogout() {
