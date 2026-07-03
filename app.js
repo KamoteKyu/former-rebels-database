@@ -624,7 +624,7 @@ function buildDashboardReportHtml(records) {
     if (r.membershipType === 'REGULAR NPA') regularNpa++;
     if (r.membershipType === 'MILISYANG BAYAN') milisyang++;
   });
-  var ASST_TYPES = ['E-CLIP','FEA REMUNERATION','LIVELIHOOD','MEDICAL','EDUCATIONAL','ISSUANCE OF CREDENTIALS','PHILHEALTH','OTHERS'];
+  var ASST_TYPES = ['E-CLIP','FEA REMUNERATION','LIVELIHOOD','MEDICAL','EDUCATIONAL','ISSUANCE OF CREDENTIALS','PHILHEALTH','ISSUANCE OF SAFE CONDUCT PASS','APPLIED FOR AMNESTY','OTHERS'];
   var asstCounts = {}; ASST_TYPES.forEach(function(t) { asstCounts[t] = 0; });
   records.forEach(function(r) { (r.assistance || []).forEach(function(a) { var k = a.indexOf('OTHERS') === 0 ? 'OTHERS' : a; if (asstCounts[k] !== undefined) asstCounts[k]++; }); });
   var asstRows = ASST_TYPES.map(function(t) { var c = asstCounts[t]; return [t, c, total > 0 ? ((c/total)*100).toFixed(1)+'%' : '0.0%']; });
@@ -648,8 +648,8 @@ function buildDashboardReportHtml(records) {
 
 // -- ASSISTANCE REPORT ----------------------------------------
 function renderAssistanceReport(records) {
-  var ASST_TYPES = ['E-CLIP','FEA REMUNERATION','LIVELIHOOD','MEDICAL','EDUCATIONAL','ISSUANCE OF CREDENTIALS','PHILHEALTH','OTHERS'];
-  var SHORT = {'E-CLIP':'E-CLIP','FEA REMUNERATION':'FEA','LIVELIHOOD':'LIVELIHOOD','MEDICAL':'MEDICAL','EDUCATIONAL':'EDUCATIONAL','ISSUANCE OF CREDENTIALS':'CREDENTIALS','PHILHEALTH':'PHILHEALTH','OTHERS':'OTHERS'};
+  var ASST_TYPES = ['E-CLIP','FEA REMUNERATION','LIVELIHOOD','MEDICAL','EDUCATIONAL','ISSUANCE OF CREDENTIALS','PHILHEALTH','ISSUANCE OF SAFE CONDUCT PASS','APPLIED FOR AMNESTY','OTHERS'];
+  var SHORT = {'E-CLIP':'E-CLIP','FEA REMUNERATION':'FEA','LIVELIHOOD':'LIVELIHOOD','MEDICAL':'MEDICAL','EDUCATIONAL':'EDUCATIONAL','ISSUANCE OF CREDENTIALS':'CREDENTIALS','PHILHEALTH':'PHILHEALTH','ISSUANCE OF SAFE CONDUCT PASS':'SAFE CONDUCT','APPLIED FOR AMNESTY':'AMNESTY','OTHERS':'OTHERS'};
   var counts = {}; ASST_TYPES.forEach(function(t){counts[t]=0;});
   records.forEach(function(r){(r.assistance||[]).forEach(function(a){var k=a.indexOf('OTHERS')===0?'OTHERS':a;if(counts[k]!==undefined)counts[k]++;});});
   var total = records.length, maxCount = Math.max.apply(null, ASST_TYPES.map(function(t){return counts[t];}).concat([1]));
@@ -959,8 +959,8 @@ function saveRecord(event) {
   sectorErr.style.display='none';
   if(document.getElementById('religion').value==='OTHERS'&&!document.getElementById('religionOthers').value.trim()){document.getElementById('religionOthers').focus();showToast('PLEASE SPECIFY RELIGION','error');return;}
 
-  var asstIds=['asst_eclip','asst_fea','asst_livelihood','asst_medical','asst_educational','asst_credentials','asst_philhealth'];
-  var asstVals={asst_eclip:'E-CLIP',asst_fea:'FEA REMUNERATION',asst_livelihood:'LIVELIHOOD',asst_medical:'MEDICAL',asst_educational:'EDUCATIONAL',asst_credentials:'ISSUANCE OF CREDENTIALS',asst_philhealth:'PHILHEALTH'};
+  var asstIds=['asst_eclip','asst_fea','asst_livelihood','asst_medical','asst_educational','asst_credentials','asst_philhealth','asst_safeconduct','asst_amnesty'];
+  var asstVals={asst_eclip:'E-CLIP',asst_fea:'FEA REMUNERATION',asst_livelihood:'LIVELIHOOD',asst_medical:'MEDICAL',asst_educational:'EDUCATIONAL',asst_credentials:'ISSUANCE OF CREDENTIALS',asst_philhealth:'PHILHEALTH',asst_safeconduct:'ISSUANCE OF SAFE CONDUCT PASS',asst_amnesty:'APPLIED FOR AMNESTY'};
   var assistance=[];
   asstIds.forEach(function(id){if(document.getElementById(id).checked)assistance.push(asstVals[id]);});
   if(document.getElementById('asst_others').checked){var spec=document.getElementById('asst_others_spec').value.trim();assistance.push('OTHERS'+(spec?': '+spec.toUpperCase():''));}
@@ -1093,7 +1093,7 @@ function resetForm() {
   document.getElementById('recordId').value='';
   document.getElementById('age').value='';
   removeIdPhoto(); validIdSlots=[]; renderValidIdSlots(); removeJapic(); removeSocialCase();
-  ['asst_eclip','asst_fea','asst_livelihood','asst_medical','asst_educational','asst_credentials','asst_philhealth','asst_others'].forEach(function(id){document.getElementById(id).checked=false;});
+  ['asst_eclip','asst_fea','asst_livelihood','asst_medical','asst_educational','asst_credentials','asst_philhealth','asst_safeconduct','asst_amnesty','asst_others'].forEach(function(id){document.getElementById(id).checked=false;});
   document.getElementById('asst_others_spec').style.display='none'; document.getElementById('asst_others_spec').value='';
   SECTOR_IDS.forEach(function(id){document.getElementById(id).checked=false;});
   document.getElementById('sec_others_spec').style.display='none'; document.getElementById('sec_others_spec').value='';
@@ -1144,7 +1144,7 @@ function editRecord(id) {
   else if(KNOWN_UNITS.indexOf(savedUnit)!==-1){document.getElementById('referringUnit').value=savedUnit;document.getElementById('referringUnitOthersGroup').style.display='none';}
   else if(savedUnit.indexOf('OTHERS')===0){document.getElementById('referringUnit').value='OTHERS';document.getElementById('referringUnitOthersGroup').style.display='block';document.getElementById('referringUnitOthers').value=savedUnit.replace('OTHERS: ','').replace('OTHERS','');}
   else{document.getElementById('referringUnit').value='OTHERS';document.getElementById('referringUnitOthersGroup').style.display='block';document.getElementById('referringUnitOthers').value=savedUnit;}
-  var asstMap={'E-CLIP':'asst_eclip','FEA REMUNERATION':'asst_fea','LIVELIHOOD':'asst_livelihood','MEDICAL':'asst_medical','EDUCATIONAL':'asst_educational','ISSUANCE OF CREDENTIALS':'asst_credentials','PHILHEALTH':'asst_philhealth'};
+  var asstMap={'E-CLIP':'asst_eclip','FEA REMUNERATION':'asst_fea','LIVELIHOOD':'asst_livelihood','MEDICAL':'asst_medical','EDUCATIONAL':'asst_educational','ISSUANCE OF CREDENTIALS':'asst_credentials','PHILHEALTH':'asst_philhealth','ISSUANCE OF SAFE CONDUCT PASS':'asst_safeconduct','APPLIED FOR AMNESTY':'asst_amnesty'};
   Object.values(asstMap).forEach(function(id){document.getElementById(id).checked=false;});
   document.getElementById('asst_others').checked=false; document.getElementById('asst_others_spec').style.display='none'; document.getElementById('asst_others_spec').value='';
   (r.assistance||[]).forEach(function(a){if(asstMap[a])document.getElementById(asstMap[a]).checked=true;else if(a.indexOf('OTHERS')===0){document.getElementById('asst_others').checked=true;document.getElementById('asst_others_spec').style.display='inline-block';document.getElementById('asst_others_spec').value=a.replace('OTHERS: ','').replace('OTHERS','');}});
