@@ -120,7 +120,6 @@ function compressImage(dataUrl, maxSize) {
   });
 }
 
-function uploadFile(path, dataUrl) {
 function uploadFile(path, dataUrl, maxSize) {
   if (!dataUrl) return Promise.resolve(null);
   // Already a cloud URL — skip upload
