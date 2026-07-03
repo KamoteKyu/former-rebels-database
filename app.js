@@ -36,7 +36,13 @@ function dbGetAll() {
 function dbPut(record) {
   var id = record.id || genId();
   record.id = id;
-  return db.collection('records').doc(id).set(record);
+  // Firestore documents have a 1MB limit — strip oversized base64 fields
+  var safe = Object.assign({}, record);
+  if (safe.idPhoto && safe.idPhoto.startsWith('data:') && safe.idPhoto.length > 900000) {
+    safe.idPhoto = null; // too large for Firestore — needs Storage
+    showToast('ID PHOTO TOO LARGE FOR DIRECT SAVE — PLEASE SET UP FIREBASE STORAGE', 'error');
+  }
+  return db.collection('records').doc(id).set(safe);
 }
 
 function dbDelete(id) {
@@ -50,15 +56,13 @@ function uploadFile(path, dataUrl) {
   if (dataUrl.startsWith('https://firebasestorage') || dataUrl.startsWith('https://storage.googleapis')) {
     return Promise.resolve(dataUrl);
   }
+  // If it's a base64 data URL, try Storage upload; fall back to base64 in Firestore
   var ref = storage.ref(path);
   return ref.putString(dataUrl, 'data_url').then(function() {
     return ref.getDownloadURL();
   }).catch(function(err) {
-    console.error('Storage upload failed for path:', path, err);
-    // Fall back to storing base64 directly in Firestore if storage fails
-    // (works for small images; large files may exceed Firestore 1MB doc limit)
-    showToast('FILE UPLOAD WARNING: ' + err.message, 'error');
-    return dataUrl; // keep local data so record still saves
+    console.warn('Storage upload failed, storing as base64:', err.code);
+    return dataUrl; // fallback — store base64 directly in Firestore
   });
 }
 
