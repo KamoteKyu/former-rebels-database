@@ -1307,7 +1307,6 @@ function exportCSV() {
   });
 }
 
-// -- USER MANAGEMENT ------------------------------------------
 // -- USER MANAGEMENT (Firebase Auth + Firestore) --------------
 var editingUserId = null;
 
@@ -1318,18 +1317,31 @@ function renderUsers() {
     document.getElementById('operatorCount').textContent = operators.length;
     document.getElementById('usersList').innerHTML = users.map(function(u) {
       var isMe = currentUser && u.id === currentUser.uid;
-      var actions = u.role !== 'ADMIN'
-        ? '<button class="btn-edit" onclick="startEditUser(\'' + u.id + '\')">&#9998;</button><button class="btn-del" onclick="deleteUser(\'' + u.id + '\')">&#128465;</button>'
+      var isAdmin = u.role === 'ADMIN';
+      var actions = !isAdmin
+        ? '<button class="btn-edit" onclick="startEditUser(\'' + u.id + '\')" title="Edit">&#9998;</button>' +
+          '<button class="btn-secondary" style="padding:4px 8px;font-size:0.68rem" onclick="sendPasswordReset(\'' + (u.email||'') + '\')" title="Send Password Reset Email">&#128274; RESET PW</button>' +
+          '<button class="btn-del" onclick="deleteUser(\'' + u.id + '\')" title="Delete">&#128465;</button>'
         : '<span style="font-size:0.65rem;color:var(--text3)">PROTECTED</span>';
       return '<div class="user-card"><div class="user-card-info">' +
-        '<div class="user-card-name">' + u.username + (isMe ? ' <span style="color:var(--accent);font-size:0.65rem">(YOU)</span>' : '') + '</div>' +
-        '<div class="user-card-role ' + (u.role === 'ADMIN' ? 'role-admin' : 'role-operator') + '">' + u.role + '</div>' +
-        '<div style="font-size:0.62rem;color:var(--text3);margin-top:2px">' + (u.email || '') + '</div>' +
-        '</div><div class="user-card-actions">' + actions + '</div></div>';
+        '<div class="user-card-name">' + u.username +
+          (isMe ? ' <span style="color:var(--accent);font-size:0.65rem">(YOU)</span>' : '') + '</div>' +
+        '<div class="user-card-role ' + (isAdmin ? 'role-admin' : 'role-operator') + '">' + u.role + '</div>' +
+        '<div style="font-size:0.62rem;color:var(--text3);margin-top:2px">&#128231; ' + (u.email || '—') + '</div>' +
+        '</div><div class="user-card-actions" style="display:flex;gap:4px;flex-wrap:wrap">' + actions + '</div></div>';
     }).join('');
     var addBtn = document.querySelector('.users-form-panel .btn-primary');
     if (addBtn && !editingUserId) addBtn.disabled = operators.length >= 5;
   }).catch(function(err) { showToast('ERROR LOADING USERS: ' + err.message, 'error'); });
+}
+
+function sendPasswordReset(email) {
+  if (!email) { showToast('NO EMAIL ASSOCIATED WITH THIS ACCOUNT', 'error'); return; }
+  auth.sendPasswordResetEmail(email).then(function() {
+    showToast('PASSWORD RESET EMAIL SENT TO: ' + email, 'success');
+  }).catch(function(err) {
+    showToast('RESET FAILED: ' + err.message, 'error');
+  });
 }
 
 function startEditUser(id) {
@@ -1376,6 +1388,7 @@ function saveUser() {
   var email = username.toLowerCase() + '@frdb.local';
   db.collection('users').where('role', '==', 'OPERATOR').get().then(function(snap) {
     if (snap.size >= 5) { errEl.textContent = 'MAXIMUM 5 OPERATORS ALLOWED.'; return; }
+    errEl.textContent = 'CREATING ACCOUNT IN FIREBASE...';
     // Use secondary app instance so admin session is not interrupted
     var secondaryApp;
     try { secondaryApp = firebase.app('secondary'); }
@@ -1384,12 +1397,19 @@ function saveUser() {
     secondaryAuth.createUserWithEmailAndPassword(email, password).then(function(cred) {
       var newUid = cred.user.uid;
       secondaryAuth.signOut();
-      return db.collection('users').doc(newUid).set({ username: username, role: 'OPERATOR', email: email, uid: newUid });
+      return db.collection('users').doc(newUid).set({
+        username: username,
+        role:     'OPERATOR',
+        email:    email,
+        uid:      newUid,
+        createdAt: new Date().toISOString()
+      });
     }).then(function() {
-      showToast('OPERATOR ADDED — CAN NOW LOG IN WITH USERNAME: ' + username, 'success');
+      errEl.textContent = '';
+      showToast('OPERATOR ' + username + ' ADDED — LOGIN: ' + email, 'success');
       cancelUserEdit(); renderUsers();
     }).catch(function(err) {
-      if (err.code === 'auth/email-already-in-use') errEl.textContent = 'USERNAME ALREADY EXISTS.';
+      if (err.code === 'auth/email-already-in-use') errEl.textContent = 'USERNAME ALREADY EXISTS IN FIREBASE AUTH.';
       else errEl.textContent = 'ERROR: ' + err.message;
     });
   }).catch(function(err) { errEl.textContent = 'ERROR: ' + err.message; });
@@ -1397,7 +1417,7 @@ function saveUser() {
 
 function deleteUser(id) {
   if (!currentUser || currentUser.role !== 'ADMIN') { showToast('ACCESS DENIED', 'error'); return; }
-  if (!confirm('DELETE THIS OPERATOR? THIS CANNOT BE UNDONE.')) return;
+  if (!confirm('DELETE THIS OPERATOR?\n\nThis removes their access from the system.\nTHIS CANNOT BE UNDONE.')) return;
   db.collection('users').doc(id).delete().then(function() {
     showToast('OPERATOR REMOVED', 'error'); renderUsers();
   }).catch(function(err) { showToast('ERROR: ' + err.message, 'error'); });

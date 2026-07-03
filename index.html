@@ -760,7 +760,7 @@
       <div class="form-card">
         <div class="form-card-header">
           <h3>USER MANAGEMENT</h3>
-          <span class="admin-badge">ADMIN ONLY</span>
+          <span class="admin-badge">ADMIN ONLY — SYNCED WITH FIREBASE AUTH</span>
         </div>
         <div class="users-grid">
           <div class="users-list-panel">
@@ -771,11 +771,12 @@
             <h4 id="userFormTitle">ADD OPERATOR</h4>
             <div class="form-group">
               <label>USERNAME</label>
-              <input type="text" id="newUsername" placeholder="USERNAME" style="text-transform:uppercase"/>
+              <input type="text" id="newUsername" placeholder="USERNAME (e.g. JUAN)" style="text-transform:uppercase"/>
+              <small style="color:var(--text3);font-size:0.65rem">Login email will be: username@frdb.local</small>
             </div>
             <div class="form-group">
               <label>PASSWORD</label>
-              <input type="password" id="newPassword" placeholder="PASSWORD"/>
+              <input type="password" id="newPassword" placeholder="MIN 6 CHARACTERS"/>
             </div>
             <div class="form-group">
               <label>CONFIRM PASSWORD</label>
@@ -784,7 +785,7 @@
             <div id="userFormError" class="login-error"></div>
             <div class="form-actions">
               <button type="button" class="btn-secondary" onclick="cancelUserEdit()">CANCEL</button>
-              <button type="button" class="btn-primary" onclick="saveUser()">SAVE USER</button>
+              <button type="button" class="btn-primary" onclick="saveUser()">💾 SAVE USER</button>
             </div>
             <div class="operator-limit-note">
               <span id="operatorCount">0</span>/5 OPERATORS USED
