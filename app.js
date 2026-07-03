@@ -872,7 +872,7 @@ function renderRecords(records, filter) {
   tbody.innerHTML = list.map(function(r, i) {
     var photoCell = r.idPhoto
       ? '<img src="'+r.idPhoto+'" class="record-thumb" alt="ID"/>'
-      : '<div class="no-photo">&#128100;</div>';
+      : '<img src="BHB.png" class="record-thumb" alt="ID"/>';
     var name = '<strong>'+r.lastName+', '+r.firstName+'</strong>'+(r.middleName?' '+r.middleName:'');
     return '<tr><td>'+(i+1)+'</td><td>'+photoCell+'</td><td>'+name+'</td><td>'+(r.alias||'-')+'</td><td>'+(r.sex||'-')+'</td><td>'+(calcAgeFromDob(r.dob)||'-')+'</td><td>'+(r.unit||'-')+'</td><td>'+formatDate(r.dateSurrendered)+'</td><td>'+(r.areaOfOperation||'-')+'</td><td><div class="action-btns"><button class="btn-view" onclick="viewRecord(\''+r.id+'\')">&#128065; VIEW</button><button class="btn-edit" onclick="editRecord(\''+r.id+'\')">&#9998; EDIT</button><button class="btn-del" onclick="promptDelete(\''+r.id+'\')">&#128465; DEL</button></div></td></tr>';
   }).join('');
@@ -887,7 +887,8 @@ function previewIdPhoto(event) {
   reader.onload = function(e) {
     idPhotoData = e.target.result;
     var img = document.getElementById('idPhotoPreview');
-    img.src = idPhotoData; img.style.display = 'block';
+    img.src = idPhotoData;
+    img.style.display = 'block';
     document.getElementById('idPhotoPlaceholder').style.display = 'none';
     document.getElementById('removePhotoBtn').style.display = 'block';
   };
@@ -896,9 +897,10 @@ function previewIdPhoto(event) {
 
 function removeIdPhoto() {
   idPhotoData = null;
-  document.getElementById('idPhotoPreview').src = '';
-  document.getElementById('idPhotoPreview').style.display = 'none';
-  document.getElementById('idPhotoPlaceholder').style.display = 'block';
+  var img = document.getElementById('idPhotoPreview');
+  img.src = 'BHB.png';
+  img.style.display = 'block';
+  document.getElementById('idPhotoPlaceholder').style.display = 'none';
   document.getElementById('removePhotoBtn').style.display = 'none';
   document.getElementById('idPhotoInput').value = '';
 }
@@ -1202,7 +1204,8 @@ function editRecord(id) {
   document.getElementById('sec_others').checked=false; document.getElementById('sec_others_spec').style.display='none'; document.getElementById('sec_others_spec').value=''; document.getElementById('sectorError').style.display='none';
   (r.sector||[]).forEach(function(s){if(secMap[s])document.getElementById(secMap[s]).checked=true;else if(s.indexOf('OTHERS')===0){document.getElementById('sec_others').checked=true;document.getElementById('sec_others_spec').style.display='inline-block';document.getElementById('sec_others_spec').value=s.replace('OTHERS: ','').replace('OTHERS','');}});
   togglePwdSpec(); calcAge();
-  if(r.idPhoto){idPhotoData=r.idPhoto;var img=document.getElementById('idPhotoPreview');img.src=r.idPhoto;img.style.display='block';document.getElementById('idPhotoPlaceholder').style.display='none';document.getElementById('removePhotoBtn').style.display='block';}else{removeIdPhoto();}
+  if(r.idPhoto){idPhotoData=r.idPhoto;var img=document.getElementById('idPhotoPreview');img.src=r.idPhoto;img.style.display='block';document.getElementById('idPhotoPlaceholder').style.display='none';document.getElementById('removePhotoBtn').style.display='block';}
+  else{removeIdPhoto();}
   document.getElementById('unit').value=r.unit||''; document.getElementById('position').value=r.position||''; document.getElementById('membershipType').value=r.membershipType||'';
   document.getElementById('areaOfOperation').value=r.areaOfOperation||''; document.getElementById('yearsInMovement').value=r.yearsInMovement||'';
   document.getElementById('dateSurrendered').value=r.dateSurrendered||''; document.getElementById('pendingCase').value=r.pendingCase||'';
@@ -1230,7 +1233,9 @@ function buildRecordDetailHtml(r, forPrint) {
   forPrint=!!forPrint;
   var age=calcAgeFromDob(r.dob);
   var photoSrc=r.idPhoto||(r.idPhotoUrl)||null;
-  var photoHtml=photoSrc?'<img src="'+photoSrc+'" class="modal-id-photo" alt="ID Photo"/>':'<div class="modal-photo-placeholder">&#128100;</div>';
+  var photoHtml=photoSrc
+    ?'<img src="'+photoSrc+'" class="modal-id-photo" alt="ID Photo"/>'
+    :'<img src="BHB.png" class="modal-id-photo" alt="ID Photo"/>';
   var tagsSex=r.sex?'<span class="tag tag-blue">'+r.sex+'</span>':'';
   var tagsCivil=r.civilStatus?'<span class="tag tag-blue">'+r.civilStatus+'</span>':'';
   var tribalDisplay=normalizeTribalGroup(r.tribalGroup)||r.tribalGroup;
