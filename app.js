@@ -51,9 +51,10 @@ function dbPut(record) {
   var id = record.id || genId();
   record.id = id;
   var safe = Object.assign({}, record);
-  if (safe.idPhoto && safe.idPhoto.startsWith('data:') && safe.idPhoto.length > 900000) {
+  // Only strip if still a massive uncompressed base64 (>800KB)
+  if (safe.idPhoto && safe.idPhoto.startsWith('data:') && safe.idPhoto.length > 800000) {
     safe.idPhoto = null;
-    showToast('ID PHOTO TOO LARGE — PLEASE SET UP FIREBASE STORAGE', 'error');
+    showToast('ID PHOTO TOO LARGE — ENABLE FIREBASE STORAGE', 'error');
   }
   return waitForAuth().then(function() {
     return db.collection('records').doc(id).set(safe);
@@ -67,38 +68,60 @@ function dbDelete(id) {
 }
 
 // -- FIREBASE STORAGE UPLOAD ----------------------------------
+
+// Compress an image dataUrl to max 800px wide, JPEG 65% quality
+function compressImage(dataUrl, maxSize) {
+  maxSize = maxSize || 800;
+  return new Promise(function(resolve) {
+    if (!dataUrl || !dataUrl.startsWith('data:image')) { resolve(dataUrl); return; }
+    var img = new Image();
+    img.onload = function() {
+      var w = img.width, h = img.height;
+      if (w > maxSize || h > maxSize) {
+        if (w > h) { h = Math.round(h * maxSize / w); w = maxSize; }
+        else       { w = Math.round(w * maxSize / h); h = maxSize; }
+      }
+      var canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      resolve(canvas.toDataURL('image/jpeg', 0.65));
+    };
+    img.onerror = function() { resolve(dataUrl); };
+    img.src = dataUrl;
+  });
+}
+
 function uploadFile(path, dataUrl) {
   if (!dataUrl) return Promise.resolve(null);
-  // Already a cloud URL
-  if (dataUrl.startsWith('https://firebasestorage') || dataUrl.startsWith('https://storage.googleapis')) {
-    return Promise.resolve(dataUrl);
-  }
-  // Skip Storage entirely if no bucket configured — save base64 to Firestore
-  if (!firebaseConfig.storageBucket) return Promise.resolve(dataUrl);
+  // Already a cloud URL — skip upload
+  if (dataUrl.startsWith('https://')) return Promise.resolve(dataUrl);
 
-  return new Promise(function(resolve) {
-    var settled = false;
-    // Timeout: if Storage doesn't respond in 12s, fall back to base64
-    var timer = setTimeout(function() {
-      if (!settled) {
-        settled = true;
-        console.warn('Storage upload timed out, using base64 fallback');
-        resolve(dataUrl);
-      }
-    }, 12000);
+  // Compress image before doing anything
+  return compressImage(dataUrl).then(function(compressed) {
+    // Try Firebase Storage first
+    return new Promise(function(resolve) {
+      var settled = false;
+      var timer = setTimeout(function() {
+        if (!settled) {
+          settled = true;
+          console.warn('Storage timeout — using compressed base64');
+          resolve(compressed); // fallback: store compressed base64 in Firestore
+        }
+      }, 15000);
 
-    var ref = storage.ref(path);
-    ref.putString(dataUrl, 'data_url').then(function() {
-      return ref.getDownloadURL();
-    }).then(function(url) {
-      if (!settled) { settled = true; clearTimeout(timer); resolve(url); }
-    }).catch(function(err) {
-      if (!settled) {
-        settled = true;
-        clearTimeout(timer);
-        console.warn('Storage upload failed (' + err.code + '), using base64 fallback');
-        resolve(dataUrl);
-      }
+      var ref = storage.ref(path);
+      ref.putString(compressed, 'data_url')
+        .then(function() { return ref.getDownloadURL(); })
+        .then(function(url) {
+          if (!settled) { settled = true; clearTimeout(timer); resolve(url); }
+        })
+        .catch(function(err) {
+          if (!settled) {
+            settled = true; clearTimeout(timer);
+            console.warn('Storage failed (' + err.code + ') — using compressed base64');
+            resolve(compressed);
+          }
+        });
     });
   });
 }
@@ -109,16 +132,15 @@ function uploadRecordFiles(record) {
 
   // ID Photo
   promises.push(
-    uploadFile(base + 'idPhoto', record.idPhoto).then(function(url) {
+    uploadFile(base + 'idPhoto.jpg', record.idPhoto).then(function(url) {
       record.idPhoto = url;
     })
   );
 
   // JAPIC
   if (record.japic && record.japic.dataUrl) {
-    var japicPath = base + 'japic/' + (record.japic.fileName || 'japic');
     promises.push(
-      uploadFile(japicPath, record.japic.dataUrl).then(function(url) {
+      uploadFile(base + 'japic/' + (record.japic.fileName || 'japic'), record.japic.dataUrl).then(function(url) {
         record.japic = { fileName: record.japic.fileName, url: url, type: record.japic.type };
       })
     );
@@ -126,9 +148,8 @@ function uploadRecordFiles(record) {
 
   // Social Case Report
   if (record.socialCaseReport && record.socialCaseReport.dataUrl) {
-    var scPath = base + 'socialCase/' + (record.socialCaseReport.fileName || 'report');
     promises.push(
-      uploadFile(scPath, record.socialCaseReport.dataUrl).then(function(url) {
+      uploadFile(base + 'socialCase/' + (record.socialCaseReport.fileName || 'report'), record.socialCaseReport.dataUrl).then(function(url) {
         record.socialCaseReport = { fileName: record.socialCaseReport.fileName, url: url, type: record.socialCaseReport.type };
       })
     );
@@ -137,8 +158,7 @@ function uploadRecordFiles(record) {
   // Valid IDs
   var validIdPromises = (record.validIds || []).map(function(v, i) {
     if (!v.dataUrl) return Promise.resolve();
-    var vPath = base + 'validIds/' + i + '_' + (v.fileName || 'id');
-    return uploadFile(vPath, v.dataUrl).then(function(url) {
+    return uploadFile(base + 'validIds/' + i + '_' + (v.fileName || 'id'), v.dataUrl).then(function(url) {
       record.validIds[i] = { fileName: v.fileName, url: url };
     });
   });
