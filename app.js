@@ -9,7 +9,7 @@ const firebaseConfig = {
   apiKey:            "AIzaSyDhSUlOvASS_EpLAgd2RohLpn3SGIVah_I",
   authDomain:        "ocmfrdb.firebaseapp.com",
   projectId:         "ocmfrdb",
-  storageBucket:     "ocmfrdb.firebasestorage.app",
+  storageBucket:     "ocmfrdb.appspot.com",
   messagingSenderId: "258793038522",
   appId:             "1:258793038522:web:9475314bf86db934191883"
 };
@@ -38,11 +38,19 @@ function dbDelete(id) {
 // -- FIREBASE STORAGE UPLOAD ----------------------------------
 function uploadFile(path, dataUrl) {
   if (!dataUrl) return Promise.resolve(null);
-  // dataUrl may already be a download URL (re-edit of existing record)
-  if (dataUrl.startsWith('https://')) return Promise.resolve(dataUrl);
-  var ref  = storage.ref(path);
+  // Already a cloud URL — no need to re-upload
+  if (dataUrl.startsWith('https://firebasestorage') || dataUrl.startsWith('https://storage.googleapis')) {
+    return Promise.resolve(dataUrl);
+  }
+  var ref = storage.ref(path);
   return ref.putString(dataUrl, 'data_url').then(function() {
     return ref.getDownloadURL();
+  }).catch(function(err) {
+    console.error('Storage upload failed for path:', path, err);
+    // Fall back to storing base64 directly in Firestore if storage fails
+    // (works for small images; large files may exceed Firestore 1MB doc limit)
+    showToast('FILE UPLOAD WARNING: ' + err.message, 'error');
+    return dataUrl; // keep local data so record still saves
   });
 }
 
