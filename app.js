@@ -1241,71 +1241,97 @@ function exportCSV() {
 }
 
 // -- USER MANAGEMENT ------------------------------------------
+// -- USER MANAGEMENT (Firebase Auth + Firestore) --------------
 var editingUserId = null;
 
 function renderUsers() {
-  getUsers().then(function(users) {
-    var operators=users.filter(function(u){return u.role==='OPERATOR';});
-    document.getElementById('operatorCount').textContent=operators.length;
-    document.getElementById('usersList').innerHTML=users.map(function(u){
-      var actions=u.role!=='ADMIN'?'<button class="btn-edit" onclick="startEditUser(\''+u.id+'\')">&#9998;</button><button class="btn-del" onclick="deleteUser(\''+u.id+'\')">&#128465;</button>':'<span style="font-size:0.65rem;color:var(--text3)">PROTECTED</span>';
-      return '<div class="user-card"><div class="user-card-info"><div class="user-card-name">'+u.username+'</div><div class="user-card-role '+(u.role==='ADMIN'?'role-admin':'role-operator')+'">'+u.role+'</div></div><div class="user-card-actions">'+actions+'</div></div>';
+  db.collection('users').get().then(function(snap) {
+    var users = snap.docs.map(function(d) { return Object.assign({ id: d.id }, d.data()); });
+    var operators = users.filter(function(u) { return u.role === 'OPERATOR'; });
+    document.getElementById('operatorCount').textContent = operators.length;
+    document.getElementById('usersList').innerHTML = users.map(function(u) {
+      var isMe = currentUser && u.id === currentUser.uid;
+      var actions = u.role !== 'ADMIN'
+        ? '<button class="btn-edit" onclick="startEditUser(\'' + u.id + '\')">&#9998;</button><button class="btn-del" onclick="deleteUser(\'' + u.id + '\')">&#128465;</button>'
+        : '<span style="font-size:0.65rem;color:var(--text3)">PROTECTED</span>';
+      return '<div class="user-card"><div class="user-card-info">' +
+        '<div class="user-card-name">' + u.username + (isMe ? ' <span style="color:var(--accent);font-size:0.65rem">(YOU)</span>' : '') + '</div>' +
+        '<div class="user-card-role ' + (u.role === 'ADMIN' ? 'role-admin' : 'role-operator') + '">' + u.role + '</div>' +
+        '<div style="font-size:0.62rem;color:var(--text3);margin-top:2px">' + (u.email || '') + '</div>' +
+        '</div><div class="user-card-actions">' + actions + '</div></div>';
     }).join('');
-  });
+    var addBtn = document.querySelector('.users-form-panel .btn-primary');
+    if (addBtn && !editingUserId) addBtn.disabled = operators.length >= 5;
+  }).catch(function(err) { showToast('ERROR LOADING USERS: ' + err.message, 'error'); });
 }
 
 function startEditUser(id) {
-  getUsers().then(function(users){
-    var u=null; for(var i=0;i<users.length;i++){if(users[i].id===id){u=users[i];break;}}
-    if(!u)return;
-    editingUserId=id;
-    document.getElementById('userFormTitle').textContent='EDIT OPERATOR';
-    document.getElementById('newUsername').value=u.username;
-    document.getElementById('newPassword').value=''; document.getElementById('confirmPassword').value=''; document.getElementById('userFormError').textContent='';
+  db.collection('users').doc(id).get().then(function(doc) {
+    if (!doc.exists) return;
+    var u = doc.data();
+    editingUserId = id;
+    document.getElementById('userFormTitle').textContent = 'EDIT OPERATOR';
+    document.getElementById('newUsername').value = u.username || '';
+    document.getElementById('newPassword').value = '';
+    document.getElementById('confirmPassword').value = '';
+    document.getElementById('userFormError').textContent = '';
   });
 }
 
 function cancelUserEdit() {
-  editingUserId=null; document.getElementById('userFormTitle').textContent='ADD OPERATOR';
-  document.getElementById('newUsername').value=''; document.getElementById('newPassword').value=''; document.getElementById('confirmPassword').value=''; document.getElementById('userFormError').textContent='';
+  editingUserId = null;
+  document.getElementById('userFormTitle').textContent = 'ADD OPERATOR';
+  document.getElementById('newUsername').value = '';
+  document.getElementById('newPassword').value = '';
+  document.getElementById('confirmPassword').value = '';
+  document.getElementById('userFormError').textContent = '';
 }
 
 function saveUser() {
-  var username=document.getElementById('newUsername').value.trim().toUpperCase();
-  var password=document.getElementById('newPassword').value;
-  var confirm=document.getElementById('confirmPassword').value;
-  var errEl=document.getElementById('userFormError');
-  if(!username){errEl.textContent='USERNAME IS REQUIRED.';return;}
-  if(!editingUserId&&!password){errEl.textContent='PASSWORD IS REQUIRED.';return;}
-  if(password&&password!==confirm){errEl.textContent='PASSWORDS DO NOT MATCH.';return;}
-  if(password&&password.length<6){errEl.textContent='PASSWORD MUST BE AT LEAST 6 CHARACTERS.';return;}
-  var email=username.toLowerCase()+'@frdb.local';
-  getUsers().then(function(users){
-    var operators=users.filter(function(u){return u.role==='OPERATOR';});
-    if(!editingUserId&&operators.length>=5){errEl.textContent='MAXIMUM 5 OPERATORS ALLOWED.';return;}
-    if(editingUserId){
-      var updates={username:username};
-      db.collection('users').doc(editingUserId).update(updates).then(function(){
-        if(password){
-          // Update password via Admin SDK is not possible client-side for other users
-          // For now just update the display name
-          showToast('OPERATOR UPDATED (PASSWORD CHANGE REQUIRES ADMIN SDK)','info');
-        } else { showToast('OPERATOR UPDATED','success'); }
-        cancelUserEdit(); renderUsers();
-      });
-    } else {
-      auth.createUserWithEmailAndPassword(email,password).then(function(cred){
-        return db.collection('users').doc(cred.user.uid).set({username:username,role:'OPERATOR',email:email});
-      }).then(function(){showToast('OPERATOR ADDED','success');cancelUserEdit();renderUsers();})
-      .catch(function(err){errEl.textContent='ERROR: '+err.message;});
-    }
-  });
+  var username = document.getElementById('newUsername').value.trim().toUpperCase();
+  var password = document.getElementById('newPassword').value;
+  var confirm  = document.getElementById('confirmPassword').value;
+  var errEl    = document.getElementById('userFormError');
+  if (!username) { errEl.textContent = 'USERNAME IS REQUIRED.'; return; }
+  if (!editingUserId && !password) { errEl.textContent = 'PASSWORD IS REQUIRED.'; return; }
+  if (password && password !== confirm) { errEl.textContent = 'PASSWORDS DO NOT MATCH.'; return; }
+  if (password && password.length < 6) { errEl.textContent = 'PASSWORD MUST BE AT LEAST 6 CHARACTERS.'; return; }
+
+  if (editingUserId) {
+    db.collection('users').doc(editingUserId).update({ username: username }).then(function() {
+      showToast('OPERATOR UPDATED', 'success');
+      cancelUserEdit(); renderUsers();
+    }).catch(function(err) { errEl.textContent = 'ERROR: ' + err.message; });
+    return;
+  }
+
+  var email = username.toLowerCase() + '@frdb.local';
+  db.collection('users').where('role', '==', 'OPERATOR').get().then(function(snap) {
+    if (snap.size >= 5) { errEl.textContent = 'MAXIMUM 5 OPERATORS ALLOWED.'; return; }
+    // Use secondary app instance so admin session is not interrupted
+    var secondaryApp;
+    try { secondaryApp = firebase.app('secondary'); }
+    catch(e) { secondaryApp = firebase.initializeApp(firebaseConfig, 'secondary'); }
+    var secondaryAuth = secondaryApp.auth();
+    secondaryAuth.createUserWithEmailAndPassword(email, password).then(function(cred) {
+      var newUid = cred.user.uid;
+      secondaryAuth.signOut();
+      return db.collection('users').doc(newUid).set({ username: username, role: 'OPERATOR', email: email, uid: newUid });
+    }).then(function() {
+      showToast('OPERATOR ADDED — CAN NOW LOG IN WITH USERNAME: ' + username, 'success');
+      cancelUserEdit(); renderUsers();
+    }).catch(function(err) {
+      if (err.code === 'auth/email-already-in-use') errEl.textContent = 'USERNAME ALREADY EXISTS.';
+      else errEl.textContent = 'ERROR: ' + err.message;
+    });
+  }).catch(function(err) { errEl.textContent = 'ERROR: ' + err.message; });
 }
 
 function deleteUser(id) {
-  if(!confirm('DELETE THIS OPERATOR?'))return;
-  db.collection('users').doc(id).delete().then(function(){renderUsers();showToast('OPERATOR REMOVED','error');})
-  .catch(function(err){showToast('ERROR: '+err.message,'error');});
+  if (!confirm('DELETE THIS OPERATOR? THIS CANNOT BE UNDONE.')) return;
+  db.collection('users').doc(id).delete().then(function() {
+    showToast('OPERATOR REMOVED', 'error'); renderUsers();
+  }).catch(function(err) { showToast('ERROR: ' + err.message, 'error'); });
 }
 
 // -- CHANGE ADMIN PASSWORD ------------------------------------
