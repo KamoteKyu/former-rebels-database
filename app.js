@@ -548,6 +548,7 @@ var PRINT_RECORD_STYLES =
   '.valid-id-thumb{width:70px;height:52px;object-fit:cover;border:1px solid #999}' +
   '.japic-print-img{max-height:70px;border:1px solid #999}' +
   '.empty-upload{color:#666;font-size:11px}' +
+  '.on-file-badge{display:inline-block;background:#e6f4ea;color:#1a7f37;border:1px solid #a8d5b5;border-radius:4px;padding:2px 8px;font-size:10px;font-weight:700;letter-spacing:.5px;margin:2px}' +
   '.record-meta{font-size:9px;color:#666;margin-top:16px;padding-top:8px;border-top:1px solid #ccc}' +
   '@media print{body{padding:12px}' +
   '@page{margin:10mm;size:A4;}' +
@@ -1239,14 +1240,31 @@ function buildRecordDetailHtml(r, forPrint) {
   if(r.sector&&r.sector.indexOf('PWD')!==-1&&r.pwdDisability)sectorHtml+='<div class="pwd-disability-note">DISABILITY: '+r.pwdDisability+'</div>';
 
   function attachCard(src, fileName, type) {
-    if(forPrint){return type==='image'?'<img src="'+src+'" class="japic-print-img" alt="'+fileName+'"/>':'<span>&#128196; '+fileName+'</span>';}
+    if (forPrint) {
+      // For print: show ON-FILE status, not the actual image
+      return '<span class="on-file-badge">&#10003; ON-FILE — ' + (fileName || 'FILE') + '</span>';
+    }
     return '<div class="attach-card attach-card--wide">'+(type==='image'?'<img src="'+src+'" class="attach-preview-img" style="max-height:90px;border-radius:4px;border:1px solid var(--border)" onclick="openAttachment(\''+src+'\',\''+fileName+'\')" alt="'+fileName+'"/>':'<div class="attach-file-icon">&#128196;</div>')+'<div class="attach-name">'+fileName+'</div><div class="attach-actions">'+(type==='image'?'<button class="btn-attach-view" onclick="openAttachment(\''+src+'\',\''+fileName+'\')">&#128065; VIEW</button>':'')+'<button class="btn-attach-dl" onclick="downloadAttachment(\''+src+'\',\''+fileName+'\')">&#11015; DOWNLOAD</button></div></div>';
   }
 
-  var validIdHtml=(r.validIds&&r.validIds.length)?r.validIds.map(function(v){var src=v.url||v.dataUrl;return forPrint?'<img src="'+src+'" class="valid-id-thumb" alt="'+v.fileName+'"/>':'<div class="attach-card"><img src="'+src+'" class="valid-id-thumb attach-preview-img" onclick="openAttachment(\''+src+'\',\''+v.fileName+'\')" alt="'+v.fileName+'"/><div class="attach-name">'+v.fileName+'</div><div class="attach-actions"><button class="btn-attach-view" onclick="openAttachment(\''+src+'\',\''+v.fileName+'\')">&#128065; VIEW</button><button class="btn-attach-dl" onclick="downloadAttachment(\''+src+'\',\''+v.fileName+'\')">&#11015; DOWNLOAD</button></div></div>';}).join(''):'<span class="empty-upload">NONE UPLOADED</span>';
-  var japicHtml=r.japic?attachCard(r.japic.url||r.japic.dataUrl,r.japic.fileName,r.japic.type):'<span class="empty-upload">NONE UPLOADED</span>';
-  var sc=r.socialCaseReport;
-  var scHtml=sc?(typeof sc==='string'?'<span>'+sc+'</span>':attachCard(sc.url||sc.dataUrl,sc.fileName,sc.type)):'<span class="empty-upload">NONE UPLOADED</span>';
+  var validIdHtml = (r.validIds && r.validIds.length)
+    ? (forPrint
+        ? r.validIds.map(function(v, i) {
+            return '<span class="on-file-badge">&#10003; ON-FILE — ' + (v.fileName || ('VALID ID ' + (i+1))) + '</span>';
+          }).join(' ')
+        : r.validIds.map(function(v) {
+            var src = v.url || v.dataUrl;
+            return '<div class="attach-card"><img src="'+src+'" class="valid-id-thumb attach-preview-img" onclick="openAttachment(\''+src+'\',\''+v.fileName+'\')" alt="'+v.fileName+'"/><div class="attach-name">'+v.fileName+'</div><div class="attach-actions"><button class="btn-attach-view" onclick="openAttachment(\''+src+'\',\''+v.fileName+'\')">&#128065; VIEW</button><button class="btn-attach-dl" onclick="downloadAttachment(\''+src+'\',\''+v.fileName+'\')">&#11015; DOWNLOAD</button></div></div>';
+          }).join('')
+      )
+    : '<span class="empty-upload">NONE UPLOADED</span>';
+  var japicHtml = r.japic
+    ? attachCard(r.japic.url||r.japic.dataUrl, r.japic.fileName, r.japic.type)
+    : '<span class="empty-upload">NONE UPLOADED</span>';
+  var sc = r.socialCaseReport;
+  var scHtml = sc
+    ? (typeof sc === 'string' ? (forPrint ? '<span class="on-file-badge">&#10003; ON-FILE</span>' : '<span>'+sc+'</span>') : attachCard(sc.url||sc.dataUrl, sc.fileName, sc.type))
+    : '<span class="empty-upload">NONE UPLOADED</span>';
   var createdStr=r.createdAt?new Date(r.createdAt).toLocaleString('en-PH'):'-';
   var metaStyle=forPrint?'class="record-meta"':'style="font-size:0.65rem;color:var(--text3);margin-top:16px;border-top:1px solid var(--border);padding-top:10px"';
 
