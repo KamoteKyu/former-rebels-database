@@ -1174,15 +1174,20 @@ document.getElementById('cameraModal').addEventListener('click',function(e){if(e
 
 // -- BOOT (Firebase Auth state) -------------------------------
 auth.onAuthStateChanged(function(user) {
-  if(user){
-    getUserRole(user.uid).then(function(profile){
-      if(!profile){
-        // Unknown user — sign out
+  if (user) {
+    // Wait for auth token to propagate before hitting Firestore
+    user.getIdToken(true).then(function() {
+      return getUserRole(user.uid);
+    }).then(function(profile) {
+      if (!profile) {
         auth.signOut(); return;
       }
-      currentUser={uid:user.uid,email:user.email,username:profile.username,role:profile.role};
+      currentUser = { uid: user.uid, email: user.email, username: profile.username, role: profile.role };
       onLoginSuccess();
+    }).catch(function(err) {
+      console.error('Auth state error:', err);
+      auth.signOut();
     });
   }
-  // else: stay on login screen (default visible state)
+  // else: stay on login screen
 });
