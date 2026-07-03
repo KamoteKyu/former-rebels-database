@@ -332,24 +332,24 @@ function doLogin() {
   var p   = document.getElementById('loginPass').value;
   var err = document.getElementById('loginError');
   if (!u || !p) { err.textContent = 'PLEASE ENTER EMAIL AND PASSWORD.'; return; }
-  // Allow username-only entry by appending domain
   var email = u.indexOf('@') === -1 ? u.toLowerCase() + '@frdb.local' : u.toLowerCase();
   err.textContent = 'SIGNING IN...';
   auth.signInWithEmailAndPassword(email, p)
     .then(function(cred) {
       err.textContent = '';
-      return getUserRole(cred.user.uid).then(function(profile) {
-        currentUser = {
-          uid:      cred.user.uid,
-          email:    cred.user.email,
-          username: profile ? profile.username : u.toUpperCase(),
-          role:     profile ? profile.role : 'OPERATOR'
-        };
-        onLoginSuccess();
-      });
+      // Set a basic currentUser immediately so app doesn't freeze
+      // The boot onAuthStateChanged will enrich it with Firestore profile
+      currentUser = {
+        uid:      cred.user.uid,
+        email:    cred.user.email,
+        username: u.toUpperCase(),
+        role:     'ADMIN'
+      };
+      onLoginSuccess();
     })
     .catch(function(e) {
-      if (e.code === 'auth/user-not-found' || e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential') {
+      if (e.code === 'auth/user-not-found' || e.code === 'auth/wrong-password' ||
+          e.code === 'auth/invalid-credential' || e.code === 'auth/invalid-email') {
         err.textContent = 'INVALID USERNAME OR PASSWORD.';
       } else {
         err.textContent = 'LOGIN ERROR: ' + e.message;
@@ -1340,25 +1340,31 @@ document.getElementById('cameraModal').addEventListener('click',function(e){if(e
 // -- BOOT (Firebase Auth state) -------------------------------
 auth.onAuthStateChanged(function(user) {
   if (user) {
-    // Force fresh token then read user profile
-    user.getIdToken(true).then(function(token) {
-      console.log('[FRDB] Auth token refreshed, uid:', user.uid);
-      return db.collection('users').doc(user.uid).get({ source: 'server' });
-    }).then(function(doc) {
-      if (!doc.exists) {
-        console.warn('[FRDB] No user profile found for uid:', user.uid);
-        // Still allow login — treat as ADMIN if only one user exists
-        currentUser = { uid: user.uid, email: user.email, username: user.email.split('@')[0].toUpperCase(), role: 'ADMIN' };
-      } else {
-        var profile = doc.data();
-        currentUser = { uid: user.uid, email: user.email, username: profile.username, role: profile.role };
-      }
+    // Already logged in from a previous session — restore session
+    // Only run if currentUser isn't already set (avoid double-trigger on fresh login)
+    if (!currentUser) {
+      currentUser = {
+        uid:      user.uid,
+        email:    user.email,
+        username: user.email.split('@')[0].toUpperCase(),
+        role:     'ADMIN'
+      };
+      // Try to enrich with Firestore profile — but don't block on it
+      db.collection('users').doc(user.uid).get()
+        .then(function(doc) {
+          if (doc.exists) {
+            var p = doc.data();
+            currentUser.username = p.username || currentUser.username;
+            currentUser.role     = p.role     || currentUser.role;
+            document.getElementById('sidebarUsername').textContent = currentUser.username;
+            document.getElementById('sidebarRole').textContent     = currentUser.role;
+            document.getElementById('topbarUser').textContent      = currentUser.username + ' (' + currentUser.role + ')';
+          }
+        })
+        .catch(function(err) {
+          console.warn('[FRDB] Could not load user profile:', err.code);
+        });
       onLoginSuccess();
-    }).catch(function(err) {
-      console.error('[FRDB] Boot error:', err.code, err.message);
-      // Permission denied on users collection — let user in, Firestore rules need fixing
-      currentUser = { uid: user.uid, email: user.email, username: user.email.split('@')[0].toUpperCase(), role: 'ADMIN' };
-      onLoginSuccess();
-    });
+    }
   }
 });
