@@ -64,7 +64,7 @@ function dbPut(record) {
 }
 
 // Recursively remove undefined values and replace with null
-// Also strip dataUrl fields from nested file objects (too large for Firestore)
+// Also strip any field containing raw base64 data (too large for Firestore)
 function sanitizeForFirestore(obj) {
   if (obj === undefined || obj === null) return null;
   if (typeof obj !== 'object') return obj;
@@ -73,9 +73,13 @@ function sanitizeForFirestore(obj) {
   }
   var clean = {};
   Object.keys(obj).forEach(function(key) {
-    // Strip raw base64 dataUrl fields — these belong in Storage, not Firestore
-    if (key === 'dataUrl') return;
     var val = obj[key];
+    // Strip any field that holds a raw base64 data URL
+    if (typeof val === 'string' && val.startsWith('data:') && val.length > 50000) {
+      clean[key] = null;
+      return;
+    }
+    if (key === 'dataUrl') { clean[key] = null; return; }
     clean[key] = sanitizeForFirestore(val === undefined ? null : val);
   });
   return clean;
@@ -118,14 +122,18 @@ function uploadFile(path, dataUrl) {
 
   // Compress image before doing anything
   return compressImage(dataUrl).then(function(compressed) {
-    // Try Firebase Storage first
+    // Try Firebase Storage
     return new Promise(function(resolve) {
       var settled = false;
       var timer = setTimeout(function() {
         if (!settled) {
           settled = true;
-          console.warn('Storage timeout — using compressed base64');
-          resolve(compressed); // fallback: store compressed base64 in Firestore
+          // Storage not available — only keep if it's a small image (<200KB)
+          if (compressed && compressed.startsWith('data:image') && compressed.length < 200000) {
+            resolve(compressed);
+          } else {
+            resolve(null); // too large or non-image — drop it
+          }
         }
       }, 15000);
 
@@ -138,8 +146,12 @@ function uploadFile(path, dataUrl) {
         .catch(function(err) {
           if (!settled) {
             settled = true; clearTimeout(timer);
-            console.warn('Storage failed (' + err.code + ') — using compressed base64');
-            resolve(compressed);
+            // Storage failed — only keep small images
+            if (compressed && compressed.startsWith('data:image') && compressed.length < 200000) {
+              resolve(compressed);
+            } else {
+              resolve(null);
+            }
           }
         });
     });
