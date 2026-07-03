@@ -436,7 +436,14 @@ function showPage(page) {
       });
   }
   if (page === 'addRecord' && !editingRecordId) { resetForm(); document.getElementById('formTitle').textContent = 'ADD NEW RECORD'; }
-  if (page === 'users') renderUsers();
+  if (page === 'users') {
+    if (!currentUser || currentUser.role !== 'ADMIN') {
+      showToast('ACCESS DENIED — ADMIN ONLY', 'error');
+      showPage('dashboard');
+      return;
+    }
+    renderUsers();
+  }
   if (window.innerWidth <= 900) document.getElementById('sidebar').classList.remove('open');
 }
 
@@ -1348,6 +1355,7 @@ function cancelUserEdit() {
 }
 
 function saveUser() {
+  if (!currentUser || currentUser.role !== 'ADMIN') { showToast('ACCESS DENIED', 'error'); return; }
   var username = document.getElementById('newUsername').value.trim().toUpperCase();
   var password = document.getElementById('newPassword').value;
   var confirm  = document.getElementById('confirmPassword').value;
@@ -1388,6 +1396,7 @@ function saveUser() {
 }
 
 function deleteUser(id) {
+  if (!currentUser || currentUser.role !== 'ADMIN') { showToast('ACCESS DENIED', 'error'); return; }
   if (!confirm('DELETE THIS OPERATOR? THIS CANNOT BE UNDONE.')) return;
   db.collection('users').doc(id).delete().then(function() {
     showToast('OPERATOR REMOVED', 'error'); renderUsers();
@@ -1396,6 +1405,7 @@ function deleteUser(id) {
 
 // -- CHANGE ADMIN PASSWORD ------------------------------------
 function changeAdminPassword() {
+  if (!currentUser || currentUser.role !== 'ADMIN') { showToast('ACCESS DENIED', 'error'); return; }
   var currentPw=document.getElementById('adminCurrentPw').value;
   var newPw=document.getElementById('adminNewPw').value;
   var confirmPw=document.getElementById('adminConfirmPw').value;
