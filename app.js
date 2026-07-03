@@ -556,6 +556,22 @@ var REPORT_PRINT_STYLES = PRINT_RECORD_STYLES +
   '.report-table th{background:#f0f0f0;font-size:9px;letter-spacing:1px}' +
   '.report-table td.num{text-align:center}';
 
+var CONFIDENTIAL_WATERMARK_STYLE =
+  '.confidential-watermark{' +
+    'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-45deg);' +
+    'font-size:72px;font-weight:900;color:rgba(220,0,0,0.12);' +
+    'letter-spacing:8px;white-space:nowrap;pointer-events:none;z-index:9999;' +
+    'font-family:Arial,sans-serif;user-select:none;' +
+  '}' +
+  '@media print{' +
+    '.confidential-watermark{' +
+      'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-45deg);' +
+      'font-size:80px;font-weight:900;color:rgba(220,0,0,0.15);' +
+      'letter-spacing:8px;white-space:nowrap;z-index:9999;' +
+      '-webkit-print-color-adjust:exact;print-color-adjust:exact;' +
+    '}' +
+  '}';
+
 function buildReportTable(headers, rows) {
   return '<table class="report-table"><thead><tr>' +
     headers.map(function(h) { return '<th>' + h + '</th>'; }).join('') +
@@ -566,8 +582,8 @@ function buildReportTable(headers, rows) {
 }
 
 function openPrintDocument(title, bodyHtml, extraStyles) {
-  var styles = extraStyles || PRINT_RECORD_STYLES;
-  var html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>' + title + '</title><style>' + styles + '</style></head><body>' + bodyHtml + '</body></html>';
+  var styles = (extraStyles || PRINT_RECORD_STYLES) + CONFIDENTIAL_WATERMARK_STYLE;
+  var html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>pswdocm2026</title><style>' + styles + '</style></head><body><div class="confidential-watermark">CONFIDENTIAL</div>' + bodyHtml + '</body></html>';
   var w = window.open('', '_blank');
   if (!w) { showToast('ALLOW POPUPS TO PRINT', 'error'); return null; }
   w.document.open(); w.document.write(html); w.document.close(); w.focus();
@@ -1157,7 +1173,7 @@ function editFromModal() { closeModal(); editRecord(viewingRecordId); }
 function printRecord(id) {
   id=id||viewingRecordId; var r=getRecordById(id); if(!r){showToast('RECORD NOT FOUND','error');return;}
   var name=r.lastName+', '+r.firstName, printed=new Date().toLocaleString('en-PH');
-  var html='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>FR Record - '+name+'</title><style>'+PRINT_RECORD_STYLES+'</style></head><body><div class="print-header"><h1>FORMER REBELS DATABASE SYSTEM</h1><p>RECORD PRINTOUT</p><p>Printed: '+printed+'</p></div>'+buildRecordDetailHtml(r,true)+'</body></html>';
+  var html='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>pswdocm2026</title><style>'+PRINT_RECORD_STYLES+CONFIDENTIAL_WATERMARK_STYLE+'</style></head><body><div class="confidential-watermark">CONFIDENTIAL</div><div class="print-header"><h1>FORMER REBELS DATABASE SYSTEM</h1><p>RECORD PRINTOUT</p><p>Printed: '+printed+'</p></div>'+buildRecordDetailHtml(r,true)+'</body></html>';
   var w=window.open('','_blank');if(!w){showToast('ALLOW POPUPS TO PRINT','error');return;}
   w.document.open();w.document.write(html);w.document.close();w.focus();setTimeout(function(){w.print();},350);
 }
