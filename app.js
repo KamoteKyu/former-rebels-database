@@ -551,7 +551,8 @@ var PRINT_RECORD_STYLES =
   '.on-file-badge{display:inline-block;background:#e6f4ea;color:#1a7f37;border:1px solid #a8d5b5;border-radius:4px;padding:2px 8px;font-size:10px;font-weight:700;letter-spacing:.5px;margin:2px}' +
   '.record-meta{font-size:9px;color:#666;margin-top:16px;padding-top:8px;border-top:1px solid #ccc}' +
   '@media print{body{padding:12px}' +
-  '@page{margin:10mm;size:A4;}' +
+  '@page{margin:10mm 10mm 18mm 10mm;size:A4;}' +
+  '@page{@bottom-center{content:"PSWDO2026";font-family:Arial,sans-serif;font-size:9pt;color:#555;letter-spacing:2px;}}' +
   '}';
 
 var REPORT_PRINT_STYLES = PRINT_RECORD_STYLES +
