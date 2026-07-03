@@ -31,16 +31,19 @@ function waitForAuth() {
 
 function dbGetAll() {
   return waitForAuth().then(function() {
-    return db.collection('records').orderBy('createdAt', 'desc').get().then(function(snap) {
-      return snap.docs.map(function(d) { return Object.assign({ id: d.id }, d.data()); });
-    }).catch(function(err) {
-      if (err.code === 'failed-precondition') {
-        return db.collection('records').get().then(function(snap) {
-          return snap.docs.map(function(d) { return Object.assign({ id: d.id }, d.data()); });
-        });
-      }
-      return Promise.reject(err);
-    });
+    return db.collection('records')
+      .orderBy('createdAt', 'desc')
+      .get({ source: 'server' })  // always fetch fresh from server, skip cache
+      .then(function(snap) {
+        return snap.docs.map(function(d) { return Object.assign({ id: d.id }, d.data()); });
+      }).catch(function(err) {
+        if (err.code === 'failed-precondition') {
+          return db.collection('records').get({ source: 'server' }).then(function(snap) {
+            return snap.docs.map(function(d) { return Object.assign({ id: d.id }, d.data()); });
+          });
+        }
+        return Promise.reject(err);
+      });
   });
 }
 
@@ -907,8 +910,15 @@ function saveRecord(event) {
     return dbPut(r);
   }).then(function() {
     showToast(isEdit?'RECORD UPDATED SUCCESSFULLY':'RECORD SAVED SUCCESSFULLY','success');
-    editingRecordId=null;
-    showPage('records');
+    editingRecordId = null;
+    allRecordsCache = [];
+    // Force fresh fetch then navigate to records
+    dbGetAll().then(function(records) {
+      allRecordsCache = records;
+      showPage('records');
+    }).catch(function() {
+      showPage('records');
+    });
   }).catch(function(err) {
     showToast('ERROR SAVING RECORD: '+err.message,'error');
   });
