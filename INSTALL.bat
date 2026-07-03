@@ -11,71 +11,75 @@ echo   Occidental Mindoro
 echo  =====================================================
 echo.
 
-:: ── TARGET INSTALL DIRECTORY ──────────────────────────────────────────────────
-set "INSTALL_DIR=%ProgramFiles%\FRDB"
-set "SHORTCUT_DESKTOP=%USERPROFILE%\Desktop\FR DATABASE.lnk"
-set "SHORTCUT_START=%APPDATA%\Microsoft\Windows\Start Menu\Programs\FR DATABASE.lnk"
+:: ── APP URL ───────────────────────────────────────────────────────────────────
+set "APP_URL=https://ocmfrdb.vercel.app"
+set "APP_NAME=FR DATABASE"
+set "SHORTCUT_DESKTOP=%USERPROFILE%\Desktop\%APP_NAME%.lnk"
+set "SHORTCUT_START=%APPDATA%\Microsoft\Windows\Start Menu\Programs\%APP_NAME%.lnk"
+set "LAUNCHER=%USERPROFILE%\AppData\Local\FRDB\launch.bat"
+set "LAUNCHER_DIR=%USERPROFILE%\AppData\Local\FRDB"
 
-echo  [1/4] Creating installation folder...
-if not exist "%INSTALL_DIR%" (
-    mkdir "%INSTALL_DIR%"
-    if errorlevel 1 (
-        echo.
-        echo  ERROR: Could not create folder in Program Files.
-        echo  Please right-click INSTALL.bat and select "Run as administrator".
-        echo.
-        pause
-        exit /b 1
-    )
-)
+echo  [1/3] Setting up launcher...
+if not exist "%LAUNCHER_DIR%" mkdir "%LAUNCHER_DIR%"
 
-:: ── COPY FILES ────────────────────────────────────────────────────────────────
-echo  [2/4] Copying application files...
-copy /Y "%~dp0index.html"                                   "%INSTALL_DIR%\index.html"                   >nul
-copy /Y "%~dp0app.js"                                       "%INSTALL_DIR%\app.js"                       >nul
-copy /Y "%~dp0style.css"                                    "%INSTALL_DIR%\style.css"                    >nul
-copy /Y "%~dp0Province_of_Occidental_Mindoro_seal.svg.png"  "%INSTALL_DIR%\Province_of_Occidental_Mindoro_seal.svg.png" >nul
-copy /Y "%~dp0LAUNCH.bat"                                   "%INSTALL_DIR%\LAUNCH.bat"                   >nul
+:: Write a small launcher that opens the app in Chrome/Edge
+(
+echo @echo off
+echo set "URL=%APP_URL%"
+echo.
+echo :: Try Google Chrome first
+echo set "CHROME=%ProgramFiles%\Google\Chrome\Application\chrome.exe"
+echo set "CHROME86=%ProgramFiles(x86)%\Google\Chrome\Application\chrome.exe"
+echo set "EDGE=%ProgramFiles(x86)%\Microsoft\Edge\Application\msedge.exe"
+echo set "EDGE2=%ProgramFiles%\Microsoft\Edge\Application\msedge.exe"
+echo.
+echo if exist "!CHROME!" (
+echo     start "" "!CHROME!" --app="%APP_URL%" --window-size=1280,800
+echo     exit /b
+echo ^)
+echo if exist "!CHROME86!" (
+echo     start "" "!CHROME86!" --app="%APP_URL%" --window-size=1280,800
+echo     exit /b
+echo ^)
+echo if exist "!EDGE2!" (
+echo     start "" "!EDGE2!" --app="%APP_URL%" --window-size=1280,800
+echo     exit /b
+echo ^)
+echo if exist "!EDGE!" (
+echo     start "" "!EDGE!" --app="%APP_URL%" --window-size=1280,800
+echo     exit /b
+echo ^)
+echo :: Fallback: open in default browser
+echo start "" "%APP_URL%"
+) > "%LAUNCHER%"
 
-echo  [3/4] Creating shortcuts...
+echo  [2/3] Creating shortcuts...
 
-:: ── CREATE DESKTOP SHORTCUT VIA POWERSHELL ────────────────────────────────────
+:: ── DESKTOP SHORTCUT ─────────────────────────────────────────────────────────
 powershell -NoProfile -Command ^
-  "$ws = New-Object -ComObject WScript.Shell;" ^
-  "$sc = $ws.CreateShortcut('%SHORTCUT_DESKTOP%');" ^
-  "$sc.TargetPath = '%INSTALL_DIR%\LAUNCH.bat';" ^
-  "$sc.WorkingDirectory = '%INSTALL_DIR%';" ^
-  "$sc.Description = 'Former Rebels Database System';" ^
-  "$sc.IconLocation = 'shell32.dll,13';" ^
-  "$sc.Save();"
+  "$ws = New-Object -ComObject WScript.Shell; $sc = $ws.CreateShortcut('%SHORTCUT_DESKTOP%'); $sc.TargetPath = '%LAUNCHER%'; $sc.WorkingDirectory = '%LAUNCHER_DIR%'; $sc.Description = 'Former Rebels Database System'; $sc.IconLocation = 'shell32.dll,14'; $sc.Save();"
 
-:: ── CREATE START MENU SHORTCUT ────────────────────────────────────────────────
+:: ── START MENU SHORTCUT ───────────────────────────────────────────────────────
 powershell -NoProfile -Command ^
-  "$ws = New-Object -ComObject WScript.Shell;" ^
-  "$sc = $ws.CreateShortcut('%SHORTCUT_START%');" ^
-  "$sc.TargetPath = '%INSTALL_DIR%\LAUNCH.bat';" ^
-  "$sc.WorkingDirectory = '%INSTALL_DIR%';" ^
-  "$sc.Description = 'Former Rebels Database System';" ^
-  "$sc.IconLocation = 'shell32.dll,13';" ^
-  "$sc.Save();"
+  "$ws = New-Object -ComObject WScript.Shell; $sc = $ws.CreateShortcut('%SHORTCUT_START%'); $sc.TargetPath = '%LAUNCHER%'; $sc.WorkingDirectory = '%LAUNCHER_DIR%'; $sc.Description = 'Former Rebels Database System'; $sc.IconLocation = 'shell32.dll,14'; $sc.Save();"
 
-echo  [4/4] Installation complete!
+echo  [3/3] Done!
 echo.
 echo  =====================================================
 echo   INSTALLATION SUCCESSFUL
 echo.
-echo   Files installed to:
-echo   %INSTALL_DIR%
+echo   App URL  : %APP_URL%
+echo   Shortcut : Desktop ^> %APP_NAME%
+echo   Shortcut : Start Menu ^> %APP_NAME%
 echo.
-echo   Shortcuts created:
-echo   - Desktop: FR DATABASE
-echo   - Start Menu: FR DATABASE
+echo   The app opens in Chrome/Edge as a standalone window
+echo   (no address bar) — looks and feels like a desktop app.
 echo.
-echo   IMPORTANT — FIRST TIME SETUP:
-echo   The app requires an internet connection to connect
-echo   to Firebase. Make sure you are online when launching.
+echo   REQUIREMENTS:
+echo   - Internet connection (app runs on Vercel + Firebase)
+echo   - Google Chrome or Microsoft Edge
 echo.
-echo   Default login:
+echo   DEFAULT LOGIN:
 echo   Username : ADMIN
 echo   Password : (set in Firebase Authentication)
 echo  =====================================================
@@ -83,7 +87,7 @@ echo.
 
 set /p LAUNCH="Launch the app now? (Y/N): "
 if /i "!LAUNCH!"=="Y" (
-    start "" "%INSTALL_DIR%\index.html"
+    call "%LAUNCHER%"
 )
 
 echo.
