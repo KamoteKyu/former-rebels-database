@@ -1027,11 +1027,20 @@ var isSaving = false; // guard against double-submit
 function saveRecord(event) {
   event.preventDefault();
   if (isSaving) return; // already saving — ignore extra clicks
+  isSaving = true; // lock immediately — before any async work
+
+  var saveBtn = document.querySelector('#recordForm button[type="submit"]');
+  if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = '⏳ SAVING...'; }
+
+  function unlockSave() {
+    isSaving = false;
+    if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = '💾 SAVE RECORD'; }
+  }
   var sectorChecked = SECTOR_IDS.some(function(id){return document.getElementById(id).checked;});
   var sectorErr = document.getElementById('sectorError');
-  if(!sectorChecked){sectorErr.style.display='block';document.getElementById('sec_farmer').scrollIntoView({behavior:'smooth',block:'center'});return;}
+  if(!sectorChecked){sectorErr.style.display='block';document.getElementById('sec_farmer').scrollIntoView({behavior:'smooth',block:'center'});unlockSave();return;}
   sectorErr.style.display='none';
-  if(document.getElementById('religion').value==='OTHERS'&&!document.getElementById('religionOthers').value.trim()){document.getElementById('religionOthers').focus();showToast('PLEASE SPECIFY RELIGION','error');return;}
+  if(document.getElementById('religion').value==='OTHERS'&&!document.getElementById('religionOthers').value.trim()){document.getElementById('religionOthers').focus();showToast('PLEASE SPECIFY RELIGION','error');unlockSave();return;}
 
   var asstIds=['asst_eclip','asst_fea','asst_livelihood','asst_medical','asst_educational','asst_credentials','asst_philhealth','asst_safeconduct','asst_amnesty'];
   var asstVals={asst_eclip:'E-CLIP',asst_fea:'FEA REMUNERATION',asst_livelihood:'LIVELIHOOD',asst_medical:'MEDICAL',asst_educational:'EDUCATIONAL',asst_credentials:'ISSUANCE OF CREDENTIALS',asst_philhealth:'PHILHEALTH',asst_safeconduct:'ISSUANCE OF SAFE CONDUCT PASS',asst_amnesty:'APPLIED FOR AMNESTY'};
@@ -1118,18 +1127,15 @@ function saveRecord(event) {
           ' (DOB: ' + formatDate(duplicate.dob) + ') ALREADY EXISTS.',
           'error'
         );
+        unlockSave();
         return;
       }
       // No duplicate — proceed with save
-      isSaving = true;
-      var saveBtn = document.querySelector('#recordForm button[type="submit"]');
-      if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = '⏳ SAVING...'; }
       showToast('SAVING RECORD...', 'info');
       uploadRecordFiles(record).then(function(r) {
         return dbPut(r);
       }).then(function() {
-        isSaving = false;
-        if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = '💾 SAVE RECORD'; }
+        unlockSave();
         playChime();
         showToast(isEdit ? 'RECORD UPDATED SUCCESSFULLY' : 'RECORD SAVED SUCCESSFULLY', 'success');
         editingRecordId = null;
@@ -1141,23 +1147,17 @@ function saveRecord(event) {
           showPage('records');
         });
       }).catch(function(err) {
-        isSaving = false;
-        if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = '💾 SAVE RECORD'; }
+        unlockSave();
         showToast('ERROR SAVING RECORD: ' + err.message, 'error');
       });
     })
     .catch(function(err) {
-      // If duplicate check fails (e.g. missing Firestore index), proceed anyway
       console.warn('[FRDB] Duplicate check failed:', err.message);
-      isSaving = true;
-      var saveBtn = document.querySelector('#recordForm button[type="submit"]');
-      if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = '⏳ SAVING...'; }
       showToast('SAVING RECORD...', 'info');
       uploadRecordFiles(record).then(function(r) {
         return dbPut(r);
       }).then(function() {
-        isSaving = false;
-        if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = '💾 SAVE RECORD'; }
+        unlockSave();
         playChime();
         showToast(isEdit ? 'RECORD UPDATED SUCCESSFULLY' : 'RECORD SAVED SUCCESSFULLY', 'success');
         editingRecordId = null;
@@ -1167,8 +1167,7 @@ function saveRecord(event) {
           showPage('records');
         }).catch(function() { showPage('records'); });
       }).catch(function(err) {
-        isSaving = false;
-        if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = '💾 SAVE RECORD'; }
+        unlockSave();
         showToast('ERROR SAVING RECORD: ' + err.message, 'error');
       });
     });
