@@ -56,9 +56,26 @@ function dbPut(record) {
     safe.idPhoto = null;
     showToast('ID PHOTO TOO LARGE — ENABLE FIREBASE STORAGE', 'error');
   }
+  // Sanitize nested objects — Firestore rejects undefined values
+  safe = sanitizeForFirestore(safe);
   return waitForAuth().then(function() {
     return db.collection('records').doc(id).set(safe);
   });
+}
+
+// Recursively remove undefined values and replace with null
+function sanitizeForFirestore(obj) {
+  if (obj === undefined) return null;
+  if (obj === null || typeof obj !== 'object') return obj;
+  if (Array.isArray(obj)) {
+    return obj.map(function(item) { return sanitizeForFirestore(item); });
+  }
+  var clean = {};
+  Object.keys(obj).forEach(function(key) {
+    var val = obj[key];
+    clean[key] = sanitizeForFirestore(val === undefined ? null : val);
+  });
+  return clean;
 }
 
 function dbDelete(id) {
