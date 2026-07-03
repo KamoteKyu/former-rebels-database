@@ -542,7 +542,9 @@ var PRINT_RECORD_STYLES =
   '.japic-print-img{max-height:70px;border:1px solid #999}' +
   '.empty-upload{color:#666;font-size:11px}' +
   '.record-meta{font-size:9px;color:#666;margin-top:16px;padding-top:8px;border-top:1px solid #ccc}' +
-  '@media print{body{padding:12px}}';
+  '@media print{body{padding:12px}' +
+  '@page{margin:10mm;size:A4;}' +
+  '}';
 
 var REPORT_PRINT_STYLES = PRINT_RECORD_STYLES +
   '.report-section{margin-top:20px;page-break-inside:avoid}' +
