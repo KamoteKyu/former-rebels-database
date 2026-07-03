@@ -64,14 +64,17 @@ function dbPut(record) {
 }
 
 // Recursively remove undefined values and replace with null
+// Also strip dataUrl fields from nested file objects (too large for Firestore)
 function sanitizeForFirestore(obj) {
-  if (obj === undefined) return null;
-  if (obj === null || typeof obj !== 'object') return obj;
+  if (obj === undefined || obj === null) return null;
+  if (typeof obj !== 'object') return obj;
   if (Array.isArray(obj)) {
     return obj.map(function(item) { return sanitizeForFirestore(item); });
   }
   var clean = {};
   Object.keys(obj).forEach(function(key) {
+    // Strip raw base64 dataUrl fields — these belong in Storage, not Firestore
+    if (key === 'dataUrl') return;
     var val = obj[key];
     clean[key] = sanitizeForFirestore(val === undefined ? null : val);
   });
@@ -155,28 +158,43 @@ function uploadRecordFiles(record) {
   );
 
   // JAPIC
-  if (record.japic && record.japic.dataUrl) {
-    promises.push(
-      uploadFile(base + 'japic/' + (record.japic.fileName || 'japic'), record.japic.dataUrl).then(function(url) {
-        record.japic = { fileName: record.japic.fileName, url: url, type: record.japic.type };
-      })
-    );
+  if (record.japic) {
+    var japicSrc = record.japic.dataUrl || (record.japic.url && record.japic.url.startsWith('data:') ? record.japic.url : null);
+    if (japicSrc) {
+      promises.push(
+        uploadFile(base + 'japic/' + (record.japic.fileName || 'japic'), japicSrc).then(function(url) {
+          record.japic = { fileName: record.japic.fileName || null, url: url, type: record.japic.type || null };
+        })
+      );
+    } else {
+      // Already a clean object with cloud URL — ensure no dataUrl field
+      record.japic = { fileName: record.japic.fileName || null, url: record.japic.url || null, type: record.japic.type || null };
+    }
   }
 
   // Social Case Report
-  if (record.socialCaseReport && record.socialCaseReport.dataUrl) {
-    promises.push(
-      uploadFile(base + 'socialCase/' + (record.socialCaseReport.fileName || 'report'), record.socialCaseReport.dataUrl).then(function(url) {
-        record.socialCaseReport = { fileName: record.socialCaseReport.fileName, url: url, type: record.socialCaseReport.type };
-      })
-    );
+  if (record.socialCaseReport) {
+    var scSrc = record.socialCaseReport.dataUrl || (record.socialCaseReport.url && record.socialCaseReport.url.startsWith('data:') ? record.socialCaseReport.url : null);
+    if (scSrc) {
+      promises.push(
+        uploadFile(base + 'socialCase/' + (record.socialCaseReport.fileName || 'report'), scSrc).then(function(url) {
+          record.socialCaseReport = { fileName: record.socialCaseReport.fileName || null, url: url, type: record.socialCaseReport.type || null };
+        })
+      );
+    } else {
+      record.socialCaseReport = { fileName: record.socialCaseReport.fileName || null, url: record.socialCaseReport.url || null, type: record.socialCaseReport.type || null };
+    }
   }
 
   // Valid IDs
   var validIdPromises = (record.validIds || []).map(function(v, i) {
-    if (!v.dataUrl) return Promise.resolve();
-    return uploadFile(base + 'validIds/' + i + '_' + (v.fileName || 'id'), v.dataUrl).then(function(url) {
-      record.validIds[i] = { fileName: v.fileName, url: url };
+    var src = v.dataUrl || (v.url && v.url.startsWith('data:') ? v.url : null);
+    if (!src) {
+      record.validIds[i] = { fileName: v.fileName || null, url: v.url || null };
+      return Promise.resolve();
+    }
+    return uploadFile(base + 'validIds/' + i + '_' + (v.fileName || 'id'), src).then(function(url) {
+      record.validIds[i] = { fileName: v.fileName || null, url: url };
     });
   });
   promises = promises.concat(validIdPromises);
