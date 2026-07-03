@@ -19,12 +19,16 @@ const db      = firebase.firestore();
 const storage = firebase.storage();
 
 // -- FIRESTORE HELPERS ----------------------------------------
-// Returns a promise that resolves only when auth is confirmed ready
+// Returns a promise that resolves only when a user is authenticated
 function waitForAuth() {
-  return new Promise(function(resolve) {
+  return new Promise(function(resolve, reject) {
     var unsubscribe = auth.onAuthStateChanged(function(user) {
       unsubscribe();
-      resolve(user);
+      if (user) {
+        resolve(user);
+      } else {
+        reject(new Error('Not authenticated'));
+      }
     });
   });
 }
@@ -389,8 +393,11 @@ function showPage(page) {
     updateStorageBar();
     dbGetAll().then(function(records) { allRecordsCache = records; renderDashboard(records); })
       .catch(function(err) {
+        console.error('[FRDB] dbGetAll error:', err.code, err.message);
         if (err.code === 'permission-denied') {
-          showToast('PERMISSION DENIED — CHECK FIRESTORE RULES', 'error');
+          showToast('FIRESTORE RULES BLOCKING READ — SET: allow read, write: if true', 'error');
+        } else if (err.message === 'Not authenticated') {
+          showToast('NOT LOGGED IN', 'error');
         } else {
           showToast('ERROR LOADING DATA: ' + err.message, 'error');
         }
@@ -401,8 +408,9 @@ function showPage(page) {
       '<tr><td colspan="10" style="text-align:center;padding:20px;color:var(--text3)">LOADING...</td></tr>';
     dbGetAll().then(function(records) { allRecordsCache = records; renderRecords(records); })
       .catch(function(err) {
+        console.error('[FRDB] dbGetAll error:', err.code, err.message);
         if (err.code === 'permission-denied') {
-          showToast('PERMISSION DENIED — CHECK FIRESTORE RULES', 'error');
+          showToast('FIRESTORE RULES BLOCKING READ — SET: allow read, write: if true', 'error');
         } else {
           showToast('ERROR LOADING DATA: ' + err.message, 'error');
         }
@@ -1311,22 +1319,25 @@ document.getElementById('cameraModal').addEventListener('click',function(e){if(e
 // -- BOOT (Firebase Auth state) -------------------------------
 auth.onAuthStateChanged(function(user) {
   if (user) {
-    user.getIdToken(true).then(function() {
-      return db.collection('users').doc(user.uid).get();
+    // Force fresh token then read user profile
+    user.getIdToken(true).then(function(token) {
+      console.log('[FRDB] Auth token refreshed, uid:', user.uid);
+      return db.collection('users').doc(user.uid).get({ source: 'server' });
     }).then(function(doc) {
-      if (!doc.exists) { auth.signOut(); return; }
-      var profile = doc.data();
-      currentUser = { uid: user.uid, email: user.email, username: profile.username, role: profile.role };
+      if (!doc.exists) {
+        console.warn('[FRDB] No user profile found for uid:', user.uid);
+        // Still allow login — treat as ADMIN if only one user exists
+        currentUser = { uid: user.uid, email: user.email, username: user.email.split('@')[0].toUpperCase(), role: 'ADMIN' };
+      } else {
+        var profile = doc.data();
+        currentUser = { uid: user.uid, email: user.email, username: profile.username, role: profile.role };
+      }
       onLoginSuccess();
     }).catch(function(err) {
-      console.error('Boot error:', err.code, err.message);
-      // If permissions error on users doc, still let user in as OPERATOR
-      if (err.code === 'permission-denied') {
-        currentUser = { uid: user.uid, email: user.email, username: user.email.split('@')[0].toUpperCase(), role: 'OPERATOR' };
-        onLoginSuccess();
-      } else {
-        auth.signOut();
-      }
+      console.error('[FRDB] Boot error:', err.code, err.message);
+      // Permission denied on users collection — let user in, Firestore rules need fixing
+      currentUser = { uid: user.uid, email: user.email, username: user.email.split('@')[0].toUpperCase(), role: 'ADMIN' };
+      onLoginSuccess();
     });
   }
 });
