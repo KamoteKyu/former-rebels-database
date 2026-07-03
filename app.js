@@ -78,8 +78,9 @@ function sanitizeForFirestore(obj) {
   var clean = {};
   Object.keys(obj).forEach(function(key) {
     var val = obj[key];
-    // Strip any field that holds a raw base64 data URL
-    if (typeof val === 'string' && val.startsWith('data:') && val.length > 50000) {
+    // Strip raw base64 only if extremely large (>700KB = uncompressed)
+    // Compressed images (~80KB) are allowed through
+    if (typeof val === 'string' && val.startsWith('data:') && val.length > 700000) {
       clean[key] = null;
       return;
     }
@@ -120,24 +121,22 @@ function compressImage(dataUrl, maxSize) {
 }
 
 function uploadFile(path, dataUrl) {
+function uploadFile(path, dataUrl, maxSize) {
   if (!dataUrl) return Promise.resolve(null);
   // Already a cloud URL — skip upload
   if (dataUrl.startsWith('https://')) return Promise.resolve(dataUrl);
 
-  // Compress image before doing anything
-  return compressImage(dataUrl).then(function(compressed) {
-    // Try Firebase Storage
+  // Compress image first — reduces a 3MB photo to ~50-80KB
+  return compressImage(dataUrl, maxSize || 800).then(function(compressed) {
+    // Try Firebase Storage upload (fast if Storage is enabled)
     return new Promise(function(resolve) {
       var settled = false;
       var timer = setTimeout(function() {
         if (!settled) {
           settled = true;
-          // Storage not available — only keep if it's a small image (<200KB)
-          if (compressed && compressed.startsWith('data:image') && compressed.length < 200000) {
-            resolve(compressed);
-          } else {
-            resolve(null); // too large or non-image — drop it
-          }
+          // Storage not available — use compressed base64 as fallback
+          // compressImage guarantees it's small enough for Firestore
+          resolve(compressed || null);
         }
       }, 15000);
 
@@ -150,12 +149,7 @@ function uploadFile(path, dataUrl) {
         .catch(function(err) {
           if (!settled) {
             settled = true; clearTimeout(timer);
-            // Storage failed — only keep small images
-            if (compressed && compressed.startsWith('data:image') && compressed.length < 200000) {
-              resolve(compressed);
-            } else {
-              resolve(null);
-            }
+            resolve(compressed || null); // fallback to compressed base64
           }
         });
     });
@@ -166,9 +160,9 @@ function uploadRecordFiles(record) {
   var base = 'records/' + record.id + '/';
   var promises = [];
 
-  // ID Photo
+  // ID Photo — compress harder (2x2 only needs 300px)
   promises.push(
-    uploadFile(base + 'idPhoto.jpg', record.idPhoto).then(function(url) {
+    uploadFile(base + 'idPhoto.jpg', record.idPhoto, 300).then(function(url) {
       record.idPhoto = url;
     })
   );
