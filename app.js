@@ -585,7 +585,7 @@ function buildReportTable(headers, rows) {
 
 function openPrintDocument(title, bodyHtml, extraStyles) {
   var styles = (extraStyles || PRINT_RECORD_STYLES) + CONFIDENTIAL_WATERMARK_STYLE;
-  var html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>pswdocm2026</title><style>' + styles + '</style></head><body><div class="confidential-watermark">CONFIDENTIAL</div>' + bodyHtml + '</body></html>';
+  var html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title></title><style>' + styles + '</style></head><body><div class="confidential-watermark">CONFIDENTIAL</div>' + bodyHtml + '</body></html>';
   var w = window.open('', '_blank');
   if (!w) { showToast('ALLOW POPUPS TO PRINT', 'error'); return null; }
   w.document.open(); w.document.write(html); w.document.close(); w.focus();
@@ -1217,7 +1217,7 @@ function editFromModal() { closeModal(); editRecord(viewingRecordId); }
 function printRecord(id) {
   id=id||viewingRecordId; var r=getRecordById(id); if(!r){showToast('RECORD NOT FOUND','error');return;}
   var name=r.lastName+', '+r.firstName, printed=new Date().toLocaleString('en-PH');
-  var html='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>pswdocm2026</title><style>'+PRINT_RECORD_STYLES+CONFIDENTIAL_WATERMARK_STYLE+'</style></head><body><div class="confidential-watermark">CONFIDENTIAL</div><div class="print-header"><h1>FORMER REBELS DATABASE SYSTEM</h1><p>RECORD PRINTOUT</p><p>Printed: '+printed+'</p></div>'+buildRecordDetailHtml(r,true)+'</body></html>';
+  var html='<!DOCTYPE html><html><head><meta charset="UTF-8"><title></title><style>'+PRINT_RECORD_STYLES+CONFIDENTIAL_WATERMARK_STYLE+'</style></head><body><div class="confidential-watermark">CONFIDENTIAL</div><div class="print-header"><h1>FORMER REBELS DATABASE SYSTEM</h1><p>RECORD PRINTOUT</p><p>Printed: '+printed+'</p></div>'+buildRecordDetailHtml(r,true)+'</body></html>';
   var w=window.open('','_blank');if(!w){showToast('ALLOW POPUPS TO PRINT','error');return;}
   w.document.open();w.document.write(html);w.document.close();w.focus();setTimeout(function(){w.print();},350);
 }
