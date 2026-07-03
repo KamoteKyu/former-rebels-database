@@ -624,26 +624,92 @@ function buildDashboardReportHtml(records) {
     if (r.membershipType === 'REGULAR NPA') regularNpa++;
     if (r.membershipType === 'MILISYANG BAYAN') milisyang++;
   });
+
+  // ASSISTANCE
   var ASST_TYPES = ['E-CLIP','FEA REMUNERATION','LIVELIHOOD','MEDICAL','EDUCATIONAL','ISSUANCE OF CREDENTIALS','PHILHEALTH','ISSUANCE OF SAFE CONDUCT PASS','APPLIED FOR AMNESTY','OTHERS'];
-  var asstCounts = {}; ASST_TYPES.forEach(function(t) { asstCounts[t] = 0; });
-  records.forEach(function(r) { (r.assistance || []).forEach(function(a) { var k = a.indexOf('OTHERS') === 0 ? 'OTHERS' : a; if (asstCounts[k] !== undefined) asstCounts[k]++; }); });
-  var asstRows = ASST_TYPES.map(function(t) { var c = asstCounts[t]; return [t, c, total > 0 ? ((c/total)*100).toFixed(1)+'%' : '0.0%']; });
-  asstRows.push(['TOTAL', ASST_TYPES.reduce(function(s,t){return s+asstCounts[t];},0), '-']);
+  var asstCounts = {}; ASST_TYPES.forEach(function(t){asstCounts[t]=0;});
+  records.forEach(function(r){(r.assistance||[]).forEach(function(a){var k=a.indexOf('OTHERS')===0?'OTHERS':a;if(asstCounts[k]!==undefined)asstCounts[k]++;});});
+  var asstRows = ASST_TYPES.map(function(t){var c=asstCounts[t];return[t,c,total>0?((c/total)*100).toFixed(1)+'%':'0.0%'];});
+  asstRows.push(['TOTAL ASSISTANCE RENDERED', ASST_TYPES.reduce(function(s,t){return s+asstCounts[t];},0), '-']);
+
+  // MEMBERSHIP
   var MEM_TYPES = ['REGULAR NPA','MILISYANG BAYAN'];
   var memCounts = {}; MEM_TYPES.forEach(function(t){memCounts[t]=0;});
   records.forEach(function(r){if(r.membershipType&&memCounts[r.membershipType]!==undefined)memCounts[r.membershipType]++;});
   var withMem = MEM_TYPES.reduce(function(s,t){return s+memCounts[t];},0);
-  var memRows = MEM_TYPES.map(function(t){var c=memCounts[t];return [t,c,total>0?((c/total)*100).toFixed(1)+'%':'0.0%'];});
+  var memRows = MEM_TYPES.map(function(t){var c=memCounts[t];return[t,c,total>0?((c/total)*100).toFixed(1)+'%':'0.0%'];});
   memRows.push(['NOT SPECIFIED',total-withMem,total>0?(((total-withMem)/total)*100).toFixed(1)+'%':'0.0%']);
-  return '<div class="report-section"><h2>SUMMARY</h2><div class="report-stats">' +
-    '<div class="report-stat"><strong>'+total+'</strong><span>TOTAL</span></div>' +
-    '<div class="report-stat"><strong>'+male+'</strong><span>MALE</span></div>' +
-    '<div class="report-stat"><strong>'+female+'</strong><span>FEMALE</span></div>' +
-    '<div class="report-stat"><strong>'+regularNpa+'</strong><span>REGULAR NPA</span></div>' +
-    '<div class="report-stat"><strong>'+milisyang+'</strong><span>MILISYANG BAYAN</span></div>' +
+
+  // TRIBAL GROUP
+  var tribalCounts = {}; TRIBAL_GROUP_TYPES.forEach(function(t){tribalCounts[t]=0;});
+  records.forEach(function(r){var k=normalizeTribalGroup(r.tribalGroup);if(k&&tribalCounts[k]!==undefined)tribalCounts[k]++;});
+  var withTribal = TRIBAL_GROUP_TYPES.reduce(function(s,t){return s+tribalCounts[t];},0);
+  var tribalRows = TRIBAL_GROUP_TYPES.map(function(t){var c=tribalCounts[t];return[t,c,total>0?((c/total)*100).toFixed(1)+'%':'0.0%'];});
+  tribalRows.push(['NOT SPECIFIED',total-withTribal,total>0?(((total-withTribal)/total)*100).toFixed(1)+'%':'0.0%']);
+
+  // AGE BRACKET
+  var BRACKETS=[{label:'18 & BELOW',min:0,max:18},{label:'19 - 24',min:19,max:24},{label:'25 - 30',min:25,max:30},{label:'31 - 40',min:31,max:40},{label:'41 - 59',min:41,max:59},{label:'60 & ABOVE',min:60,max:999}];
+  var ageCounts=BRACKETS.map(function(){return 0;}); var withAge=0;
+  records.forEach(function(r){var age=parseInt(calcAgeFromDob(r.dob));if(isNaN(age))return;withAge++;for(var i=0;i<BRACKETS.length;i++){if(age>=BRACKETS[i].min&&age<=BRACKETS[i].max){ageCounts[i]++;break;}}});
+  var ageRows=BRACKETS.map(function(b,i){var c=ageCounts[i];return[b.label,c,total>0?((c/total)*100).toFixed(1)+'%':'0.0%'];});
+  ageRows.push(['TOTAL WITH AGE DATA',withAge,'-']);
+
+  // MUNICIPALITY
+  var OCC = MUNICIPALITIES_BY_PROVINCE['OCCIDENTAL MINDORO'];
+  var ORI = MUNICIPALITIES_BY_PROVINCE['ORIENTAL MINDORO'];
+  var ALL_MUN = OCC.concat(ORI);
+  var munCounts={}; ALL_MUN.forEach(function(m){munCounts[m]=0;}); var noMun=0, outsideMindoro=0;
+  records.forEach(function(r){if(r.addressProvince==='OUTSIDE MINDORO'){outsideMindoro++;return;}var m=r.addressMunicipality||'';if(m&&munCounts[m]!==undefined)munCounts[m]++;else noMun++;});
+  var munRows=ALL_MUN.map(function(m){var c=munCounts[m];return[m,c,total>0?((c/total)*100).toFixed(1)+'%':'0.0%'];});
+  munRows.push(['OUTSIDE MINDORO',outsideMindoro,total>0?((outsideMindoro/total)*100).toFixed(1)+'%':'0.0%']);
+  munRows.push(['NOT SPECIFIED',noMun,total>0?((noMun/total)*100).toFixed(1)+'%':'0.0%']);
+
+  // 4Ps
+  var fourPsYes=records.filter(function(r){return r.fourPs==='YES';}).length;
+  var fourPsNo=records.filter(function(r){return r.fourPs==='NO';}).length;
+  var fourPsNoData=total-fourPsYes-fourPsNo;
+  var fourPsRows=[['YES',fourPsYes,total>0?((fourPsYes/total)*100).toFixed(1)+'%':'0.0%'],['NO',fourPsNo,total>0?((fourPsNo/total)*100).toFixed(1)+'%':'0.0%'],['NOT SPECIFIED',fourPsNoData,total>0?((fourPsNoData/total)*100).toFixed(1)+'%':'0.0%']];
+
+  // SECTOR
+  var SECTORS=['FARMER/FISHERFOLK','WOMEN','PWD','CHILDREN AND YOUTH','SENIOR CITIZEN','SOLO PARENT','INDIGENOUS PEOPLE','URBAN POOR','OTHERS'];
+  var secCounts={}; SECTORS.forEach(function(s){secCounts[s]=0;});
+  records.forEach(function(r){(r.sector||[]).forEach(function(s){var k=s.indexOf('OTHERS')===0?'OTHERS':s;if(secCounts[k]!==undefined)secCounts[k]++;});});
+  var withSec=records.filter(function(r){return r.sector&&r.sector.length>0;}).length;
+  var secRows=SECTORS.map(function(s){var c=secCounts[s];return[s,c,total>0?((c/total)*100).toFixed(1)+'%':'0.0%'];});
+  secRows.push(['NO SECTOR SPECIFIED',total-withSec,total>0?(((total-withSec)/total)*100).toFixed(1)+'%':'0.0%']);
+
+  // REFERRING UNIT
+  var UNITS=['102nd SAC','1st Infantry "Always First" Battalion','1st OMPMFC','203rd Infantry "Bantay Kapayapaan" Brigade','23MICO','2CMO Battalion','2nd OMPMFC','402nd B MC RMFB 4B','405th B MC RMFB 4B','4th Infantry "Scorpion" Battalion','68th Infantry "Kaagapay" Battalion','76th Infantry "Victrix" Battalion','ISAFP','PIT Occidental Mindoro RIU 4B','OTHERS'];
+  var unitCounts={}; UNITS.forEach(function(u){unitCounts[u]=0;}); var noUnit=0;
+  records.forEach(function(r){var u=r.referringUnit||'';if(!u){noUnit++;return;}var k=u.indexOf('OTHERS')===0?'OTHERS':u;if(unitCounts[k]!==undefined)unitCounts[k]++;else noUnit++;});
+  var unitRows=UNITS.map(function(u){var c=unitCounts[u];return[u,c,total>0?((c/total)*100).toFixed(1)+'%':'0.0%'];});
+  unitRows.push(['NOT SPECIFIED',noUnit,total>0?((noUnit/total)*100).toFixed(1)+'%':'0.0%']);
+
+  // SURRENDER BY YEAR
+  var START_YEAR=2016, curYear=new Date().getFullYear();
+  var yrRows=[], noDate=0;
+  for(var y=START_YEAR;y<=curYear;y++){var c=records.filter(function(r){return r.dateSurrendered&&new Date(r.dateSurrendered).getFullYear()===y;}).length;yrRows.push([String(y),c,total>0?((c/total)*100).toFixed(1)+'%':'0.0%']);}
+  noDate=records.filter(function(r){return !r.dateSurrendered;}).length;
+  yrRows.push(['NO DATE RECORDED',noDate,total>0?((noDate/total)*100).toFixed(1)+'%':'0.0%']);
+
+  return (
+    '<div class="report-section"><h2>SUMMARY STATISTICS</h2><div class="report-stats">' +
+      '<div class="report-stat"><strong>'+total+'</strong><span>TOTAL RECORDS</span></div>' +
+      '<div class="report-stat"><strong>'+male+'</strong><span>MALE</span></div>' +
+      '<div class="report-stat"><strong>'+female+'</strong><span>FEMALE</span></div>' +
+      '<div class="report-stat"><strong>'+regularNpa+'</strong><span>REGULAR NPA</span></div>' +
+      '<div class="report-stat"><strong>'+milisyang+'</strong><span>MILISYANG BAYAN</span></div>' +
     '</div></div>' +
-    '<div class="report-section"><h2>ASSISTANCE PROVIDED</h2>' + buildReportTable(['TYPE','COUNT','% OF TOTAL'], asstRows) + '</div>' +
-    '<div class="report-section"><h2>MEMBERSHIP TYPE</h2>' + buildReportTable(['TYPE','COUNT','% OF TOTAL'], memRows) + '</div>';
+    '<div class="report-section"><h2>ASSISTANCE PROVIDED</h2>' + buildReportTable(['TYPE OF ASSISTANCE','COUNT','% OF TOTAL'], asstRows) + '</div>' +
+    '<div class="report-section"><h2>SURRENDER BY YEAR ('+START_YEAR+'–'+curYear+')</h2>' + buildReportTable(['YEAR','COUNT','% OF TOTAL'], yrRows) + '</div>' +
+    '<div class="report-section"><h2>MEMBERSHIP TYPE</h2>' + buildReportTable(['TYPE','COUNT','% OF TOTAL'], memRows) + '</div>' +
+    '<div class="report-section"><h2>TRIBAL GROUP</h2>' + buildReportTable(['TRIBAL GROUP','COUNT','% OF TOTAL'], tribalRows) + '</div>' +
+    '<div class="report-section"><h2>AGE BRACKET</h2>' + buildReportTable(['AGE BRACKET','COUNT','% OF TOTAL'], ageRows) + '</div>' +
+    '<div class="report-section"><h2>MUNICIPALITY BREAKDOWN</h2>' + buildReportTable(['MUNICIPALITY','COUNT','% OF TOTAL'], munRows) + '</div>' +
+    '<div class="report-section"><h2>4Ps BENEFICIARIES</h2>' + buildReportTable(['STATUS','COUNT','% OF TOTAL'], fourPsRows) + '</div>' +
+    '<div class="report-section"><h2>SECTOR BREAKDOWN</h2>' + buildReportTable(['SECTOR','COUNT','% OF TOTAL'], secRows) + '</div>' +
+    '<div class="report-section"><h2>REFERRING UNIT</h2>' + buildReportTable(['REFERRING UNIT','COUNT','% OF TOTAL'], unitRows) + '</div>'
+  );
 }
 
 // -- ASSISTANCE REPORT ----------------------------------------
