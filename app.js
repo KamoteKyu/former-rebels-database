@@ -36,17 +36,20 @@ function waitForAuth() {
 function dbGetAll() {
   return waitForAuth().then(function() {
     return db.collection('records')
-      .orderBy('createdAt', 'desc')
-      .get({ source: 'server' })  // always fetch fresh from server, skip cache
+      .get({ source: 'server' })
       .then(function(snap) {
-        return snap.docs.map(function(d) { return Object.assign({ id: d.id }, d.data()); });
-      }).catch(function(err) {
-        if (err.code === 'failed-precondition') {
-          return db.collection('records').get({ source: 'server' }).then(function(snap) {
-            return snap.docs.map(function(d) { return Object.assign({ id: d.id }, d.data()); });
-          });
-        }
-        return Promise.reject(err);
+        var docs = snap.docs.map(function(d) { return Object.assign({ id: d.id }, d.data()); });
+        // Always sort alphabetically by lastName then firstName
+        docs.sort(function(a, b) {
+          var la = (a.lastName  || '').toUpperCase();
+          var lb = (b.lastName  || '').toUpperCase();
+          var fa = (a.firstName || '').toUpperCase();
+          var fb = (b.firstName || '').toUpperCase();
+          if (la < lb) return -1; if (la > lb) return 1;
+          if (fa < fb) return -1; if (fa > fb) return 1;
+          return 0;
+        });
+        return docs;
       });
   });
 }
