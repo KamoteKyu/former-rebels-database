@@ -318,6 +318,11 @@ function syncSeniorCitizenSector() {
   seniorCb.checked = !isNaN(age) && age >= 60;
 }
 
+function syncWomenSector() {
+  var sex = document.getElementById('sex').value;
+  document.getElementById('sec_women').checked = (sex === 'FEMALE');
+}
+
 function formatDate(d) {
   if (!d) return '-';
   return new Date(d + 'T00:00:00').toLocaleDateString('en-PH', { year:'numeric', month:'long', day:'numeric' });
@@ -1220,6 +1225,7 @@ function editRecord(id) {
   editingRecordId=id;
   document.getElementById('lastName').value=r.lastName||''; document.getElementById('firstName').value=r.firstName||''; document.getElementById('middleName').value=r.middleName||'';
   document.getElementById('alias').value=r.alias||''; document.getElementById('dob').value=r.dob||''; document.getElementById('sex').value=r.sex||'';
+  syncWomenSector();
   document.getElementById('civilStatus').value=r.civilStatus||''; document.getElementById('tribalGroup').value=normalizeTribalGroup(r.tribalGroup)||r.tribalGroup||'';
   document.getElementById('addressBarangay').value=r.addressBarangay||r.address||'';
   document.getElementById('addressProvince').value=r.addressProvince||'OCCIDENTAL MINDORO';
