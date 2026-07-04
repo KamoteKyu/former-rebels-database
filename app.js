@@ -1111,6 +1111,7 @@ function saveRecord(event) {
     dateSurrendered:     document.getElementById('dateSurrendered').value,
     pendingCase:         document.getElementById('pendingCase').value,
     referringUnit:       referringUnitVal,
+    remarks:             document.getElementById('remarks').value.trim().toUpperCase(),
     assistance:          assistance,
     validIds:            validIdSlots.filter(function(s){return s.dataUrl;}).map(function(s){return{dataUrl:s.dataUrl,fileName:s.fileName};}),
     japic:               japicData,
@@ -1211,6 +1212,7 @@ function resetForm() {
   document.getElementById('contactNumber').value=''; document.getElementById('medicalCondition').value=''; document.getElementById('medicalConditionSpec').value='';
   document.getElementById('fourPs').value=''; document.getElementById('pendingCase').value=''; document.getElementById('referringUnit').value='';
   document.getElementById('referringUnitOthers').value=''; document.getElementById('referringUnitOthersGroup').style.display='none';
+  document.getElementById('remarks').value='';
   document.getElementById('pwdDisability').value=''; document.getElementById('addressBarangay').value='';
   document.getElementById('addressMunicipality').value=''; document.getElementById('addressMunicipalityText').value='';
   document.getElementById('addressProvince').value='OCCIDENTAL MINDORO';
@@ -1249,6 +1251,7 @@ function editRecord(id) {
   document.getElementById('unit').value=r.unit||''; document.getElementById('position').value=r.position||''; document.getElementById('membershipType').value=r.membershipType||'';
   document.getElementById('areaOfOperation').value=r.areaOfOperation||''; document.getElementById('yearsInMovement').value=r.yearsInMovement||'';
   document.getElementById('dateSurrendered').value=r.dateSurrendered||''; document.getElementById('pendingCase').value=r.pendingCase||'';
+  document.getElementById('remarks').value=r.remarks||'';
   var KNOWN_UNITS=['102nd SAC','1st Infantry "Always First" Battalion','1st OMPMFC','203rd Infantry "Bantay Kapayapaan" Brigade','23MICO','2CMO Battalion','2nd OMPMFC','402nd B MC RMFB 4B','405th B MC RMFB 4B','4th Infantry "Scorpion" Battalion','68th Infantry "Kaagapay" Battalion','76th Infantry "Victrix" Battalion','ISAFP','PIT Occidental Mindoro RIU 4B','OTHERS'];
   var savedUnit=r.referringUnit||'';
   if(!savedUnit){document.getElementById('referringUnit').value='';document.getElementById('referringUnitOthersGroup').style.display='none';}
@@ -1336,6 +1339,7 @@ function buildRecordDetailHtml(r, forPrint) {
     '<div class="modal-field"><div class="modal-field-label">DATE SURRENDERED</div><div class="modal-field-value">'+formatDate(r.dateSurrendered)+'</div></div>' +
     '<div class="modal-field"><div class="modal-field-label">PENDING CASE</div><div class="modal-field-value">'+(r.pendingCase||'-')+'</div></div>' +
     '<div class="modal-field"><div class="modal-field-label">REFERRING UNIT</div><div class="modal-field-value">'+(r.referringUnit||'-')+'</div></div>' +
+    '<div class="modal-field" style="grid-column:1/-1"><div class="modal-field-label">REMARKS</div><div class="modal-field-value">'+(r.remarks||'-')+'</div></div>' +
     '</div></div>' +
     '<div class="modal-section"><div class="modal-section-title">PART III - REINTEGRATION</div><div class="modal-field"><div class="modal-field-label">ASSISTANCE PROVIDED</div><div class="modal-field-value" style="margin-top:6px">'+asstHtml+'</div></div><div class="modal-field" style="margin-top:12px"><div class="modal-field-label">VALID IDs</div><div class="valid-id-thumbs">'+validIdHtml+'</div></div></div>' +
     '<div class="modal-section"><div class="modal-section-title">PART IV - SOCIAL CASE PROFILE</div><div class="modal-field"><div class="modal-field-label">JAPIC CERTIFICATE</div><div class="modal-field-value" style="margin-top:6px">'+japicHtml+'</div></div><div class="modal-field" style="margin-top:12px"><div class="modal-field-label">SOCIAL CASE STUDY REPORT</div><div class="modal-field-value" style="margin-top:6px">'+scHtml+'</div></div></div>' +
@@ -1429,8 +1433,8 @@ function importCSVFile(event) {
 function exportCSV() {
   dbGetAll().then(function(records){
     if(!records.length){showToast('NO RECORDS TO EXPORT','info');return;}
-    var headers=['ID','LAST NAME','FIRST NAME','MIDDLE NAME','ALIAS','DATE OF BIRTH','AGE','SEX','CIVIL STATUS','TRIBAL GROUP','RELIGION','CONTACT NUMBER','MEDICAL CONDITION','MEDICAL CONDITION SPECIFY','4Ps','PWD DISABILITY','BARANGAY','MUNICIPALITY','PROVINCE','SECTOR','UNIT','POSITION','MEMBERSHIP TYPE','AREA OF OPERATION','YEARS IN MOVEMENT','DATE SURRENDERED','PENDING CASE','REFERRING UNIT','ASSISTANCE PROVIDED','SOCIAL CASE REPORT FILE','CREATED BY','CREATED AT'];
-    var rows=records.map(function(r){return[r.id,r.lastName,r.firstName,r.middleName,r.alias,r.dob,calcAgeFromDob(r.dob),r.sex,r.civilStatus,normalizeTribalGroup(r.tribalGroup)||r.tribalGroup,r.religion,r.contactNumber,r.medicalCondition,r.medicalConditionSpec,r.fourPs,r.pwdDisability,r.addressBarangay||r.address,r.addressMunicipality||'',r.addressProvince||'OCCIDENTAL MINDORO',(r.sector||[]).join('; '),r.unit,r.position,r.membershipType,r.areaOfOperation,r.yearsInMovement,r.dateSurrendered,r.pendingCase,r.referringUnit,(r.assistance||[]).join('; '),r.socialCaseReport?(typeof r.socialCaseReport==='object'?r.socialCaseReport.fileName:r.socialCaseReport):'',r.createdBy,r.createdAt?new Date(r.createdAt).toLocaleString('en-PH'):''].map(function(v){return'"'+String(v||'').replace(/"/g,'""')+'"';});});
+    var headers=['ID','LAST NAME','FIRST NAME','MIDDLE NAME','ALIAS','DATE OF BIRTH','AGE','SEX','CIVIL STATUS','TRIBAL GROUP','RELIGION','CONTACT NUMBER','MEDICAL CONDITION','MEDICAL CONDITION SPECIFY','4Ps','PWD DISABILITY','BARANGAY','MUNICIPALITY','PROVINCE','SECTOR','UNIT','POSITION','MEMBERSHIP TYPE','AREA OF OPERATION','YEARS IN MOVEMENT','DATE SURRENDERED','PENDING CASE','REFERRING UNIT','REMARKS','ASSISTANCE PROVIDED','SOCIAL CASE REPORT FILE','CREATED BY','CREATED AT'];
+    var rows=records.map(function(r){return[r.id,r.lastName,r.firstName,r.middleName,r.alias,r.dob,calcAgeFromDob(r.dob),r.sex,r.civilStatus,normalizeTribalGroup(r.tribalGroup)||r.tribalGroup,r.religion,r.contactNumber,r.medicalCondition,r.medicalConditionSpec,r.fourPs,r.pwdDisability,r.addressBarangay||r.address,r.addressMunicipality||'',r.addressProvince||'OCCIDENTAL MINDORO',(r.sector||[]).join('; '),r.unit,r.position,r.membershipType,r.areaOfOperation,r.yearsInMovement,r.dateSurrendered,r.pendingCase,r.referringUnit,r.remarks||'',(r.assistance||[]).join('; '),r.socialCaseReport?(typeof r.socialCaseReport==='object'?r.socialCaseReport.fileName:r.socialCaseReport):'',r.createdBy,r.createdAt?new Date(r.createdAt).toLocaleString('en-PH'):''].map(function(v){return'"'+String(v||'').replace(/"/g,'""')+'"';});});
     var csv=[headers.join(',')].concat(rows.map(function(r){return r.join(',');})).join('\n');
     var blob=new Blob([csv],{type:'text/csv'}), url=URL.createObjectURL(blob), a=document.createElement('a');
     a.href=url; a.download='FR_DATABASE_'+new Date().toISOString().slice(0,10)+'.csv'; a.click(); URL.revokeObjectURL(url);
