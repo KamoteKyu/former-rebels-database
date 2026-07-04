@@ -366,11 +366,13 @@ function onLoginSuccess() {
     el.style.display = currentUser.role === 'ADMIN' ? 'flex' : 'none';
   });
   startClock();
+  resetIdleTimer(); // start idle logout timer
   // Small delay ensures Firestore receives the auth token before first read
   setTimeout(function() { showPage('dashboard'); }, 800);
 }
 
 function doLogout() {
+  clearTimeout(idleTimer);
   auth.signOut().then(function() {
     currentUser = null;
     allRecordsCache = [];
@@ -868,6 +870,18 @@ function renderRecords(records, filter) {
         (r.referringUnit||'').toLowerCase().indexOf(q)!==-1;
     });
   }
+  // Sort alphabetically by Last Name then First Name
+  list = list.slice().sort(function(a, b) {
+    var la = (a.lastName  || '').toUpperCase();
+    var lb = (b.lastName  || '').toUpperCase();
+    var fa = (a.firstName || '').toUpperCase();
+    var fb = (b.firstName || '').toUpperCase();
+    if (la < lb) return -1;
+    if (la > lb) return  1;
+    if (fa < fb) return -1;
+    if (fa > fb) return  1;
+    return 0;
+  });
   var tbody = document.getElementById('recordsTableBody');
   if (!list.length) { tbody.innerHTML='<tr><td colspan="10"><div class="empty-state"><div class="empty-icon">&#128269;</div><p>NO RECORDS FOUND</p></div></td></tr>'; return; }
   tbody.innerHTML = list.map(function(r, i) {
@@ -1559,6 +1573,25 @@ function changeAdminPassword() {
 document.getElementById('viewModal').addEventListener('click',function(e){if(e.target===this)closeModal();});
 document.getElementById('deleteModal').addEventListener('click',function(e){if(e.target===this)closeDeleteModal();});
 document.getElementById('cameraModal').addEventListener('click',function(e){if(e.target===this)closeCamera();});
+
+// -- IDLE LOGOUT (3 minutes) ----------------------------------
+var IDLE_TIMEOUT_MS = 3 * 60 * 1000; // 3 minutes
+var idleTimer = null;
+
+function resetIdleTimer() {
+  if (!currentUser) return; // only track when logged in
+  clearTimeout(idleTimer);
+  idleTimer = setTimeout(function() {
+    if (!currentUser) return;
+    showToast('SESSION EXPIRED — LOGGED OUT DUE TO INACTIVITY', 'error');
+    setTimeout(function() { doLogout(); }, 1500);
+  }, IDLE_TIMEOUT_MS);
+}
+
+// Listen to all user activity events
+['mousemove','mousedown','keydown','touchstart','scroll','click'].forEach(function(evt) {
+  document.addEventListener(evt, resetIdleTimer, { passive: true });
+});
 
 // -- BOOT (Firebase Auth state) -------------------------------
 auth.onAuthStateChanged(function(user) {
