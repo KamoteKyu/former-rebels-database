@@ -1091,6 +1091,7 @@ function saveRecord(event) {
     sex:                 document.getElementById('sex').value,
     civilStatus:         document.getElementById('civilStatus').value,
     tribalGroup:         document.getElementById('tribalGroup').value,
+    recordStatus:        document.getElementById('recordStatus').value,
     religion:            religionVal,
     contactNumber:       document.getElementById('contactNumber').value.trim(),
     medicalCondition:    document.getElementById('medicalCondition').value,
@@ -1213,6 +1214,7 @@ function resetForm() {
   document.getElementById('fourPs').value=''; document.getElementById('pendingCase').value=''; document.getElementById('referringUnit').value='';
   document.getElementById('referringUnitOthers').value=''; document.getElementById('referringUnitOthersGroup').style.display='none';
   document.getElementById('remarks').value='';
+  document.getElementById('recordStatus').value='';
   document.getElementById('pwdDisability').value=''; document.getElementById('addressBarangay').value='';
   document.getElementById('addressMunicipality').value=''; document.getElementById('addressMunicipalityText').value='';
   document.getElementById('addressProvince').value='OCCIDENTAL MINDORO';
@@ -1229,6 +1231,7 @@ function editRecord(id) {
   document.getElementById('alias').value=r.alias||''; document.getElementById('dob').value=r.dob||''; document.getElementById('sex').value=r.sex||'';
   syncWomenSector();
   document.getElementById('civilStatus').value=r.civilStatus||''; document.getElementById('tribalGroup').value=normalizeTribalGroup(r.tribalGroup)||r.tribalGroup||'';
+  document.getElementById('recordStatus').value=r.recordStatus||'';
   document.getElementById('addressBarangay').value=r.addressBarangay||r.address||'';
   document.getElementById('addressProvince').value=r.addressProvince||'OCCIDENTAL MINDORO';
   onProvinceChange();
@@ -1283,6 +1286,8 @@ function buildRecordDetailHtml(r, forPrint) {
   var tagsCivil=r.civilStatus?'<span class="tag tag-blue">'+r.civilStatus+'</span>':'';
   var tribalDisplay=normalizeTribalGroup(r.tribalGroup)||r.tribalGroup;
   var tagsTribal=tribalDisplay?'<span class="tag tag-blue">'+tribalDisplay+'</span>':'';
+  var statusColors={'CANNOT BE LOCATED':'#d29922','DECEASED':'#f85149'};
+  var tagsStatus=r.recordStatus?'<span class="tag" style="background:rgba(248,81,73,0.15);border-color:'+statusColors[r.recordStatus]+';color:'+statusColors[r.recordStatus]+';font-weight:700">&#9679; '+r.recordStatus+'</span>':'';
   var asstHtml=(r.assistance&&r.assistance.length)?r.assistance.map(function(a){return'<span class="tag tag-green">'+a+'</span>';}).join(''):'-';
   var sectorHtml=(r.sector&&r.sector.length)?r.sector.map(function(s){return'<span class="tag tag-blue">'+s+'</span>';}).join(''):'-';
   if(r.sector&&r.sector.indexOf('PWD')!==-1&&r.pwdDisability)sectorHtml+='<div class="pwd-disability-note">DISABILITY: '+r.pwdDisability+'</div>';
@@ -1316,13 +1321,14 @@ function buildRecordDetailHtml(r, forPrint) {
   var createdStr=r.createdAt?new Date(r.createdAt).toLocaleString('en-PH'):'-';
   var metaStyle=forPrint?'class="record-meta"':'style="font-size:0.65rem;color:var(--text3);margin-top:16px;border-top:1px solid var(--border);padding-top:10px"';
 
-  return '<div class="modal-top-row"><div>'+photoHtml+'</div><div class="modal-top-info"><div class="modal-full-name">'+r.lastName+', '+r.firstName+' '+(r.middleName||'')+'</div><div class="modal-alias">'+(r.alias?'ALIAS: '+r.alias:'')+'</div><div style="margin-top:8px">'+tagsSex+tagsCivil+tagsTribal+'</div></div></div>' +
+  return '<div class="modal-top-row"><div>'+photoHtml+'</div><div class="modal-top-info"><div class="modal-full-name">'+r.lastName+', '+r.firstName+' '+(r.middleName||'')+'</div><div class="modal-alias">'+(r.alias?'ALIAS: '+r.alias:'')+'</div><div style="margin-top:8px">'+tagsSex+tagsCivil+tagsTribal+tagsStatus+'</div></div></div>' +
     '<div class="modal-section"><div class="modal-section-title">PART I - PERSONAL DETAILS</div><div class="modal-record-grid">' +
     '<div class="modal-field"><div class="modal-field-label">DATE OF BIRTH</div><div class="modal-field-value">'+formatDate(r.dob)+'</div></div>' +
     '<div class="modal-field"><div class="modal-field-label">AGE</div><div class="modal-field-value">'+(age||'-')+'</div></div>' +
     '<div class="modal-field"><div class="modal-field-label">SEX</div><div class="modal-field-value">'+(r.sex||'-')+'</div></div>' +
     '<div class="modal-field"><div class="modal-field-label">CIVIL STATUS</div><div class="modal-field-value">'+(r.civilStatus||'-')+'</div></div>' +
     '<div class="modal-field"><div class="modal-field-label">TRIBAL GROUP</div><div class="modal-field-value">'+(tribalDisplay||'-')+'</div></div>' +
+    '<div class="modal-field"><div class="modal-field-label">STATUS</div><div class="modal-field-value" style="'+(r.recordStatus?'font-weight:700;color:'+(statusColors[r.recordStatus]||'inherit'):'')+'">'+  (r.recordStatus||'-')+'</div></div>' +
     '<div class="modal-field"><div class="modal-field-label">RELIGION</div><div class="modal-field-value">'+(r.religion||'-')+'</div></div>' +
     '<div class="modal-field"><div class="modal-field-label">CONTACT</div><div class="modal-field-value">'+(r.contactNumber||'-')+'</div></div>' +
     '<div class="modal-field"><div class="modal-field-label">MEDICAL</div><div class="modal-field-value">'+(r.medicalCondition||'-')+(r.medicalCondition==='YES'&&r.medicalConditionSpec?' — '+r.medicalConditionSpec:'')+'</div></div>' +
@@ -1410,7 +1416,7 @@ function importCSVFile(event) {
       var col=function(name){return(cols[idx[name]]||'').trim();};
       var sectorList=col('SECTOR')?col('SECTOR').split(';').map(function(s){return s.trim();}).filter(Boolean):[];
       var asstList=col('ASSISTANCE PROVIDED')?col('ASSISTANCE PROVIDED').split(';').map(function(s){return s.trim();}).filter(Boolean):[];
-      parsed.push({id:col('ID')||genId(),lastName:col('LAST NAME'),firstName:col('FIRST NAME'),middleName:col('MIDDLE NAME'),alias:col('ALIAS'),dob:col('DATE OF BIRTH'),sex:col('SEX'),civilStatus:col('CIVIL STATUS'),tribalGroup:col('TRIBAL GROUP'),religion:col('RELIGION'),contactNumber:col('CONTACT NUMBER'),medicalCondition:col('MEDICAL CONDITION'),medicalConditionSpec:col('MEDICAL CONDITION SPECIFY'),fourPs:col('4Ps'),pwdDisability:col('PWD DISABILITY'),addressBarangay:col('BARANGAY'),address:col('BARANGAY'),addressMunicipality:col('MUNICIPALITY'),addressProvince:col('PROVINCE')||'OCCIDENTAL MINDORO',sector:sectorList,unit:col('UNIT'),position:col('POSITION'),membershipType:col('MEMBERSHIP TYPE'),areaOfOperation:col('AREA OF OPERATION'),yearsInMovement:col('YEARS IN MOVEMENT'),dateSurrendered:col('DATE SURRENDERED'),pendingCase:col('PENDING CASE'),referringUnit:col('REFERRING UNIT'),assistance:asstList,validIds:[],idPhoto:null,japic:null,socialCaseReport:col('SOCIAL CASE REPORT FILE')?{fileName:col('SOCIAL CASE REPORT FILE'),url:null,type:'doc'}:null,createdBy:col('CREATED BY')||'ADMIN',createdAt:col('CREATED AT')||new Date().toISOString(),updatedAt:new Date().toISOString()});
+      parsed.push({id:col('ID')||genId(),lastName:col('LAST NAME'),firstName:col('FIRST NAME'),middleName:col('MIDDLE NAME'),alias:col('ALIAS'),dob:col('DATE OF BIRTH'),sex:col('SEX'),civilStatus:col('CIVIL STATUS'),tribalGroup:col('TRIBAL GROUP'),recordStatus:col('STATUS')||'',religion:col('RELIGION'),contactNumber:col('CONTACT NUMBER'),medicalCondition:col('MEDICAL CONDITION'),medicalConditionSpec:col('MEDICAL CONDITION SPECIFY'),fourPs:col('4Ps'),pwdDisability:col('PWD DISABILITY'),addressBarangay:col('BARANGAY'),address:col('BARANGAY'),addressMunicipality:col('MUNICIPALITY'),addressProvince:col('PROVINCE')||'OCCIDENTAL MINDORO',sector:sectorList,unit:col('UNIT'),position:col('POSITION'),membershipType:col('MEMBERSHIP TYPE'),areaOfOperation:col('AREA OF OPERATION'),yearsInMovement:col('YEARS IN MOVEMENT'),dateSurrendered:col('DATE SURRENDERED'),pendingCase:col('PENDING CASE'),referringUnit:col('REFERRING UNIT'),assistance:asstList,validIds:[],idPhoto:null,japic:null,socialCaseReport:col('SOCIAL CASE REPORT FILE')?{fileName:col('SOCIAL CASE REPORT FILE'),url:null,type:'doc'}:null,createdBy:col('CREATED BY')||'ADMIN',createdAt:col('CREATED AT')||new Date().toISOString(),updatedAt:new Date().toISOString()});
     }
     if(!parsed.length){showToast('NO RECORDS FOUND IN CSV','error');return;}
     showToast('IMPORTING '+parsed.length+' RECORDS...','info');
@@ -1433,8 +1439,8 @@ function importCSVFile(event) {
 function exportCSV() {
   dbGetAll().then(function(records){
     if(!records.length){showToast('NO RECORDS TO EXPORT','info');return;}
-    var headers=['ID','LAST NAME','FIRST NAME','MIDDLE NAME','ALIAS','DATE OF BIRTH','AGE','SEX','CIVIL STATUS','TRIBAL GROUP','RELIGION','CONTACT NUMBER','MEDICAL CONDITION','MEDICAL CONDITION SPECIFY','4Ps','PWD DISABILITY','BARANGAY','MUNICIPALITY','PROVINCE','SECTOR','UNIT','POSITION','MEMBERSHIP TYPE','AREA OF OPERATION','YEARS IN MOVEMENT','DATE SURRENDERED','PENDING CASE','REFERRING UNIT','REMARKS','ASSISTANCE PROVIDED','SOCIAL CASE REPORT FILE','CREATED BY','CREATED AT'];
-    var rows=records.map(function(r){return[r.id,r.lastName,r.firstName,r.middleName,r.alias,r.dob,calcAgeFromDob(r.dob),r.sex,r.civilStatus,normalizeTribalGroup(r.tribalGroup)||r.tribalGroup,r.religion,r.contactNumber,r.medicalCondition,r.medicalConditionSpec,r.fourPs,r.pwdDisability,r.addressBarangay||r.address,r.addressMunicipality||'',r.addressProvince||'OCCIDENTAL MINDORO',(r.sector||[]).join('; '),r.unit,r.position,r.membershipType,r.areaOfOperation,r.yearsInMovement,r.dateSurrendered,r.pendingCase,r.referringUnit,r.remarks||'',(r.assistance||[]).join('; '),r.socialCaseReport?(typeof r.socialCaseReport==='object'?r.socialCaseReport.fileName:r.socialCaseReport):'',r.createdBy,r.createdAt?new Date(r.createdAt).toLocaleString('en-PH'):''].map(function(v){return'"'+String(v||'').replace(/"/g,'""')+'"';});});
+    var headers=['ID','LAST NAME','FIRST NAME','MIDDLE NAME','ALIAS','DATE OF BIRTH','AGE','SEX','CIVIL STATUS','TRIBAL GROUP','STATUS','RELIGION','CONTACT NUMBER','MEDICAL CONDITION','MEDICAL CONDITION SPECIFY','4Ps','PWD DISABILITY','BARANGAY','MUNICIPALITY','PROVINCE','SECTOR','UNIT','POSITION','MEMBERSHIP TYPE','AREA OF OPERATION','YEARS IN MOVEMENT','DATE SURRENDERED','PENDING CASE','REFERRING UNIT','REMARKS','ASSISTANCE PROVIDED','SOCIAL CASE REPORT FILE','CREATED BY','CREATED AT'];
+    var rows=records.map(function(r){return[r.id,r.lastName,r.firstName,r.middleName,r.alias,r.dob,calcAgeFromDob(r.dob),r.sex,r.civilStatus,normalizeTribalGroup(r.tribalGroup)||r.tribalGroup,r.recordStatus||'',r.religion,r.contactNumber,r.medicalCondition,r.medicalConditionSpec,r.fourPs,r.pwdDisability,r.addressBarangay||r.address,r.addressMunicipality||'',r.addressProvince||'OCCIDENTAL MINDORO',(r.sector||[]).join('; '),r.unit,r.position,r.membershipType,r.areaOfOperation,r.yearsInMovement,r.dateSurrendered,r.pendingCase,r.referringUnit,r.remarks||'',(r.assistance||[]).join('; '),r.socialCaseReport?(typeof r.socialCaseReport==='object'?r.socialCaseReport.fileName:r.socialCaseReport):'',r.createdBy,r.createdAt?new Date(r.createdAt).toLocaleString('en-PH'):''].map(function(v){return'"'+String(v||'').replace(/"/g,'""')+'"';});});
     var csv=[headers.join(',')].concat(rows.map(function(r){return r.join(',');})).join('\n');
     var blob=new Blob([csv],{type:'text/csv'}), url=URL.createObjectURL(blob), a=document.createElement('a');
     a.href=url; a.download='FR_DATABASE_'+new Date().toISOString().slice(0,10)+'.csv'; a.click(); URL.revokeObjectURL(url);
