@@ -1693,6 +1693,29 @@ function toggleTheme() {
   applyTheme(saved);
 })();
 
+// -- CIVIL STATUS MIGRATION -----------------------------------
+// Rewrites legacy values: "LIVE-IN" and "COMMON-LAW PARTNER" → "COMMON-LAW"
+function migrateCivilStatus() {
+  var OLD_VALUES = ['LIVE-IN', 'COMMON-LAW PARTNER'];
+  var NEW_VALUE  = 'COMMON-LAW';
+  dbGetAll().then(function(records) {
+    var toFix = records.filter(function(r) {
+      return OLD_VALUES.indexOf(r.civilStatus) !== -1;
+    });
+    if (!toFix.length) return; // nothing to do
+    var batch = db.batch();
+    toFix.forEach(function(r) {
+      var ref = db.collection('surrenderees').doc(r.id);
+      batch.update(ref, { civilStatus: NEW_VALUE, updatedAt: new Date().toISOString() });
+    });
+    batch.commit().then(function() {
+      console.log('[FRDB] Migrated ' + toFix.length + ' record(s): civil status → COMMON-LAW');
+    }).catch(function(err) {
+      console.warn('[FRDB] Civil status migration failed:', err.message);
+    });
+  });
+}
+
 // -- BOOT (Firebase Auth state) -------------------------------
 auth.onAuthStateChanged(function(user) {
   if (user) {
@@ -1727,6 +1750,8 @@ auth.onAuthStateChanged(function(user) {
           console.warn('[FRDB] Could not load user profile:', err.code);
         });
       onLoginSuccess();
+      // One-time migration: normalize old civil status values
+      migrateCivilStatus();
     }
   }
 });
