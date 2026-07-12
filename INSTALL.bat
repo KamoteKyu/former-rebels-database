@@ -39,6 +39,36 @@ echo   INSTALLING...
 echo  =====================================================
 echo.
 
+:: ── CHECK NODE.JS ─────────────────────────────────────────────────────────────
+echo  [0/4] Checking Node.js...
+where node >nul 2>&1
+if errorlevel 1 (
+    echo.
+    echo  ERROR: Node.js is not installed.
+    echo  Please download and install Node.js first:
+    echo  https://nodejs.org
+    echo.
+    pause
+    goto :END
+)
+echo         Node.js found.
+
+:: ── INSTALL ELECTRON ──────────────────────────────────────────────────────────
+echo  [1/4] Installing Electron (native app runtime)...
+pushd "%~dp0"
+if not exist "%~dp0node_modules\.bin\electron.cmd" (
+    call npm install --save-dev electron@31 --quiet
+    if errorlevel 1 (
+        echo  WARNING: Electron install failed — native app mode unavailable.
+        echo           You can still use LAUNCH.bat to open in browser.
+    ) else (
+        echo         Electron installed successfully.
+    )
+) else (
+    echo         Electron already installed, skipping.
+)
+popd
+
 :: ── LOCATE CHROME ─────────────────────────────────────────────────────────────
 set "CHROME="
 if exist "%ProgramFiles%\Google\Chrome\Application\chrome.exe"       set "CHROME=%ProgramFiles%\Google\Chrome\Application\chrome.exe"
@@ -50,25 +80,14 @@ set "EDGE="
 if exist "%ProgramFiles(x86)%\Microsoft\Edge\Application\msedge.exe" set "EDGE=%ProgramFiles(x86)%\Microsoft\Edge\Application\msedge.exe"
 if exist "%ProgramFiles%\Microsoft\Edge\Application\msedge.exe"       set "EDGE=%ProgramFiles%\Microsoft\Edge\Application\msedge.exe"
 
-echo  [1/3] Setting up launcher...
+echo  [2/4] Setting up launcher...
 if not exist "%LAUNCHER_DIR%" mkdir "%LAUNCHER_DIR%"
 
-:: Write launch.bat — Chrome preferred, Edge fallback, default browser last resort
+:: Write launch.bat — points to LAUNCH_APP.bat (Electron native window)
 > "%LAUNCHER%" echo @echo off
->> "%LAUNCHER%" echo setlocal enabledelayedexpansion
+>> "%LAUNCHER%" echo call "%~dp0LAUNCH_APP.bat"
 
-if not "!CHROME!"=="" (
-    >> "%LAUNCHER%" echo start "" "!CHROME!" --app="%APP_URL%" --window-size=1280,800 --new-window
-    >> "%LAUNCHER%" echo exit /b
-) else if not "!EDGE!"=="" (
-    >> "%LAUNCHER%" echo start "" "!EDGE!" --app="%APP_URL%" --window-size=1280,800 --new-window
-    >> "%LAUNCHER%" echo exit /b
-) else (
-    >> "%LAUNCHER%" echo start "" "%APP_URL%"
-    >> "%LAUNCHER%" echo exit /b
-)
-
-echo  [2/3] Creating shortcuts...
+echo  [3/4] Creating shortcuts...
 
 :: ── DESKTOP SHORTCUT ──────────────────────────────────────────────────────────
 powershell -NoProfile -Command "$ws=New-Object -ComObject WScript.Shell; $sc=$ws.CreateShortcut('%SHORTCUT_DESKTOP%'); $sc.TargetPath='%LAUNCHER%'; $sc.WorkingDirectory='%LAUNCHER_DIR%'; $sc.Description='Former Rebels Database Management System'; $sc.IconLocation='shell32.dll,14'; $sc.Save();"
@@ -76,22 +95,13 @@ powershell -NoProfile -Command "$ws=New-Object -ComObject WScript.Shell; $sc=$ws
 :: ── START MENU SHORTCUT ───────────────────────────────────────────────────────
 powershell -NoProfile -Command "$ws=New-Object -ComObject WScript.Shell; $sc=$ws.CreateShortcut('%SHORTCUT_START%'); $sc.TargetPath='%LAUNCHER%'; $sc.WorkingDirectory='%LAUNCHER_DIR%'; $sc.Description='Former Rebels Database Management System'; $sc.IconLocation='shell32.dll,14'; $sc.Save();"
 
-echo  [3/3] Done!
+echo  [4/4] Done!
 echo.
 echo  =====================================================
 echo   INSTALLATION SUCCESSFUL
 echo.
-echo   App URL : %APP_URL%
-if not "!CHROME!"=="" (
-    echo   Browser : Google Chrome
-) else if not "!EDGE!"=="" (
-    echo   Browser : Microsoft Edge ^(Chrome not found^)
-) else (
-    echo   Browser : Default browser
-    echo.
-    echo   TIP: Install Google Chrome for best experience.
-    echo   https://www.google.com/chrome
-)
+echo   Launch method : Native App (Electron window)
+echo   No browser required — runs as a standalone app.
 echo.
 echo   Shortcuts created:
 echo   - Desktop    : %APP_NAME%

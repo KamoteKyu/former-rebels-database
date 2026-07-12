@@ -8,6 +8,19 @@
 </head>
 <body>
 
+<!-- CUSTOM TITLE BAR (Electron only — hidden in browser) -->
+<div id="titleBar" class="title-bar">
+  <div class="title-bar-drag">
+    <img src="Province_of_Occidental_Mindoro_seal.svg.png" class="title-bar-icon" alt=""/>
+    <span class="title-bar-text">FORMER REBELS DATABASE MANAGEMENT SYSTEM</span>
+  </div>
+  <div class="title-bar-controls">
+    <button class="tb-btn tb-min"  onclick="tbMinimize()"  title="Minimize">&#8722;</button>
+    <button class="tb-btn tb-max"  id="tbMaxBtn" onclick="tbMaximize()" title="Maximize">&#9744;</button>
+    <button class="tb-btn tb-close" onclick="tbClose()"   title="Close">&#10005;</button>
+  </div>
+</div>
+
 <!-- LOGIN SCREEN -->
 <div id="loginScreen" class="login-screen">
   <div class="login-card">

@@ -1612,6 +1612,39 @@ function resetIdleTimer() {
   document.addEventListener(evt, resetIdleTimer, { passive: true });
 });
 
+// -- ELECTRON TITLE BAR --------------------------------------
+(function() {
+  // Only activate when running inside Electron (electronAPI is injected by preload.js)
+  if (!window.electronAPI) return;
+
+  // Show the title bar and push body content down
+  var bar = document.getElementById('titleBar');
+  if (bar) bar.classList.add('visible');
+  document.body.classList.add('electron-mode');
+
+  // Sync the maximize/restore icon on load
+  window.electronAPI.isMaximized().then(function(isMax) {
+    updateMaxBtn(isMax);
+  });
+
+  // Keep in sync when the window is maximized/restored externally (e.g. Win+↑)
+  window.electronAPI.onMaximized(function(isMax) {
+    updateMaxBtn(isMax);
+  });
+
+  function updateMaxBtn(isMax) {
+    var btn = document.getElementById('tbMaxBtn');
+    if (!btn) return;
+    // ❐ = restore, ☐ = maximize
+    btn.innerHTML   = isMax ? '&#10697;' : '&#9744;';
+    btn.title       = isMax ? 'Restore'  : 'Maximize';
+  }
+})();
+
+function tbMinimize() { if (window.electronAPI) window.electronAPI.minimize(); }
+function tbMaximize() { if (window.electronAPI) window.electronAPI.maximize(); }
+function tbClose()    { if (window.electronAPI) window.electronAPI.close();    }
+
 // -- THEME TOGGLE --------------------------------------------
 function applyTheme(theme) {
   document.documentElement.setAttribute('data-theme', theme);

@@ -1,0 +1,15 @@
+{
+  "name": "frdb",
+  "version": "1.0.0",
+  "description": "Former Rebels Database Management System",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "devDependencies": {
+    "electron": "^31.7.7"
+  },
+  "allowScripts": {
+    "electron@31.7.7": true
+  }
+}

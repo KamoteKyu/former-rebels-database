@@ -1,3 +1,74 @@
+/* ===== ELECTRON CUSTOM TITLE BAR ===== */
+.title-bar {
+  display: none; /* hidden in browser — shown only in Electron via JS */
+  align-items: center;
+  justify-content: space-between;
+  height: 36px;
+  background: #010409;
+  border-bottom: 1px solid #21262d;
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 9999;
+  user-select: none;
+  -webkit-app-region: drag; /* makes the bar draggable */
+}
+.title-bar.visible { display: flex; }
+
+.title-bar-drag {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+.title-bar-icon {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+  flex-shrink: 0;
+  filter: drop-shadow(0 0 4px rgba(31,111,235,0.5));
+}
+.title-bar-text {
+  font-size: 0.68rem;
+  letter-spacing: 1.5px;
+  color: #8b949e;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Window control buttons must NOT be draggable */
+.title-bar-controls {
+  display: flex;
+  align-items: stretch;
+  height: 100%;
+  -webkit-app-region: no-drag;
+  flex-shrink: 0;
+}
+.tb-btn {
+  width: 46px;
+  height: 100%;
+  background: transparent;
+  border: none;
+  color: #8b949e;
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s;
+  -webkit-app-region: no-drag;
+}
+.tb-btn:hover       { background: rgba(255,255,255,0.08); color: #e6edf3; }
+.tb-close:hover     { background: #c42b1c; color: #fff; }
+
+/* When Electron title bar is visible, push the whole app down */
+body.electron-mode {
+  padding-top: 36px;
+}
+
 /* ===== RESET & BASE ===== */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 :root {
@@ -533,6 +604,10 @@ textarea { resize: vertical; min-height: 120px; }
 
 /* Light-theme specifics that can't be covered by variables alone */
 [data-theme="light"] body { background: var(--bg); }
+[data-theme="light"] .title-bar { background: #e8eaed; border-bottom-color: #d0d7de; }
+[data-theme="light"] .title-bar-text { color: #57606a; }
+[data-theme="light"] .tb-btn { color: #57606a; }
+[data-theme="light"] .tb-btn:hover { background: rgba(0,0,0,0.07); color: #1f2328; }
 [data-theme="light"] .login-screen {
   background: radial-gradient(ellipse at 60% 40%, #dbeafe 0%, #f0f2f5 70%);
 }
