@@ -572,6 +572,10 @@ var REPORT_PRINT_STYLES = PRINT_RECORD_STYLES +
   '.report-stat{border:1px solid #ccc;padding:8px;text-align:center}' +
   '.report-stat strong{display:block;font-size:16px}' +
   '.report-stat span{font-size:9px;color:#555}' +
+  '.report-stat--warning{border-color:#9a6700;background:#fffbeb}' +
+  '.report-stat--warning strong{color:#9a6700}' +
+  '.report-stat--danger{border-color:#cf222e;background:#fff0f0}' +
+  '.report-stat--danger strong{color:#cf222e}' +
   '.report-table{width:100%;border-collapse:collapse;font-size:11px;margin-top:8px}' +
   '.report-table th,.report-table td{border:1px solid #ccc;padding:6px 8px;text-align:left}' +
   '.report-table th{background:#f0f0f0;font-size:9px;letter-spacing:1px}' +
@@ -630,12 +634,14 @@ function generateReport() {
 // -- DASHBOARD REPORT HTML ------------------------------------
 function buildDashboardReportHtml(records) {
   var total = records.length;
-  var male = 0, female = 0, regularNpa = 0, milisyang = 0;
+  var male = 0, female = 0, regularNpa = 0, milisyang = 0, cannotLocate = 0, deceased = 0;
   records.forEach(function(r) {
     if (r.sex === 'MALE') male++;
     if (r.sex === 'FEMALE') female++;
     if (r.membershipType === 'REGULAR NPA') regularNpa++;
     if (r.membershipType === 'MILISYANG BAYAN') milisyang++;
+    if (r.recordStatus === 'CANNOT BE LOCATED') cannotLocate++;
+    if (r.recordStatus === 'DECEASED') deceased++;
   });
 
   // ASSISTANCE
@@ -698,6 +704,14 @@ function buildDashboardReportHtml(records) {
   var unitRows=UNITS.map(function(u){var c=unitCounts[u];return[u,c,total>0?((c/total)*100).toFixed(1)+'%':'0.0%'];});
   unitRows.push(['NOT SPECIFIED',noUnit,total>0?((noUnit/total)*100).toFixed(1)+'%':'0.0%']);
 
+  // STATUS
+  var activeCount = total - cannotLocate - deceased;
+  var statusRows = [
+    ['ACTIVE / NO STATUS', activeCount,    total>0?((activeCount/total)*100).toFixed(1)+'%':'0.0%'],
+    ['CANNOT BE LOCATED',  cannotLocate,   total>0?((cannotLocate/total)*100).toFixed(1)+'%':'0.0%'],
+    ['DECEASED',           deceased,       total>0?((deceased/total)*100).toFixed(1)+'%':'0.0%']
+  ];
+
   // SURRENDER BY YEAR
   var START_YEAR=2016, curYear=new Date().getFullYear();
   var yrRows=[], noDate=0;
@@ -712,7 +726,10 @@ function buildDashboardReportHtml(records) {
       '<div class="report-stat"><strong>'+female+'</strong><span>FEMALE</span></div>' +
       '<div class="report-stat"><strong>'+regularNpa+'</strong><span>REGULAR NPA</span></div>' +
       '<div class="report-stat"><strong>'+milisyang+'</strong><span>MILISYANG BAYAN</span></div>' +
+      '<div class="report-stat report-stat--warning"><strong>'+cannotLocate+'</strong><span>CANNOT BE LOCATED</span></div>' +
+      '<div class="report-stat report-stat--danger"><strong>'+deceased+'</strong><span>DECEASED</span></div>' +
     '</div></div>' +
+    '<div class="report-section"><h2>STATUS — CANNOT BE LOCATED / DECEASED</h2>' + buildReportTable(['STATUS','COUNT','% OF TOTAL'], statusRows) + '</div>' +
     '<div class="report-section"><h2>ASSISTANCE PROVIDED</h2>' + buildReportTable(['TYPE OF ASSISTANCE','COUNT','% OF TOTAL'], asstRows) + '</div>' +
     '<div class="report-section"><h2>SURRENDER BY YEAR ('+START_YEAR+'–'+curYear+')</h2>' + buildReportTable(['YEAR','COUNT','% OF TOTAL'], yrRows) + '</div>' +
     '<div class="report-section"><h2>MEMBERSHIP TYPE</h2>' + buildReportTable(['TYPE','COUNT','% OF TOTAL'], memRows) + '</div>' +
