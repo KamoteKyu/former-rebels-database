@@ -1612,6 +1612,32 @@ function resetIdleTimer() {
   document.addEventListener(evt, resetIdleTimer, { passive: true });
 });
 
+// -- THEME TOGGLE --------------------------------------------
+function applyTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  var icon  = document.getElementById('themeToggleIcon');
+  var label = document.getElementById('themeToggleLabel');
+  if (theme === 'light') {
+    if (icon)  icon.textContent  = '🌙';
+    if (label) label.textContent = 'DARK';
+  } else {
+    if (icon)  icon.textContent  = '☀️';
+    if (label) label.textContent = 'LIGHT';
+  }
+  localStorage.setItem('frdb-theme', theme);
+}
+
+function toggleTheme() {
+  var current = document.documentElement.getAttribute('data-theme') || 'dark';
+  applyTheme(current === 'dark' ? 'light' : 'dark');
+}
+
+// Apply saved theme immediately on load (before login)
+(function() {
+  var saved = localStorage.getItem('frdb-theme') || 'dark';
+  applyTheme(saved);
+})();
+
 // -- BOOT (Firebase Auth state) -------------------------------
 auth.onAuthStateChanged(function(user) {
   if (user) {
