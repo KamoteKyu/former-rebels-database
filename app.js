@@ -576,6 +576,8 @@ var REPORT_PRINT_STYLES = PRINT_RECORD_STYLES +
   '.report-stat--warning strong{color:#9a6700}' +
   '.report-stat--danger{border-color:#cf222e;background:#fff0f0}' +
   '.report-stat--danger strong{color:#cf222e}' +
+  '.report-stat--purple{border-color:#7a43b6;background:#f8f0ff}' +
+  '.report-stat--purple strong{color:#7a43b6}' +
   '.report-table{width:100%;border-collapse:collapse;font-size:11px;margin-top:8px}' +
   '.report-table th,.report-table td{border:1px solid #ccc;padding:6px 8px;text-align:left}' +
   '.report-table th{background:#f0f0f0;font-size:9px;letter-spacing:1px}' +
@@ -634,7 +636,7 @@ function generateReport() {
 // -- DASHBOARD REPORT HTML ------------------------------------
 function buildDashboardReportHtml(records) {
   var total = records.length;
-  var male = 0, female = 0, regularNpa = 0, milisyang = 0, cannotLocate = 0, deceased = 0;
+  var male = 0, female = 0, regularNpa = 0, milisyang = 0, cannotLocate = 0, deceased = 0, incarcerated = 0;
   records.forEach(function(r) {
     if (r.sex === 'MALE') male++;
     if (r.sex === 'FEMALE') female++;
@@ -642,6 +644,7 @@ function buildDashboardReportHtml(records) {
     if (r.membershipType === 'MILISYANG BAYAN') milisyang++;
     if (r.recordStatus === 'CANNOT BE LOCATED') cannotLocate++;
     if (r.recordStatus === 'DECEASED') deceased++;
+    if (r.recordStatus === 'INCARCERATED') incarcerated++;
   });
 
   // ASSISTANCE
@@ -705,11 +708,12 @@ function buildDashboardReportHtml(records) {
   unitRows.push(['NOT SPECIFIED',noUnit,total>0?((noUnit/total)*100).toFixed(1)+'%':'0.0%']);
 
   // STATUS
-  var activeCount = total - cannotLocate - deceased;
+  var activeCount = total - cannotLocate - deceased - incarcerated;
   var statusRows = [
     ['ACTIVE / NO STATUS', activeCount,    total>0?((activeCount/total)*100).toFixed(1)+'%':'0.0%'],
     ['CANNOT BE LOCATED',  cannotLocate,   total>0?((cannotLocate/total)*100).toFixed(1)+'%':'0.0%'],
-    ['DECEASED',           deceased,       total>0?((deceased/total)*100).toFixed(1)+'%':'0.0%']
+    ['DECEASED',           deceased,       total>0?((deceased/total)*100).toFixed(1)+'%':'0.0%'],
+    ['INCARCERATED',       incarcerated,   total>0?((incarcerated/total)*100).toFixed(1)+'%':'0.0%']
   ];
 
   // SURRENDER BY YEAR
@@ -728,6 +732,7 @@ function buildDashboardReportHtml(records) {
       '<div class="report-stat"><strong>'+milisyang+'</strong><span>MILISYANG BAYAN</span></div>' +
       '<div class="report-stat report-stat--warning"><strong>'+cannotLocate+'</strong><span>CANNOT BE LOCATED</span></div>' +
       '<div class="report-stat report-stat--danger"><strong>'+deceased+'</strong><span>DECEASED</span></div>' +
+      '<div class="report-stat report-stat--purple"><strong>'+incarcerated+'</strong><span>INCARCERATED</span></div>' +
     '</div></div>' +
     '<div class="report-section"><h2>STATUS — CANNOT BE LOCATED / DECEASED</h2>' + buildReportTable(['STATUS','COUNT','% OF TOTAL'], statusRows) + '</div>' +
     '<div class="report-section"><h2>ASSISTANCE PROVIDED</h2>' + buildReportTable(['TYPE OF ASSISTANCE','COUNT','% OF TOTAL'], asstRows) + '</div>' +
@@ -1303,7 +1308,7 @@ function buildRecordDetailHtml(r, forPrint) {
   var tagsCivil=r.civilStatus?'<span class="tag tag-blue">'+r.civilStatus+'</span>':'';
   var tribalDisplay=normalizeTribalGroup(r.tribalGroup)||r.tribalGroup;
   var tagsTribal=tribalDisplay?'<span class="tag tag-blue">'+tribalDisplay+'</span>':'';
-  var statusColors={'CANNOT BE LOCATED':'#d29922','DECEASED':'#f85149'};
+  var statusColors={'CANNOT BE LOCATED':'#d29922','DECEASED':'#f85149','INCARCERATED':'#a371f7'};
   var tagsStatus=r.recordStatus?'<span class="tag" style="background:rgba(248,81,73,0.15);border-color:'+statusColors[r.recordStatus]+';color:'+statusColors[r.recordStatus]+';font-weight:700">&#9679; '+r.recordStatus+'</span>':'';
   var asstHtml=(r.assistance&&r.assistance.length)?r.assistance.map(function(a){return'<span class="tag tag-green">'+a+'</span>';}).join(''):'-';
   var sectorHtml=(r.sector&&r.sector.length)?r.sector.map(function(s){return'<span class="tag tag-blue">'+s+'</span>';}).join(''):'-';
