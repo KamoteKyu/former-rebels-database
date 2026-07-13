@@ -460,6 +460,14 @@ function showPage(page) {
 function toggleSidebar() { document.getElementById('sidebar').classList.toggle('open'); }
 
 // -- NO E-CLIP WIDGET -----------------------------------------
+function toggleNoEclipList() {
+  var list = document.getElementById('noEclipList');
+  var badge = document.getElementById('noEclipBadge');
+  var open = list.style.display !== 'none';
+  list.style.display = open ? 'none' : 'flex';
+  badge.style.borderRadius = open ? '20px' : '20px 20px 0 0';
+}
+
 function renderNoEclipWidget(records) {
   var noEclip = records.filter(function(r) {
     var asst = r.assistance || [];
@@ -473,6 +481,7 @@ function renderNoEclipWidget(records) {
   document.getElementById('noEclipBadge').textContent = noEclip.length + ' PROFILE' + (noEclip.length !== 1 ? 'S' : '');
 
   var listEl = document.getElementById('noEclipList');
+  var wasOpen = listEl.style.display !== 'none'; // preserve open/closed state
   if (!noEclip.length) {
     listEl.innerHTML = '<div class="no-eclip-empty">&#10003; ALL PROFILES HAVE E-CLIP OR NOT QUALIFIED STATUS</div>';
     return;
