@@ -459,6 +459,36 @@ function showPage(page) {
 
 function toggleSidebar() { document.getElementById('sidebar').classList.toggle('open'); }
 
+// -- NO E-CLIP WIDGET -----------------------------------------
+function renderNoEclipWidget(records) {
+  var noEclip = records.filter(function(r) {
+    var asst = r.assistance || [];
+    return asst.indexOf('E-CLIP') === -1 && asst.indexOf('NOT QUALIFIED FOR E-CLIP') === -1;
+  });
+  // Sort alphabetically by last name
+  noEclip = noEclip.slice().sort(function(a, b) {
+    return (a.lastName || '').localeCompare(b.lastName || '');
+  });
+
+  document.getElementById('noEclipBadge').textContent = noEclip.length + ' PROFILE' + (noEclip.length !== 1 ? 'S' : '');
+
+  var listEl = document.getElementById('noEclipList');
+  if (!noEclip.length) {
+    listEl.innerHTML = '<div class="no-eclip-empty">&#10003; ALL PROFILES HAVE E-CLIP OR NOT QUALIFIED STATUS</div>';
+    return;
+  }
+  listEl.innerHTML = noEclip.map(function(r) {
+    var photo = r.idPhoto ? r.idPhoto : 'BHB.png';
+    var name  = r.lastName + ', ' + r.firstName + (r.middleName ? ' ' + r.middleName : '');
+    var unit  = r.unit || r.referringUnit || 'NO UNIT';
+    return '<div class="no-eclip-item" onclick="viewRecord(\'' + r.id + '\')" title="CLICK TO VIEW PROFILE">' +
+      '<img src="' + photo + '" alt=""/>' +
+      '<div><div class="no-eclip-item-name">' + name + '</div>' +
+      '<div class="no-eclip-item-unit">' + unit + '</div></div>' +
+      '</div>';
+  }).join('');
+}
+
 // -- DASHBOARD ------------------------------------------------
 function renderDashboard(records) {
   var banner = document.getElementById('recoveryBanner');
@@ -468,6 +498,7 @@ function renderDashboard(records) {
   document.getElementById('statFemale').textContent     = records.filter(function(r) { return r.sex === 'FEMALE'; }).length;
   document.getElementById('statRegularNPA').textContent = records.filter(function(r) { return r.membershipType === 'REGULAR NPA'; }).length;
   document.getElementById('statMilisyang').textContent  = records.filter(function(r) { return r.membershipType === 'MILISYANG BAYAN'; }).length;
+  renderNoEclipWidget(records);
   renderAssistanceReport(records);
   renderMembershipReport(records);
   renderTribalReport(records);
