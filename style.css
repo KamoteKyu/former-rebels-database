@@ -222,6 +222,14 @@ a { text-decoration: none; color: inherit; }
   color: var(--yellow); border-radius: 20px;
   padding: 2px 12px; font-size: 0.72rem; font-weight: 700; white-space: nowrap;
 }
+.no-eclip-badge--blue {
+  background: rgba(56,139,253,0.15); border-color: var(--accent);
+  color: var(--accent);
+}
+.no-eclip-header--second {
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+}
 .no-eclip-list {
   display: flex; flex-wrap: wrap; gap: 8px;
   max-height: 220px; overflow-y: auto;

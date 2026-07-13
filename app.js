@@ -460,42 +460,47 @@ function showPage(page) {
 function toggleSidebar() { document.getElementById('sidebar').classList.toggle('open'); }
 
 // -- NO E-CLIP WIDGET -----------------------------------------
-function toggleNoEclipList() {
-  var list = document.getElementById('noEclipList');
-  var badge = document.getElementById('noEclipBadge');
-  var open = list.style.display !== 'none';
-  list.style.display = open ? 'none' : 'flex';
+function toggleNoEclipList(listId, badgeId) {
+  var list  = document.getElementById(listId);
+  var badge = document.getElementById(badgeId);
+  var open  = list.style.display !== 'none';
+  list.style.display  = open ? 'none' : 'flex';
   badge.style.borderRadius = open ? '20px' : '20px 20px 0 0';
 }
 
 function renderNoEclipWidget(records) {
+  // Group 1 — no e-clip at all (neither E-CLIP nor NOT QUALIFIED)
   var noEclip = records.filter(function(r) {
     var asst = r.assistance || [];
     return asst.indexOf('E-CLIP') === -1 && asst.indexOf('NOT QUALIFIED FOR E-CLIP') === -1;
-  });
-  // Sort alphabetically by last name
-  noEclip = noEclip.slice().sort(function(a, b) {
-    return (a.lastName || '').localeCompare(b.lastName || '');
-  });
+  }).slice().sort(function(a, b) { return (a.lastName || '').localeCompare(b.lastName || ''); });
 
+  // Group 2 — explicitly marked NOT QUALIFIED FOR E-CLIP
+  var notQual = records.filter(function(r) {
+    var asst = r.assistance || [];
+    return asst.indexOf('NOT QUALIFIED FOR E-CLIP') !== -1;
+  }).slice().sort(function(a, b) { return (a.lastName || '').localeCompare(b.lastName || ''); });
+
+  // Badge counts
   document.getElementById('noEclipBadge').textContent = noEclip.length + ' PROFILE' + (noEclip.length !== 1 ? 'S' : '');
+  document.getElementById('notQualBadge').textContent  = notQual.length + ' PROFILE' + (notQual.length !== 1 ? 'S' : '');
 
-  var listEl = document.getElementById('noEclipList');
-  var wasOpen = listEl.style.display !== 'none'; // preserve open/closed state
-  if (!noEclip.length) {
-    listEl.innerHTML = '<div class="no-eclip-empty">&#10003; ALL PROFILES HAVE E-CLIP OR NOT QUALIFIED STATUS</div>';
-    return;
+  function buildItems(list, emptyMsg) {
+    if (!list.length) return '<div class="no-eclip-empty">' + emptyMsg + '</div>';
+    return list.map(function(r) {
+      var photo = r.idPhoto ? r.idPhoto : 'BHB.png';
+      var name  = r.lastName + ', ' + r.firstName + (r.middleName ? ' ' + r.middleName : '');
+      var unit  = r.unit || r.referringUnit || 'NO UNIT';
+      return '<div class="no-eclip-item" onclick="viewRecord(\'' + r.id + '\')" title="CLICK TO VIEW PROFILE">' +
+        '<img src="' + photo + '" alt=""/>' +
+        '<div><div class="no-eclip-item-name">' + name + '</div>' +
+        '<div class="no-eclip-item-unit">' + unit + '</div></div>' +
+        '</div>';
+    }).join('');
   }
-  listEl.innerHTML = noEclip.map(function(r) {
-    var photo = r.idPhoto ? r.idPhoto : 'BHB.png';
-    var name  = r.lastName + ', ' + r.firstName + (r.middleName ? ' ' + r.middleName : '');
-    var unit  = r.unit || r.referringUnit || 'NO UNIT';
-    return '<div class="no-eclip-item" onclick="viewRecord(\'' + r.id + '\')" title="CLICK TO VIEW PROFILE">' +
-      '<img src="' + photo + '" alt=""/>' +
-      '<div><div class="no-eclip-item-name">' + name + '</div>' +
-      '<div class="no-eclip-item-unit">' + unit + '</div></div>' +
-      '</div>';
-  }).join('');
+
+  document.getElementById('noEclipList').innerHTML = buildItems(noEclip, '&#10003; ALL PROFILES HAVE E-CLIP OR NOT QUALIFIED STATUS');
+  document.getElementById('notQualList').innerHTML  = buildItems(notQual, 'NO PROFILES MARKED AS NOT QUALIFIED FOR E-CLIP');
 }
 
 // -- DASHBOARD ------------------------------------------------

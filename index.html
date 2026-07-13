@@ -149,11 +149,20 @@
 
       <!-- NO E-CLIP PROFILES WIDGET -->
       <div class="no-eclip-widget">
-        <div class="no-eclip-header" onclick="toggleNoEclipList()" style="cursor:pointer">
-          <span class="no-eclip-title">⚠ PROFILES WITH NO E-CLIP / NOT QUALIFIED FOR E-CLIP</span>
+        <!-- Row 1: NO E-CLIP -->
+        <div class="no-eclip-header" onclick="toggleNoEclipList('noEclipList','noEclipBadge')" style="cursor:pointer">
+          <span class="no-eclip-title">⚠ PROFILES WITH NO E-CLIP</span>
           <span id="noEclipBadge" class="no-eclip-badge">0</span>
         </div>
         <div id="noEclipList" class="no-eclip-list" style="display:none">
+          <div class="no-eclip-empty">LOADING...</div>
+        </div>
+        <!-- Row 2: NOT QUALIFIED FOR E-CLIP -->
+        <div class="no-eclip-header no-eclip-header--second" onclick="toggleNoEclipList('notQualList','notQualBadge')" style="cursor:pointer; margin-top:8px;">
+          <span class="no-eclip-title">📋 PROFILES — NOT QUALIFIED FOR E-CLIP</span>
+          <span id="notQualBadge" class="no-eclip-badge no-eclip-badge--blue">0</span>
+        </div>
+        <div id="notQualList" class="no-eclip-list" style="display:none">
           <div class="no-eclip-empty">LOADING...</div>
         </div>
       </div>
