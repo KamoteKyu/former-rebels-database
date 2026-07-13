@@ -651,7 +651,13 @@ function buildDashboardReportHtml(records) {
   var ASST_TYPES = ['E-CLIP','NOT QUALIFIED FOR E-CLIP','FEA REMUNERATION','LIVELIHOOD','MEDICAL','EDUCATIONAL','ISSUANCE OF CREDENTIALS','PHILHEALTH','ISSUANCE OF SAFE CONDUCT PASS','APPLIED FOR AMNESTY','OTHERS'];
   var asstCounts = {}; ASST_TYPES.forEach(function(t){asstCounts[t]=0;});
   records.forEach(function(r){(r.assistance||[]).forEach(function(a){var k=a.indexOf('OTHERS')===0?'OTHERS':a;if(asstCounts[k]!==undefined)asstCounts[k]++;});});
+  // NO E-CLIP = records that have neither E-CLIP nor NOT QUALIFIED FOR E-CLIP
+  var noEclipCount = records.filter(function(r){
+    var asst = r.assistance||[];
+    return asst.indexOf('E-CLIP')===-1 && asst.indexOf('NOT QUALIFIED FOR E-CLIP')===-1;
+  }).length;
   var asstRows = ASST_TYPES.map(function(t){var c=asstCounts[t];return[t,c,total>0?((c/total)*100).toFixed(1)+'%':'0.0%'];});
+  asstRows.push(['NO E-CLIP', noEclipCount, total>0?((noEclipCount/total)*100).toFixed(1)+'%':'0.0%']);
   asstRows.push(['TOTAL ASSISTANCE RENDERED', ASST_TYPES.filter(function(t){return t!=='NOT QUALIFIED FOR E-CLIP';}).reduce(function(s,t){return s+asstCounts[t];},0), '-']);
 
   // MEMBERSHIP
@@ -894,10 +900,18 @@ function renderRecords(records, filter) {
   if (filter) {
     var q = filter.toLowerCase();
     list = records.filter(function(r) {
+      // derive searchable e-clip status string
+      var asst = r.assistance || [];
+      var eclipStatus = asst.indexOf('E-CLIP') !== -1
+        ? 'e-clip'
+        : asst.indexOf('NOT QUALIFIED FOR E-CLIP') !== -1
+          ? 'not qualified for e-clip not qualified'
+          : 'no e-clip';
       return (r.lastName+' '+r.firstName+' '+(r.middleName||'')).toLowerCase().indexOf(q)!==-1 ||
         (r.alias||'').toLowerCase().indexOf(q)!==-1 ||
         (r.unit||'').toLowerCase().indexOf(q)!==-1 ||
-        (r.referringUnit||'').toLowerCase().indexOf(q)!==-1;
+        (r.referringUnit||'').toLowerCase().indexOf(q)!==-1 ||
+        eclipStatus.indexOf(q) !== -1;
     });
   }
   // Sort alphabetically by Last Name then First Name
