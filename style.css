@@ -68,6 +68,13 @@
 body.electron-mode {
   padding-top: 36px;
 }
+body.electron-mode .sidebar {
+  top: 36px;
+  height: calc(100vh - 36px);
+}
+body.electron-mode .content-area {
+  padding-top: 36px;
+}
 
 /* ===== RESET & BASE ===== */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
