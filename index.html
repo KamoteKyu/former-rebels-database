@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>FORMER REBELS DATABASE MANAGEMENT SYSTEM</title>
-  <link rel="stylesheet" href="style.css"/>
+  <link rel="stylesheet" href="style.css?v=2"/>
 </head>
 <body>
 
@@ -163,6 +163,22 @@
           <span id="notQualBadge" class="no-eclip-badge no-eclip-badge--blue">0</span>
         </div>
         <div id="notQualList" class="no-eclip-list" style="display:none">
+          <div class="no-eclip-empty">LOADING...</div>
+        </div>
+        <!-- Row 3: NO JAPIC -->
+        <div class="no-eclip-header no-eclip-header--second" onclick="toggleNoEclipList('noJapicList','noJapicBadge')" style="cursor:pointer; margin-top:8px;">
+          <span class="no-eclip-title">📄 PROFILES WITH NO JAPIC</span>
+          <span id="noJapicBadge" class="no-eclip-badge no-eclip-badge--orange">0</span>
+        </div>
+        <div id="noJapicList" class="no-eclip-list" style="display:none">
+          <div class="no-eclip-empty">LOADING...</div>
+        </div>
+        <!-- Row 4: INCOMPLETE DATA -->
+        <div class="no-eclip-header no-eclip-header--second" onclick="toggleNoEclipList('incompleteList','incompleteBadge')" style="cursor:pointer; margin-top:8px;">
+          <span class="no-eclip-title">🔴 PROFILES WITH INCOMPLETE DATA</span>
+          <span id="incompleteBadge" class="no-eclip-badge no-eclip-badge--red">0</span>
+        </div>
+        <div id="incompleteList" class="no-eclip-list" style="display:none">
           <div class="no-eclip-empty">LOADING...</div>
         </div>
       </div>
@@ -622,7 +638,8 @@
                     <label>SECTOR <span class="req">*</span></label>
                     <div id="sectorError" class="field-error" style="display:none;color:#f85149;font-size:0.75rem;margin-bottom:4px">PLEASE SELECT AT LEAST ONE SECTOR.</div>
                     <div class="sector-grid">
-                      <label class="checkbox-item"><input type="checkbox" id="sec_farmer" value="FARMER/FISHERFOLK"/><span>FARMER/FISHERFOLK</span></label>
+                      <label class="checkbox-item"><input type="checkbox" id="sec_farmer" value="FARMER"/><span>FARMER</span></label>
+                      <label class="checkbox-item"><input type="checkbox" id="sec_fisherfolk" value="FISHERFOLK"/><span>FISHERFOLK</span></label>
                       <label class="checkbox-item"><input type="checkbox" id="sec_women" value="WOMEN"/><span>WOMEN</span></label>
                       <label class="checkbox-item"><input type="checkbox" id="sec_pwd" value="PWD" onchange="togglePwdSpec()"/><span>PWD</span></label>
                       <label class="checkbox-item"><input type="checkbox" id="sec_youth" value="CHILDREN AND YOUTH"/><span>CHILDREN AND YOUTH</span></label>
@@ -937,6 +954,6 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
-<script src="app.js"></script>
+<script src="app.js?v=2"></script>
 </body>
 </html>

@@ -226,6 +226,14 @@ a { text-decoration: none; color: inherit; }
   background: rgba(56,139,253,0.15); border-color: var(--accent);
   color: var(--accent);
 }
+.no-eclip-badge--orange {
+  background: rgba(255,166,87,0.15); border-color: #ffa657;
+  color: #ffa657;
+}
+.no-eclip-badge--red {
+  background: rgba(248,81,73,0.15); border-color: #f85149;
+  color: #f85149;
+}
 .no-eclip-header--second {
   border-top: 1px solid var(--border);
   padding-top: 10px;
@@ -241,12 +249,19 @@ a { text-decoration: none; color: inherit; }
   font-size: 0.72rem; cursor: pointer; transition: border-color .15s, background .15s;
 }
 .no-eclip-item:hover { border-color: var(--yellow); background: var(--bg2); }
+.no-eclip-item--incomplete { border-color: rgba(248,81,73,0.35); }
+.no-eclip-item--incomplete:hover { border-color: #f85149; background: rgba(248,81,73,0.06); }
 .no-eclip-item img {
   width: 28px; height: 28px; border-radius: 3px; object-fit: cover;
   border: 1px solid var(--border); flex-shrink: 0;
 }
 .no-eclip-item-name { font-weight: 700; color: var(--text); }
 .no-eclip-item-unit { color: var(--text3); font-size: 0.67rem; margin-top: 1px; }
+.no-eclip-item-missing {
+  color: #f85149; font-size: 0.63rem; margin-top: 2px;
+  letter-spacing: 0.3px; line-height: 1.3;
+  max-width: 240px; word-break: break-word;
+}
 .no-eclip-empty {
   color: var(--text3); font-size: 0.75rem; letter-spacing: 1px;
   padding: 8px 0; width: 100%; text-align: center;
@@ -295,6 +310,11 @@ a { text-decoration: none; color: inherit; }
   border-radius: var(--radius); cursor: pointer; font-weight: 600; letter-spacing: 1px; transition: background .2s;
 }
 .btn-primary:hover { background: var(--accent2); }
+.btn-warning {
+  padding: 9px 18px; background: #9a6700; color: #fff; border: none;
+  border-radius: var(--radius); cursor: pointer; font-weight: 600; letter-spacing: 1px; transition: background .2s;
+}
+.btn-warning:hover { background: #7a5000; }
 .btn-secondary {
   padding: 9px 18px; background: transparent; color: var(--text2); border: 1px solid var(--border);
   border-radius: var(--radius); cursor: pointer; letter-spacing: 1px; transition: all .2s;

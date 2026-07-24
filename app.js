@@ -245,13 +245,22 @@ function genId() { return Date.now().toString(36) + Math.random().toString(36).s
 var TRIBAL_GROUP_TYPES = [
   'IRAYA','ALANGAN','TADYAWAN','TAU-BUID','BANGON','BUHID','HANUNUO','RATAGNON','OTHERS','NO TRIBAL GROUP'
 ];
-var SECTOR_IDS = ['sec_farmer','sec_women','sec_pwd','sec_youth','sec_senior','sec_solo_parent','sec_ip','sec_urban_poor','sec_others'];
+var SECTOR_IDS = ['sec_farmer','sec_fisherfolk','sec_women','sec_pwd','sec_youth','sec_senior','sec_solo_parent','sec_ip','sec_urban_poor','sec_others'];
 
 function normalizeTribalGroup(val) {
   if (!val) return '';
-  if (val === 'MANGYAN') return 'OTHERS';
-  if (val === 'TAU-BUHID') return 'TAU-BUID';
-  return TRIBAL_GROUP_TYPES.indexOf(val) !== -1 ? val : '';
+  var v = val.toString().trim().toUpperCase();
+  // Exact known aliases
+  if (v === 'MANGYAN') return 'OTHERS';
+  if (v === 'TAU-BUHID') return 'TAU-BUID';
+  // Strip trailing " MANGYAN" suffix — e.g. "HANUNUO MANGYAN" → "HANUNUO"
+  // This covers IRAYA MANGYAN, ALANGAN MANGYAN, TADYAWAN MANGYAN, etc.
+  var withoutMangyan = v.replace(/\s+MANGYAN$/, '').trim();
+  if (withoutMangyan !== v && TRIBAL_GROUP_TYPES.indexOf(withoutMangyan) !== -1) {
+    return withoutMangyan;
+  }
+  // Direct match
+  return TRIBAL_GROUP_TYPES.indexOf(v) !== -1 ? v : '';
 }
 
 function showToast(msg, type) {
@@ -481,9 +490,39 @@ function renderNoEclipWidget(records) {
     return asst.indexOf('NOT QUALIFIED FOR E-CLIP') !== -1;
   }).slice().sort(function(a, b) { return (a.lastName || '').localeCompare(b.lastName || ''); });
 
+  // Group 3 — no JAPIC certificate on file
+  var noJapic = records.filter(function(r) {
+    return !r.japic || !(r.japic.url || r.japic.dataUrl || r.japic.fileName);
+  }).slice().sort(function(a, b) { return (a.lastName || '').localeCompare(b.lastName || ''); });
+
+  // Group 4 — incomplete required data (fields that are required on the form)
+  // Returns an array of missing field labels for a given record
+  function getMissingFields(r) {
+    var missing = [];
+    if (!r.lastName)                                         missing.push('LAST NAME');
+    if (!r.firstName)                                        missing.push('FIRST NAME');
+    if (!r.dob)                                              missing.push('DATE OF BIRTH');
+    if (!r.sex)                                              missing.push('SEX');
+    if (!r.civilStatus)                                      missing.push('CIVIL STATUS');
+    if (!r.religion)                                         missing.push('RELIGION');
+    if (!r.medicalCondition)                                 missing.push('MEDICAL CONDITION');
+    if (!r.fourPs)                                           missing.push('4Ps');
+    if (!r.pendingCase)                                      missing.push('PENDING CASE');
+    if (!r.referringUnit)                                    missing.push('REFERRING UNIT');
+    if (!r.sector || r.sector.length === 0)                  missing.push('SECTOR');
+    if (!r.membershipType)                                   missing.push('MEMBERSHIP TYPE');
+    if (!r.dateSurrendered)                                  missing.push('DATE SURRENDERED');
+    return missing;
+  }
+  var incomplete = records.filter(function(r) {
+    return getMissingFields(r).length > 0;
+  }).slice().sort(function(a, b) { return (a.lastName || '').localeCompare(b.lastName || ''); });
+
   // Badge counts
-  document.getElementById('noEclipBadge').textContent = noEclip.length + ' PROFILE' + (noEclip.length !== 1 ? 'S' : '');
-  document.getElementById('notQualBadge').textContent  = notQual.length + ' PROFILE' + (notQual.length !== 1 ? 'S' : '');
+  document.getElementById('noEclipBadge').textContent    = noEclip.length    + ' PROFILE' + (noEclip.length    !== 1 ? 'S' : '');
+  document.getElementById('notQualBadge').textContent    = notQual.length    + ' PROFILE' + (notQual.length    !== 1 ? 'S' : '');
+  document.getElementById('noJapicBadge').textContent    = noJapic.length    + ' PROFILE' + (noJapic.length    !== 1 ? 'S' : '');
+  document.getElementById('incompleteBadge').textContent = incomplete.length + ' PROFILE' + (incomplete.length !== 1 ? 'S' : '');
 
   function buildItems(list, emptyMsg) {
     if (!list.length) return '<div class="no-eclip-empty">' + emptyMsg + '</div>';
@@ -499,8 +538,26 @@ function renderNoEclipWidget(records) {
     }).join('');
   }
 
-  document.getElementById('noEclipList').innerHTML = buildItems(noEclip, '&#10003; ALL PROFILES HAVE E-CLIP OR NOT QUALIFIED STATUS');
-  document.getElementById('notQualList').innerHTML  = buildItems(notQual, 'NO PROFILES MARKED AS NOT QUALIFIED FOR E-CLIP');
+  function buildIncompleteItems(list) {
+    if (!list.length) return '<div class="no-eclip-empty">&#10003; ALL PROFILES HAVE COMPLETE REQUIRED DATA</div>';
+    return list.map(function(r) {
+      var photo   = r.idPhoto ? r.idPhoto : 'BHB.png';
+      var name    = r.lastName + ', ' + r.firstName + (r.middleName ? ' ' + r.middleName : '');
+      var missing = getMissingFields(r);
+      return '<div class="no-eclip-item no-eclip-item--incomplete" onclick="editRecord(\'' + r.id + '\')" title="CLICK TO EDIT AND COMPLETE PROFILE">' +
+        '<img src="' + photo + '" alt=""/>' +
+        '<div>' +
+          '<div class="no-eclip-item-name">' + name + '</div>' +
+          '<div class="no-eclip-item-missing">MISSING: ' + missing.join(', ') + '</div>' +
+        '</div>' +
+        '</div>';
+    }).join('');
+  }
+
+  document.getElementById('noEclipList').innerHTML    = buildItems(noEclip,  '&#10003; ALL PROFILES HAVE E-CLIP OR NOT QUALIFIED STATUS');
+  document.getElementById('notQualList').innerHTML    = buildItems(notQual,  'NO PROFILES MARKED AS NOT QUALIFIED FOR E-CLIP');
+  document.getElementById('noJapicList').innerHTML    = buildItems(noJapic,  '&#10003; ALL PROFILES HAVE A JAPIC CERTIFICATE ON FILE');
+  document.getElementById('incompleteList').innerHTML = buildIncompleteItems(incomplete);
 }
 
 // -- DASHBOARD ------------------------------------------------
@@ -678,6 +735,7 @@ function generateReport() {
     .catch(function(err) { showToast('ERROR: ' + err.message, 'error'); });
 }
 
+
 // -- DASHBOARD REPORT HTML ------------------------------------
 function buildDashboardReportHtml(records) {
   var total = records.length;
@@ -704,6 +762,16 @@ function buildDashboardReportHtml(records) {
   var asstRows = ASST_TYPES.map(function(t){var c=asstCounts[t];return[t,c,total>0?((c/total)*100).toFixed(1)+'%':'0.0%'];});
   asstRows.push(['NO E-CLIP', noEclipCount, total>0?((noEclipCount/total)*100).toFixed(1)+'%':'0.0%']);
   asstRows.push(['TOTAL ASSISTANCE RENDERED', ASST_TYPES.filter(function(t){return t!=='NOT QUALIFIED FOR E-CLIP';}).reduce(function(s,t){return s+asstCounts[t];},0), '-']);
+
+  // JAPIC
+  var noJapicCount = records.filter(function(r) {
+    return !r.japic || !(r.japic.url || r.japic.dataUrl || r.japic.fileName);
+  }).length;
+  var withJapicCount = total - noJapicCount;
+  var japicRows = [
+    ['WITH JAPIC ON FILE',    withJapicCount, total>0?((withJapicCount/total)*100).toFixed(1)+'%':'0.0%'],
+    ['WITHOUT JAPIC ON FILE', noJapicCount,   total>0?((noJapicCount/total)*100).toFixed(1)+'%':'0.0%']
+  ];
 
   // MEMBERSHIP
   var MEM_TYPES = ['REGULAR NPA','MILISYANG BAYAN'];
@@ -744,9 +812,13 @@ function buildDashboardReportHtml(records) {
   var fourPsRows=[['YES',fourPsYes,total>0?((fourPsYes/total)*100).toFixed(1)+'%':'0.0%'],['NO',fourPsNo,total>0?((fourPsNo/total)*100).toFixed(1)+'%':'0.0%'],['NOT SPECIFIED',fourPsNoData,total>0?((fourPsNoData/total)*100).toFixed(1)+'%':'0.0%']];
 
   // SECTOR
-  var SECTORS=['FARMER/FISHERFOLK','WOMEN','PWD','CHILDREN AND YOUTH','SENIOR CITIZEN','SOLO PARENT','INDIGENOUS PEOPLE','URBAN POOR','OTHERS'];
+  var SECTORS=['FARMER','FISHERFOLK','WOMEN','PWD','CHILDREN AND YOUTH','SENIOR CITIZEN','SOLO PARENT','INDIGENOUS PEOPLE','URBAN POOR','OTHERS'];
   var secCounts={}; SECTORS.forEach(function(s){secCounts[s]=0;});
-  records.forEach(function(r){(r.sector||[]).forEach(function(s){var k=s.indexOf('OTHERS')===0?'OTHERS':s;if(secCounts[k]!==undefined)secCounts[k]++;});});
+  records.forEach(function(r){(r.sector||[]).forEach(function(s){
+    // backward compat: split old combined value
+    if(s==='FARMER/FISHERFOLK'){secCounts['FARMER']++;secCounts['FISHERFOLK']++;return;}
+    var k=s.indexOf('OTHERS')===0?'OTHERS':s;if(secCounts[k]!==undefined)secCounts[k]++;
+  });});
   var withSec=records.filter(function(r){return r.sector&&r.sector.length>0;}).length;
   var secRows=SECTORS.map(function(s){var c=secCounts[s];return[s,c,total>0?((c/total)*100).toFixed(1)+'%':'0.0%'];});
   secRows.push(['NO SECTOR SPECIFIED',total-withSec,total>0?(((total-withSec)/total)*100).toFixed(1)+'%':'0.0%']);
@@ -787,6 +859,7 @@ function buildDashboardReportHtml(records) {
     '</div></div>' +
     '<div class="report-section"><h2>STATUS — CANNOT BE LOCATED / DECEASED</h2>' + buildReportTable(['STATUS','COUNT','% OF TOTAL'], statusRows) + '</div>' +
     '<div class="report-section"><h2>ASSISTANCE PROVIDED</h2>' + buildReportTable(['TYPE OF ASSISTANCE','COUNT','% OF TOTAL'], asstRows) + '</div>' +
+    '<div class="report-section"><h2>JAPIC CERTIFICATE STATUS</h2>' + buildReportTable(['JAPIC STATUS','COUNT','% OF TOTAL'], japicRows) + '</div>' +
     '<div class="report-section"><h2>SURRENDER BY YEAR ('+START_YEAR+'–'+curYear+')</h2>' + buildReportTable(['YEAR','COUNT','% OF TOTAL'], yrRows) + '</div>' +
     '<div class="report-section"><h2>MEMBERSHIP TYPE</h2>' + buildReportTable(['TYPE','COUNT','% OF TOTAL'], memRows) + '</div>' +
     '<div class="report-section"><h2>TRIBAL GROUP</h2>' + buildReportTable(['TRIBAL GROUP','COUNT','% OF TOTAL'], tribalRows) + '</div>' +
@@ -913,10 +986,14 @@ function render4PsReport(records) {
 }
 
 function renderSectorReport(records) {
-  var SECTORS=['FARMER/FISHERFOLK','WOMEN','PWD','CHILDREN AND YOUTH','SENIOR CITIZEN','SOLO PARENT','INDIGENOUS PEOPLE','URBAN POOR','OTHERS'];
-  var COLORS=['#3fb950','#a371f7','#f85149','#388bfd','#d29922','#58a6ff','#39d353','#ffa657','#6e7681'];
+  var SECTORS=['FARMER','FISHERFOLK','WOMEN','PWD','CHILDREN AND YOUTH','SENIOR CITIZEN','SOLO PARENT','INDIGENOUS PEOPLE','URBAN POOR','OTHERS'];
+  var COLORS=['#3fb950','#58a6ff','#a371f7','#f85149','#388bfd','#d29922','#79c0ff','#39d353','#ffa657','#6e7681'];
   var total=records.length, counts={}; SECTORS.forEach(function(s){counts[s]=0;});
-  records.forEach(function(r){(r.sector||[]).forEach(function(s){var key=s.indexOf('OTHERS')===0?'OTHERS':s;if(counts[key]!==undefined)counts[key]++;});});
+  records.forEach(function(r){(r.sector||[]).forEach(function(s){
+    // backward compat: split old combined value
+    if(s==='FARMER/FISHERFOLK'){counts['FARMER']++;counts['FISHERFOLK']++;return;}
+    var key=s.indexOf('OTHERS')===0?'OTHERS':s;if(counts[key]!==undefined)counts[key]++;
+  });});
   var withSector=records.filter(function(r){return r.sector&&r.sector.length>0;}).length;
   var maxCount=Math.max.apply(null,SECTORS.map(function(s){return counts[s];}).concat([1]));
   document.getElementById('sectorTotalBadge').textContent=withSector+' WITH SECTOR';
@@ -1154,7 +1231,7 @@ function saveRecord(event) {
   var religionVal=document.getElementById('religion').value;
   if(religionVal==='OTHERS')religionVal='OTHERS: '+document.getElementById('religionOthers').value.trim().toUpperCase();
 
-  var secMap={sec_farmer:'FARMER/FISHERFOLK',sec_women:'WOMEN',sec_pwd:'PWD',sec_youth:'CHILDREN AND YOUTH',sec_senior:'SENIOR CITIZEN',sec_solo_parent:'SOLO PARENT',sec_ip:'INDIGENOUS PEOPLE',sec_urban_poor:'URBAN POOR'};
+  var secMap={sec_farmer:'FARMER',sec_fisherfolk:'FISHERFOLK',sec_women:'WOMEN',sec_pwd:'PWD',sec_youth:'CHILDREN AND YOUTH',sec_senior:'SENIOR CITIZEN',sec_solo_parent:'SOLO PARENT',sec_ip:'INDIGENOUS PEOPLE',sec_urban_poor:'URBAN POOR'};
   var sectorList=[];
   Object.keys(secMap).forEach(function(id){if(document.getElementById(id).checked)sectorList.push(secMap[id]);});
   if(document.getElementById('sec_others').checked){var secSpec=document.getElementById('sec_others_spec').value.trim();sectorList.push('OTHERS'+(secSpec?': '+secSpec.toUpperCase():''));}
@@ -1325,11 +1402,15 @@ function editRecord(id) {
   document.getElementById('contactNumber').value=r.contactNumber||''; document.getElementById('medicalCondition').value=r.medicalCondition||''; document.getElementById('fourPs').value=r.fourPs||''; document.getElementById('pwdDisability').value=r.pwdDisability||'';
   onMedicalConditionChange();
   if(r.medicalCondition==='YES'&&r.medicalConditionSpec)document.getElementById('medicalConditionSpec').value=r.medicalConditionSpec;
-  var secMap={'FARMER/FISHERFOLK':'sec_farmer','WOMEN':'sec_women','PWD':'sec_pwd','CHILDREN AND YOUTH':'sec_youth','SENIOR CITIZEN':'sec_senior','SOLO PARENT':'sec_solo_parent','INDIGENOUS PEOPLE':'sec_ip','URBAN POOR':'sec_urban_poor'};
+  var secMap={'FARMER':'sec_farmer','FISHERFOLK':'sec_fisherfolk','WOMEN':'sec_women','PWD':'sec_pwd','CHILDREN AND YOUTH':'sec_youth','SENIOR CITIZEN':'sec_senior','SOLO PARENT':'sec_solo_parent','INDIGENOUS PEOPLE':'sec_ip','URBAN POOR':'sec_urban_poor'};
   Object.values(secMap).forEach(function(id){document.getElementById(id).checked=false;});
   document.getElementById('sec_others').checked=false; document.getElementById('sec_others_spec').style.display='none'; document.getElementById('sec_others_spec').value=''; document.getElementById('sectorError').style.display='none';
-  (r.sector||[]).forEach(function(s){if(secMap[s])document.getElementById(secMap[s]).checked=true;else if(s.indexOf('OTHERS')===0){document.getElementById('sec_others').checked=true;document.getElementById('sec_others_spec').style.display='inline-block';document.getElementById('sec_others_spec').value=s.replace('OTHERS: ','').replace('OTHERS','');}});
-  togglePwdSpec(); calcAge();
+  (r.sector||[]).forEach(function(s){
+    // backward compat: old combined value maps to both checkboxes
+    if(s==='FARMER/FISHERFOLK'){document.getElementById('sec_farmer').checked=true;document.getElementById('sec_fisherfolk').checked=true;return;}
+    if(secMap[s])document.getElementById(secMap[s]).checked=true;else if(s.indexOf('OTHERS')===0){document.getElementById('sec_others').checked=true;document.getElementById('sec_others_spec').style.display='inline-block';document.getElementById('sec_others_spec').value=s.replace('OTHERS: ','').replace('OTHERS','');}
+  });
+  togglePwdSpec(); calcAge(); onTribalGroupChange();
   if(r.idPhoto){idPhotoData=r.idPhoto;var img=document.getElementById('idPhotoPreview');img.src=r.idPhoto;img.style.display='block';document.getElementById('idPhotoPlaceholder').style.display='none';document.getElementById('removePhotoBtn').style.display='block';}
   else{removeIdPhoto();}
   document.getElementById('unit').value=r.unit||''; document.getElementById('position').value=r.position||''; document.getElementById('membershipType').value=r.membershipType||'';
@@ -1483,37 +1564,294 @@ function parseCSVLine(line) {
   result.push(cur); return result;
 }
 
-function importCSVFile(event) {
-  var file=event.target.files[0]; if(!file) return;
-  var reader=new FileReader();
-  reader.onload=function(e){
-    var text=e.target.result, lines=text.split(/\r?\n/).filter(function(l){return l.trim();});
-    if(lines.length<2){showToast('CSV IS EMPTY OR INVALID','error');return;}
-    var headers=parseCSVLine(lines[0]), idx={};
-    headers.forEach(function(h,i){idx[h.trim()]=i;});
-    var parsed=[];
-    for(var r=1;r<lines.length;r++){
-      var cols=parseCSVLine(lines[r]);
-      var col=function(name){return(cols[idx[name]]||'').trim();};
-      var sectorList=col('SECTOR')?col('SECTOR').split(';').map(function(s){return s.trim();}).filter(Boolean):[];
-      var asstList=col('ASSISTANCE PROVIDED')?col('ASSISTANCE PROVIDED').split(';').map(function(s){return s.trim();}).filter(Boolean):[];
-      parsed.push({id:col('ID')||genId(),lastName:col('LAST NAME'),firstName:col('FIRST NAME'),middleName:col('MIDDLE NAME'),alias:col('ALIAS'),dob:col('DATE OF BIRTH'),sex:col('SEX'),civilStatus:col('CIVIL STATUS'),tribalGroup:col('TRIBAL GROUP'),recordStatus:col('STATUS')||'',religion:col('RELIGION'),contactNumber:col('CONTACT NUMBER'),medicalCondition:col('MEDICAL CONDITION'),medicalConditionSpec:col('MEDICAL CONDITION SPECIFY'),fourPs:col('4Ps'),pwdDisability:col('PWD DISABILITY'),addressBarangay:col('BARANGAY'),address:col('BARANGAY'),addressMunicipality:col('MUNICIPALITY'),addressProvince:col('PROVINCE')||'OCCIDENTAL MINDORO',sector:sectorList,unit:col('UNIT'),position:col('POSITION'),membershipType:col('MEMBERSHIP TYPE'),areaOfOperation:col('AREA OF OPERATION'),yearsInMovement:col('YEARS IN MOVEMENT'),dateSurrendered:col('DATE SURRENDERED'),pendingCase:col('PENDING CASE'),referringUnit:col('REFERRING UNIT'),assistance:asstList,validIds:[],idPhoto:null,japic:null,socialCaseReport:col('SOCIAL CASE REPORT FILE')?{fileName:col('SOCIAL CASE REPORT FILE'),url:null,type:'doc'}:null,createdBy:col('CREATED BY')||'ADMIN',createdAt:col('CREATED AT')||new Date().toISOString(),updatedAt:new Date().toISOString()});
+// -- IMPORT HELPERS -------------------------------------------
+// Convert any recognisable date string to YYYY-MM-DD (the database canonical form).
+// Accepts: YYYY-MM-DD, MM/DD/YYYY, DD/MM/YYYY (ambiguous treated as MM/DD),
+//          "January 1, 2000", "1 January 2000", ISO timestamps, etc.
+function normalizeDateForImport(raw) {
+  if (!raw) return '';
+  var s = raw.toString().trim();
+  if (!s) return '';
+  // Already ISO date
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  // ISO datetime — take date part only
+  if (/^\d{4}-\d{2}-\d{2}T/.test(s)) return s.slice(0, 10);
+  // MM/DD/YYYY or DD/MM/YYYY or M/D/YYYY
+  var slashParts = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (slashParts) {
+    var mm = slashParts[1].padStart(2, '0');
+    var dd = slashParts[2].padStart(2, '0');
+    var yyyy = slashParts[3];
+    return yyyy + '-' + mm + '-' + dd;
+  }
+  // Try native Date parse as last resort
+  var d = new Date(s);
+  if (!isNaN(d.getTime())) {
+    var y = d.getFullYear(), mo = String(d.getMonth() + 1).padStart(2, '0'), dy = String(d.getDate()).padStart(2, '0');
+    return y + '-' + mo + '-' + dy;
+  }
+  return s; // return as-is if unparseable
+}
+
+// Uppercase a plain text field; return empty string for falsy values.
+function ucField(v) { return v ? v.toString().trim().toUpperCase() : ''; }
+
+// Normalize a known enum field against an allowed list (case-insensitive).
+// Returns the canonical value if matched, otherwise returns the uppercased raw value.
+function matchEnum(val, allowedList) {
+  if (!val) return '';
+  var up = val.toString().trim().toUpperCase();
+  for (var i = 0; i < allowedList.length; i++) {
+    if (allowedList[i].toUpperCase() === up) return allowedList[i];
+  }
+  return up;
+}
+
+// Normalize sector values from a CSV semicolon-separated string.
+var IMPORT_SECTOR_MAP = {
+  'FARMER/FISHERFOLK': ['FARMER', 'FISHERFOLK'],
+  'FARMER': ['FARMER'], 'FISHERFOLK': ['FISHERFOLK'],
+  'WOMEN': ['WOMEN'], 'PWD': ['PWD'],
+  'CHILDREN AND YOUTH': ['CHILDREN AND YOUTH'], 'YOUTH': ['CHILDREN AND YOUTH'],
+  'SENIOR CITIZEN': ['SENIOR CITIZEN'], 'SENIOR': ['SENIOR CITIZEN'],
+  'SOLO PARENT': ['SOLO PARENT'],
+  'INDIGENOUS PEOPLE': ['INDIGENOUS PEOPLE'], 'IP': ['INDIGENOUS PEOPLE'],
+  'URBAN POOR': ['URBAN POOR']
+};
+function normalizeSectorList(raw) {
+  if (!raw) return [];
+  var seen = {}, result = [];
+  raw.split(';').forEach(function(s) {
+    var up = s.trim().toUpperCase();
+    if (!up) return;
+    var mapped = IMPORT_SECTOR_MAP[up];
+    if (mapped) {
+      mapped.forEach(function(m) { if (!seen[m]) { seen[m] = true; result.push(m); } });
+    } else {
+      // OTHERS or free-text — keep uppercased
+      if (!seen[up]) { seen[up] = true; result.push(up); }
     }
-    if(!parsed.length){showToast('NO RECORDS FOUND IN CSV','error');return;}
-    showToast('IMPORTING '+parsed.length+' RECORDS...','info');
-    dbGetAll().then(function(existing){
-      var existingIds={};existing.forEach(function(r){existingIds[r.id]=true;});
-      var toImport=parsed.filter(function(r){return!existingIds[r.id];}), skipped=parsed.length-toImport.length;
-      if(!toImport.length){showToast('ALL RECORDS ALREADY EXIST — NOTHING IMPORTED','info');return;}
-      Promise.all(toImport.map(function(r){return dbPut(r);})).then(function(){
-        allRecordsCache=[];
-        var msg=toImport.length+' RECORDS IMPORTED SUCCESSFULLY';
-        if(skipped>0)msg+=' ('+skipped+' SKIPPED)';
-        showToast(msg,'success'); showPage('records');
-      }).catch(function(err){showToast('IMPORT ERROR: '+err.message,'error');});
+  });
+  return result;
+}
+
+// Normalize assistance values from a CSV semicolon-separated string.
+var IMPORT_ASST_CANONICAL = [
+  'E-CLIP','NOT QUALIFIED FOR E-CLIP','FEA REMUNERATION','LIVELIHOOD','MEDICAL',
+  'EDUCATIONAL','ISSUANCE OF CREDENTIALS','PHILHEALTH',
+  'ISSUANCE OF SAFE CONDUCT PASS','APPLIED FOR AMNESTY'
+];
+function normalizeAsstList(raw) {
+  if (!raw) return [];
+  return raw.split(';').map(function(s) {
+    var up = s.trim().toUpperCase();
+    if (!up) return null;
+    for (var i = 0; i < IMPORT_ASST_CANONICAL.length; i++) {
+      if (IMPORT_ASST_CANONICAL[i] === up) return IMPORT_ASST_CANONICAL[i];
+    }
+    return up; // OTHERS or free-text
+  }).filter(Boolean);
+}
+
+// Normalize referring unit — keep known units verbatim, uppercase everything else.
+var IMPORT_KNOWN_UNITS = [
+  '102nd SAC','1st Infantry "Always First" Battalion','1st OMPMFC',
+  '203rd Infantry "Bantay Kapayapaan" Brigade','23MICO','2CMO Battalion',
+  '2nd OMPMFC','402nd B MC RMFB 4B','405th B MC RMFB 4B',
+  '4th Infantry "Scorpion" Battalion','68th Infantry "Kaagapay" Battalion',
+  '76th Infantry "Victrix" Battalion','ISAFP','PIT Occidental Mindoro RIU 4B'
+];
+function normalizeReferringUnit(raw) {
+  if (!raw) return '';
+  var up = raw.toString().trim().toUpperCase();
+  for (var i = 0; i < IMPORT_KNOWN_UNITS.length; i++) {
+    if (IMPORT_KNOWN_UNITS[i].toUpperCase() === up) return IMPORT_KNOWN_UNITS[i];
+  }
+  return up; // uppercase free-text / OTHERS
+}
+
+// -- IMPORT CSV -----------------------------------------------
+function importCSVFile(event) {
+  var file = event.target.files[0]; if (!file) return;
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    var text = e.target.result, lines = text.split(/\r?\n/).filter(function(l) { return l.trim(); });
+    if (lines.length < 2) { showToast('CSV IS EMPTY OR INVALID', 'error'); return; }
+    var headers = parseCSVLine(lines[0]), idx = {};
+    headers.forEach(function(h, i) { idx[h.trim()] = i; });
+
+    var SEX_VALS       = ['MALE', 'FEMALE'];
+    var CIVIL_VALS     = ['SINGLE','MARRIED','WIDOW/WIDOWER','SEPARATED','COMMON-LAW'];
+    var MEDICAL_VALS   = ['YES', 'NO'];
+    var FOURPS_VALS    = ['YES', 'NO'];
+    var PENDING_VALS   = ['YES', 'NO'];
+    var MEMBERSHIP_VALS = ['REGULAR NPA', 'MILISYANG BAYAN'];
+    var AOO_VALS       = ['SOUTHERN PART OF MINDORO','NORTHERN PART OF MINDORO','MINDORO ISLAND'];
+    var STATUS_VALS    = ['CANNOT BE LOCATED','DECEASED','INCARCERATED'];
+    var RELIGION_VALS  = ['CATHOLIC','SEVENTH DAY ADVENTIST','CHRISTIAN','IGLESIA NI CRISTO'];
+    var PROVINCE_VALS  = ['OCCIDENTAL MINDORO','ORIENTAL MINDORO','OUTSIDE MINDORO'];
+
+    var parsed = [];
+    for (var r = 1; r < lines.length; r++) {
+      var cols = parseCSVLine(lines[r]);
+      var col  = function(name) { return (cols[idx[name]] || '').trim(); };
+
+      // -- Text fields → UPPERCASE
+      var lastName       = ucField(col('LAST NAME'));
+      var firstName      = ucField(col('FIRST NAME'));
+      var middleName     = ucField(col('MIDDLE NAME'));
+      var alias          = ucField(col('ALIAS'));
+      var addressBarangay = ucField(col('BARANGAY'));
+      var unit           = ucField(col('UNIT'));
+      var position       = ucField(col('POSITION'));
+      var remarks        = ucField(col('REMARKS'));
+      var pwdDisability  = ucField(col('PWD DISABILITY'));
+      var medicalSpec    = ucField(col('MEDICAL CONDITION SPECIFY'));
+      var contactNumber  = (col('CONTACT NUMBER') || '').trim();
+      var yearsInMovement = (col('YEARS IN MOVEMENT') || '').trim();
+
+      // -- Enum fields — match against known values
+      var sex            = matchEnum(col('SEX'), SEX_VALS);
+      var civilStatus    = matchEnum(col('CIVIL STATUS'), CIVIL_VALS);
+      var medicalCond    = matchEnum(col('MEDICAL CONDITION'), MEDICAL_VALS);
+      var fourPs         = matchEnum(col('4Ps'), FOURPS_VALS);
+      var pendingCase    = matchEnum(col('PENDING CASE'), PENDING_VALS);
+      var membershipType = matchEnum(col('MEMBERSHIP TYPE'), MEMBERSHIP_VALS);
+      var areaOfOp       = matchEnum(col('AREA OF OPERATION'), AOO_VALS);
+      var recordStatus   = col('STATUS') ? matchEnum(col('STATUS'), STATUS_VALS) : '';
+      var province       = col('PROVINCE') ? matchEnum(col('PROVINCE'), PROVINCE_VALS) : 'OCCIDENTAL MINDORO';
+
+      // -- Religion: preserve known values; prefix unknown with OTHERS; default to CHRISTIAN
+      var rawReligion = ucField(col('RELIGION'));
+      var religion = '';
+      if (rawReligion) {
+        if (RELIGION_VALS.indexOf(rawReligion) !== -1) {
+          religion = rawReligion;
+        } else if (rawReligion.indexOf('OTHERS') === 0) {
+          religion = rawReligion;
+        } else {
+          religion = 'OTHERS: ' + rawReligion;
+        }
+      } else {
+        religion = 'CHRISTIAN'; // default when column is empty
+      }
+
+      // -- Tribal group — normalize via existing function (handles HANUNUO MANGYAN etc.)
+      var tribalGroup = normalizeTribalGroup(ucField(col('TRIBAL GROUP')));
+      // If normalizeTribalGroup returns '' for a non-empty input, store uppercased original
+      if (!tribalGroup && col('TRIBAL GROUP').trim()) {
+        tribalGroup = ucField(col('TRIBAL GROUP'));
+      }
+
+      // -- Municipality — uppercase for free-text, keep known names as-is
+      var municipality = ucField(col('MUNICIPALITY'));
+
+      // -- Date fields → YYYY-MM-DD
+      var dob            = normalizeDateForImport(col('DATE OF BIRTH'));
+      var dateSurrendered = normalizeDateForImport(col('DATE SURRENDERED'));
+
+      // -- List fields
+      var sectorList = normalizeSectorList(col('SECTOR'));
+      var asstList   = normalizeAsstList(col('ASSISTANCE PROVIDED'));
+
+      // -- Auto-tick INDIGENOUS PEOPLE if a tribal group is present
+      if (tribalGroup && tribalGroup !== 'NO TRIBAL GROUP' && sectorList.indexOf('INDIGENOUS PEOPLE') === -1) {
+        sectorList.push('INDIGENOUS PEOPLE');
+      }
+
+      // -- Referring unit
+      var referringUnit = normalizeReferringUnit(col('REFERRING UNIT'));
+
+      // -- Social case report filename
+      var scFile = col('SOCIAL CASE REPORT FILE') ? ucField(col('SOCIAL CASE REPORT FILE')) : '';
+
+      parsed.push({
+        id:                  col('ID') || genId(),
+        lastName:            lastName,
+        firstName:           firstName,
+        middleName:          middleName,
+        alias:               alias,
+        dob:                 dob,
+        sex:                 sex,
+        civilStatus:         civilStatus,
+        tribalGroup:         tribalGroup,
+        recordStatus:        recordStatus,
+        religion:            religion,
+        contactNumber:       contactNumber,
+        medicalCondition:    medicalCond,
+        medicalConditionSpec: medicalSpec,
+        fourPs:              fourPs,
+        pwdDisability:       pwdDisability,
+        addressBarangay:     addressBarangay,
+        address:             addressBarangay,
+        addressMunicipality: municipality,
+        addressProvince:     province,
+        sector:              sectorList,
+        unit:                unit,
+        position:            position,
+        membershipType:      membershipType,
+        areaOfOperation:     areaOfOp,
+        yearsInMovement:     yearsInMovement,
+        dateSurrendered:     dateSurrendered,
+        pendingCase:         pendingCase,
+        referringUnit:       referringUnit,
+        remarks:             remarks,
+        assistance:          asstList,
+        validIds:            [],
+        idPhoto:             null,
+        japic:               null,
+        socialCaseReport:    scFile ? { fileName: scFile, url: null, type: 'doc' } : null,
+        createdBy:           ucField(col('CREATED BY')) || 'ADMIN',
+        createdAt:           col('CREATED AT') || new Date().toISOString(),
+        updatedAt:           new Date().toISOString()
+      });
+    }
+
+    if (!parsed.length) { showToast('NO RECORDS FOUND IN CSV', 'error'); return; }
+    showToast('IMPORTING ' + parsed.length + ' RECORDS...', 'info');
+    dbGetAll().then(function(existing) {
+      // Build lookup keys: id-based AND name+dob-based (to catch duplicates regardless of ID)
+      var existingIds  = {};
+      var existingKeys = {}; // "LASTNAME|FIRSTNAME|DOB"
+      existing.forEach(function(r) {
+        existingIds[r.id] = true;
+        var key = (r.lastName || '') + '|' + (r.firstName || '') + '|' + (r.dob || '');
+        existingKeys[key] = true;
+      });
+
+      // Also deduplicate within the CSV batch itself (keep first occurrence)
+      var batchKeys = {};
+      var skippedDupId   = 0;
+      var skippedDupName = 0;
+
+      var toImport = parsed.filter(function(r) {
+        // Skip if ID already exists in Firestore
+        if (existingIds[r.id]) { skippedDupId++; return false; }
+        // Skip if same Last Name + First Name + DOB already exists in Firestore
+        var key = (r.lastName || '') + '|' + (r.firstName || '') + '|' + (r.dob || '');
+        if (existingKeys[key]) { skippedDupName++; return false; }
+        // Skip if this same name+dob appeared earlier in the CSV
+        if (batchKeys[key]) { skippedDupName++; return false; }
+        // Mark as seen
+        existingIds[r.id]  = true;
+        existingKeys[key]  = true;
+        batchKeys[key]     = true;
+        return true;
+      });
+
+      var skipped = skippedDupId + skippedDupName;
+      if (!toImport.length) { showToast('ALL RECORDS ALREADY EXIST — NOTHING IMPORTED', 'info'); return; }
+      Promise.all(toImport.map(function(r) { return dbPut(r); })).then(function() {
+        allRecordsCache = [];
+        var msg = toImport.length + ' RECORDS IMPORTED SUCCESSFULLY';
+        if (skipped > 0) msg += ' (' + skipped + ' DUPLICATE' + (skipped > 1 ? 'S' : '') + ' SKIPPED)';
+        showToast(msg, 'success');
+        showPage('records');
+      }).catch(function(err) { showToast('IMPORT ERROR: ' + err.message, 'error'); });
     });
   };
-  reader.readAsText(file); event.target.value='';
+  reader.readAsText(file);
+  event.target.value = '';
 }
 
 // -- EXPORT CSV -----------------------------------------------
