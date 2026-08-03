@@ -1019,7 +1019,6 @@ function renderReferringUnitReport(records) {
 }
 
 // -- RECORDS LIST ---------------------------------------------
-function renderRecords(records, filter) {
 function renderRecords(records, filter, unitFilter) {
   filter     = filter     || '';
   unitFilter = unitFilter || '';
