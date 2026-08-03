@@ -1060,6 +1060,7 @@ function renderRecords(records, filter, unitFilter) {
     if (fa > fb) return  1;
     return 0;
   });
+  filteredRecordsCache = list; // keep reference for print/export
   var tbody = document.getElementById('recordsTableBody');
   if (!list.length) { tbody.innerHTML='<tr><td colspan="10"><div class="empty-state"><div class="empty-icon">&#128269;</div><p>NO RECORDS FOUND</p></div></td></tr>'; return; }
   tbody.innerHTML = list.map(function(r, i) {
@@ -1071,12 +1072,79 @@ function renderRecords(records, filter, unitFilter) {
   }).join('');
 }
 
+// Tracks the last rendered filtered list so print/export can use it
+var filteredRecordsCache = [];
+
 function filterRecords() {
-  renderRecords(
-    allRecordsCache,
-    document.getElementById('searchInput').value,
-    document.getElementById('unitFilterSelect').value
-  );
+  var search     = document.getElementById('searchInput').value;
+  var unitFilter = document.getElementById('unitFilterSelect').value;
+  renderRecords(allRecordsCache, search, unitFilter);
+  // Show print button whenever any filter is active
+  var printBtn = document.getElementById('printFilteredBtn');
+  if (printBtn) printBtn.style.display = (search || unitFilter) ? 'inline-flex' : 'none';
+}
+
+// -- PRINT FILTERED RECORDS LIST ------------------------------
+function printFilteredRecords() {
+  var list = filteredRecordsCache;
+  if (!list || !list.length) { showToast('NO RECORDS TO PRINT', 'info'); return; }
+
+  var unitFilter = document.getElementById('unitFilterSelect').value;
+  var search     = document.getElementById('searchInput').value;
+  var printed    = new Date().toLocaleString('en-PH');
+  var printedBy  = currentUser ? currentUser.username + ' (' + currentUser.role + ')' : 'UNKNOWN';
+
+  var filterDesc = [];
+  if (unitFilter) filterDesc.push('REFERRING UNIT: ' + unitFilter);
+  if (search)     filterDesc.push('SEARCH: ' + search.toUpperCase());
+  var filterLine = filterDesc.length ? filterDesc.join(' &nbsp;|&nbsp; ') : 'ALL RECORDS';
+
+  var tableRows = list.map(function(r, i) {
+    var age = calcAgeFromDob(r.dob);
+    var statusStyle = '';
+    if (r.recordStatus === 'DECEASED')          statusStyle = 'color:#cf222e;font-weight:700';
+    if (r.recordStatus === 'CANNOT BE LOCATED') statusStyle = 'color:#9a6700;font-weight:700';
+    if (r.recordStatus === 'INCARCERATED')      statusStyle = 'color:#7a43b6;font-weight:700';
+    return '<tr>' +
+      '<td style="text-align:center">' + (i + 1) + '</td>' +
+      '<td><strong>' + (r.lastName || '') + ', ' + (r.firstName || '') + '</strong>' + (r.middleName ? ' ' + r.middleName : '') + '</td>' +
+      '<td>' + (r.alias || '-') + '</td>' +
+      '<td style="text-align:center">' + (r.sex || '-') + '</td>' +
+      '<td style="text-align:center">' + age + '</td>' +
+      '<td>' + (r.membershipType || '-') + '</td>' +
+      '<td>' + (r.referringUnit || '-') + '</td>' +
+      '<td style="text-align:center">' + formatDate(r.dateSurrendered) + '</td>' +
+      '<td style="' + statusStyle + '">' + (r.recordStatus || 'ACTIVE') + '</td>' +
+      '</tr>';
+  }).join('');
+
+  var body =
+    '<div class="print-header">' +
+      '<h1>FORMER REBELS DATABASE MANAGEMENT SYSTEM</h1>' +
+      '<p>RECORDS LIST</p>' +
+      '<p style="font-size:10px">Filter: ' + filterLine + '</p>' +
+      '<p>Printed: ' + printed + ' &nbsp;|&nbsp; Printed by: ' + printedBy + '</p>' +
+    '</div>' +
+    '<table class="report-table" style="width:100%;font-size:10px">' +
+      '<thead><tr>' +
+        '<th style="text-align:center;width:30px">#</th>' +
+        '<th>FULL NAME</th>' +
+        '<th>ALIAS</th>' +
+        '<th style="text-align:center">SEX</th>' +
+        '<th style="text-align:center">AGE</th>' +
+        '<th>MEMBERSHIP</th>' +
+        '<th>REFERRING UNIT</th>' +
+        '<th style="text-align:center">DATE SURRENDERED</th>' +
+        '<th>STATUS</th>' +
+      '</tr></thead>' +
+      '<tbody>' + tableRows + '</tbody>' +
+      '<tfoot><tr><td colspan="9" style="text-align:right;font-size:9px;padding-top:6px;border-top:2px solid #333">' +
+        'TOTAL: ' + list.length + ' RECORD' + (list.length !== 1 ? 'S' : '') +
+      '</td></tr></tfoot>' +
+    '</table>';
+
+  openPrintDocument('FR Records List', body, REPORT_PRINT_STYLES);
+  showToast('PRINT PREVIEW OPENED', 'success');
 }
 
 // -- ID PHOTO -------------------------------------------------
@@ -1874,15 +1942,24 @@ function importCSVFile(event) {
 
 // -- EXPORT CSV -----------------------------------------------
 function exportCSV() {
-  dbGetAll().then(function(records){
-    if(!records.length){showToast('NO RECORDS TO EXPORT','info');return;}
+  var unitFilter = document.getElementById('unitFilterSelect') ? document.getElementById('unitFilterSelect').value : '';
+  var search     = document.getElementById('searchInput') ? document.getElementById('searchInput').value : '';
+  // Use filtered list if any filter is active, otherwise export all
+  var records = (unitFilter || search) && filteredRecordsCache.length ? filteredRecordsCache : null;
+
+  function doExport(recs) {
+    if (!recs.length) { showToast('NO RECORDS TO EXPORT', 'info'); return; }
+    var unitLabel = unitFilter ? '_' + unitFilter.replace(/[^A-Z0-9]/gi, '_').toUpperCase() : '';
     var headers=['ID','LAST NAME','FIRST NAME','MIDDLE NAME','ALIAS','DATE OF BIRTH','AGE','SEX','CIVIL STATUS','TRIBAL GROUP','STATUS','RELIGION','CONTACT NUMBER','MEDICAL CONDITION','MEDICAL CONDITION SPECIFY','4Ps','PWD DISABILITY','BARANGAY','MUNICIPALITY','PROVINCE','SECTOR','UNIT','POSITION','MEMBERSHIP TYPE','AREA OF OPERATION','YEARS IN MOVEMENT','DATE SURRENDERED','PENDING CASE','REFERRING UNIT','REMARKS','ASSISTANCE PROVIDED','SOCIAL CASE REPORT FILE','CREATED BY','CREATED AT'];
-    var rows=records.map(function(r){return[r.id,r.lastName,r.firstName,r.middleName,r.alias,r.dob,calcAgeFromDob(r.dob),r.sex,r.civilStatus,normalizeTribalGroup(r.tribalGroup)||r.tribalGroup,r.recordStatus||'',r.religion,r.contactNumber,r.medicalCondition,r.medicalConditionSpec,r.fourPs,r.pwdDisability,r.addressBarangay||r.address,r.addressMunicipality||'',r.addressProvince||'OCCIDENTAL MINDORO',(r.sector||[]).join('; '),r.unit,r.position,r.membershipType,r.areaOfOperation,r.yearsInMovement,r.dateSurrendered,r.pendingCase,r.referringUnit,r.remarks||'',(r.assistance||[]).join('; '),r.socialCaseReport?(typeof r.socialCaseReport==='object'?r.socialCaseReport.fileName:r.socialCaseReport):'',r.createdBy,r.createdAt?new Date(r.createdAt).toLocaleString('en-PH'):''].map(function(v){return'"'+String(v||'').replace(/"/g,'""')+'"';});});
+    var rows=recs.map(function(r){return[r.id,r.lastName,r.firstName,r.middleName,r.alias,r.dob,calcAgeFromDob(r.dob),r.sex,r.civilStatus,normalizeTribalGroup(r.tribalGroup)||r.tribalGroup,r.recordStatus||'',r.religion,r.contactNumber,r.medicalCondition,r.medicalConditionSpec,r.fourPs,r.pwdDisability,r.addressBarangay||r.address,r.addressMunicipality||'',r.addressProvince||'OCCIDENTAL MINDORO',(r.sector||[]).join('; '),r.unit,r.position,r.membershipType,r.areaOfOperation,r.yearsInMovement,r.dateSurrendered,r.pendingCase,r.referringUnit,r.remarks||'',(r.assistance||[]).join('; '),r.socialCaseReport?(typeof r.socialCaseReport==='object'?r.socialCaseReport.fileName:r.socialCaseReport):'',r.createdBy,r.createdAt?new Date(r.createdAt).toLocaleString('en-PH'):''].map(function(v){return'"'+String(v||'').replace(/"/g,'""')+'"';});});
     var csv=[headers.join(',')].concat(rows.map(function(r){return r.join(',');})).join('\n');
     var blob=new Blob([csv],{type:'text/csv'}), url=URL.createObjectURL(blob), a=document.createElement('a');
-    a.href=url; a.download='FR_DATABASE_'+new Date().toISOString().slice(0,10)+'.csv'; a.click(); URL.revokeObjectURL(url);
-    showToast('CSV EXPORTED SUCCESSFULLY','success');
-  });
+    a.href=url; a.download='FR_DATABASE'+unitLabel+'_'+new Date().toISOString().slice(0,10)+'.csv'; a.click(); URL.revokeObjectURL(url);
+    showToast('CSV EXPORTED — ' + recs.length + ' RECORD' + (recs.length !== 1 ? 'S' : ''), 'success');
+  }
+
+  if (records) { doExport(records); return; }
+  dbGetAll().then(function(recs) { allRecordsCache = recs; doExport(recs); });
 }
 
 // -- USER MANAGEMENT (Firebase Auth + Firestore) --------------
