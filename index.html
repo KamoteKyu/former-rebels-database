@@ -142,6 +142,27 @@
             <div class="stat-label">MILISYANG BAYAN</div>
           </div>
         </div>
+        <div class="stat-card stat-card--warning">
+          <div class="stat-icon">🔍</div>
+          <div class="stat-info">
+            <div class="stat-num" id="statCannotLocate">0</div>
+            <div class="stat-label">CANNOT BE LOCATED</div>
+          </div>
+        </div>
+        <div class="stat-card stat-card--danger">
+          <div class="stat-icon">💀</div>
+          <div class="stat-info">
+            <div class="stat-num" id="statDeceased">0</div>
+            <div class="stat-label">DECEASED</div>
+          </div>
+        </div>
+        <div class="stat-card stat-card--purple">
+          <div class="stat-icon">⛓️</div>
+          <div class="stat-info">
+            <div class="stat-num" id="statIncarcerated">0</div>
+            <div class="stat-label">INCARCERATED</div>
+          </div>
+        </div>
       </div>
       <div class="dashboard-toolbar">
         <button type="button" class="btn-primary" onclick="generateReport()">📄 GENERATE REPORT</button>
@@ -422,6 +443,24 @@
     <div id="page-records" class="page">
       <div class="page-toolbar">
         <input type="text" id="searchInput" class="search-input" placeholder="SEARCH BY NAME, ALIAS, UNIT..." oninput="filterRecords()"/>
+        <select id="unitFilterSelect" class="unit-filter-select" onchange="filterRecords()">
+          <option value="">ALL REFERRING UNITS</option>
+          <option value="102nd SAC">102nd SAC</option>
+          <option value="1st Infantry &quot;Always First&quot; Battalion">1st Infantry "Always First" Battalion</option>
+          <option value="1st OMPMFC">1st OMPMFC</option>
+          <option value="203rd Infantry &quot;Bantay Kapayapaan&quot; Brigade">203rd Infantry "Bantay Kapayapaan" Brigade</option>
+          <option value="23MICO">23MICO</option>
+          <option value="2CMO Battalion">2CMO Battalion</option>
+          <option value="2nd OMPMFC">2nd OMPMFC</option>
+          <option value="402nd B MC RMFB 4B">402nd B MC RMFB 4B</option>
+          <option value="405th B MC RMFB 4B">405th B MC RMFB 4B</option>
+          <option value="4th Infantry &quot;Scorpion&quot; Battalion">4th Infantry "Scorpion" Battalion</option>
+          <option value="68th Infantry &quot;Kaagapay&quot; Battalion">68th Infantry "Kaagapay" Battalion</option>
+          <option value="76th Infantry &quot;Victrix&quot; Battalion">76th Infantry "Victrix" Battalion</option>
+          <option value="ISAFP">ISAFP</option>
+          <option value="PIT Occidental Mindoro RIU 4B">PIT Occidental Mindoro RIU 4B</option>
+          <option value="OTHERS">OTHERS</option>
+        </select>
         <button class="btn-primary" onclick="showPage('addRecord')">+ ADD NEW RECORD</button>
         <button class="btn-secondary" onclick="exportCSV()">⬇ EXPORT CSV</button>
         <button class="btn-secondary" onclick="document.getElementById('csvImportInput').click()">⬆ IMPORT CSV</button>
@@ -503,8 +542,8 @@
                     <input type="text" id="alias" placeholder="KNOWN ALIAS / CODENAME" style="text-transform:uppercase"/>
                   </div>
                   <div class="form-group">
-                    <label>DATE OF BIRTH <span class="req">*</span></label>
-                    <input type="date" id="dob" required onchange="calcAge()"/>
+                    <label>DATE OF BIRTH</label>
+                    <input type="date" id="dob" onchange="calcAge()"/>
                   </div>
                 </div>
                 <div class="form-row three-col">

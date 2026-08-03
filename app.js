@@ -301,22 +301,22 @@ function playChime() {
 
 function calcAge() {
   var dob = document.getElementById('dob').value;
-  if (!dob) { document.getElementById('age').value = ''; syncSeniorCitizenSector(); return; }
+  if (!dob) { document.getElementById('age').value = 'UNKNOWN'; syncSeniorCitizenSector(); return; }
   var today = new Date(), birth = new Date(dob);
   var age = today.getFullYear() - birth.getFullYear();
   var m = today.getMonth() - birth.getMonth();
   if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
-  document.getElementById('age').value = age >= 0 ? age : '';
+  document.getElementById('age').value = age >= 0 ? age : 'UNKNOWN';
   syncSeniorCitizenSector();
 }
 
 function calcAgeFromDob(dob) {
-  if (!dob) return '';
+  if (!dob) return 'UNKNOWN';
   var today = new Date(), birth = new Date(dob);
   var age = today.getFullYear() - birth.getFullYear();
   var m = today.getMonth() - birth.getMonth();
   if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
-  return age >= 0 ? age : '';
+  return age >= 0 ? age : 'UNKNOWN';
 }
 
 function syncSeniorCitizenSector() {
@@ -569,6 +569,9 @@ function renderDashboard(records) {
   document.getElementById('statFemale').textContent     = records.filter(function(r) { return r.sex === 'FEMALE'; }).length;
   document.getElementById('statRegularNPA').textContent = records.filter(function(r) { return r.membershipType === 'REGULAR NPA'; }).length;
   document.getElementById('statMilisyang').textContent  = records.filter(function(r) { return r.membershipType === 'MILISYANG BAYAN'; }).length;
+  document.getElementById('statCannotLocate').textContent  = records.filter(function(r) { return r.recordStatus === 'CANNOT BE LOCATED'; }).length;
+  document.getElementById('statDeceased').textContent      = records.filter(function(r) { return r.recordStatus === 'DECEASED'; }).length;
+  document.getElementById('statIncarcerated').textContent  = records.filter(function(r) { return r.recordStatus === 'INCARCERATED'; }).length;
   renderNoEclipWidget(records);
   renderAssistanceReport(records);
   renderMembershipReport(records);
@@ -1017,12 +1020,13 @@ function renderReferringUnitReport(records) {
 
 // -- RECORDS LIST ---------------------------------------------
 function renderRecords(records, filter) {
-  filter = filter || '';
+function renderRecords(records, filter, unitFilter) {
+  filter     = filter     || '';
+  unitFilter = unitFilter || '';
   var list = records;
   if (filter) {
     var q = filter.toLowerCase();
-    list = records.filter(function(r) {
-      // derive searchable e-clip status string
+    list = list.filter(function(r) {
       var asst = r.assistance || [];
       var eclipStatus = asst.indexOf('E-CLIP') !== -1
         ? 'e-clip'
@@ -1034,6 +1038,14 @@ function renderRecords(records, filter) {
         (r.unit||'').toLowerCase().indexOf(q)!==-1 ||
         (r.referringUnit||'').toLowerCase().indexOf(q)!==-1 ||
         eclipStatus.indexOf(q) !== -1;
+    });
+  }
+  if (unitFilter) {
+    list = list.filter(function(r) {
+      var ru = r.referringUnit || '';
+      // match exact unit name, or OTHERS prefix for free-text entries
+      if (unitFilter === 'OTHERS') return ru.indexOf('OTHERS') === 0;
+      return ru === unitFilter;
     });
   }
   // Sort alphabetically by Last Name then First Name
@@ -1059,7 +1071,13 @@ function renderRecords(records, filter) {
   }).join('');
 }
 
-function filterRecords() { renderRecords(allRecordsCache, document.getElementById('searchInput').value); }
+function filterRecords() {
+  renderRecords(
+    allRecordsCache,
+    document.getElementById('searchInput').value,
+    document.getElementById('unitFilterSelect').value
+  );
+}
 
 // -- ID PHOTO -------------------------------------------------
 function previewIdPhoto(event) {

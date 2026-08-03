@@ -199,6 +199,22 @@ a { text-decoration: none; color: inherit; }
   transition: border-color .2s, box-shadow .2s;
 }
 .stat-card:hover { border-color: var(--accent); box-shadow: 0 0 16px var(--accent-glow); }
+.stat-card--warning { border-color: rgba(210,153,34,0.4); }
+.stat-card--warning:hover { border-color: var(--yellow); box-shadow: 0 0 16px rgba(210,153,34,0.25); }
+.stat-card--warning .stat-num { color: var(--yellow); }
+.stat-card--danger { border-color: rgba(248,81,73,0.4); }
+.stat-card--danger:hover { border-color: #f85149; box-shadow: 0 0 16px rgba(248,81,73,0.25); }
+.stat-card--danger .stat-num { color: #f85149; }
+.stat-card--purple { border-color: rgba(163,113,247,0.4); }
+.stat-card--purple:hover { border-color: #a371f7; box-shadow: 0 0 16px rgba(163,113,247,0.25); }
+.stat-card--purple .stat-num { color: #a371f7; }
+.unit-filter-select {
+  background: var(--bg3); color: var(--text1); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 8px 12px; font-size: 0.75rem;
+  letter-spacing: 0.5px; font-family: inherit; cursor: pointer;
+  min-width: 200px; transition: border-color .2s;
+}
+.unit-filter-select:hover, .unit-filter-select:focus { border-color: var(--accent); outline: none; }
 .stat-icon { font-size: 32px; }
 .stat-num { font-size: 2rem; font-weight: 700; color: var(--accent2); }
 .stat-label { font-size: 0.65rem; letter-spacing: 1.5px; color: var(--text2); margin-top: 2px; }
