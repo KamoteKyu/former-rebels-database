@@ -2065,15 +2065,40 @@ function saveUser() {
       showToast('OPERATOR ' + username + ' ADDED — LOGIN: ' + email, 'success');
       cancelUserEdit(); renderUsers();
     }).catch(function(err) {
-      if (err.code === 'auth/email-already-in-use') errEl.textContent = 'USERNAME ALREADY EXISTS IN FIREBASE AUTH.';
-      else errEl.textContent = 'ERROR: ' + err.message;
+      if (err.code === 'auth/email-already-in-use') {
+        // Auth account exists but Firestore doc was deleted — sign in to get UID and recreate doc
+        errEl.textContent = 'RECOVERING EXISTING AUTH ACCOUNT...';
+        secondaryAuth.signInWithEmailAndPassword(email, password).then(function(cred) {
+          var existingUid = cred.user.uid;
+          secondaryAuth.signOut();
+          return db.collection('users').doc(existingUid).set({
+            username:  username,
+            role:      'OPERATOR',
+            email:     email,
+            uid:       existingUid,
+            createdAt: new Date().toISOString()
+          });
+        }).then(function() {
+          errEl.textContent = '';
+          showToast('OPERATOR ' + username + ' RESTORED — LOGIN: ' + email, 'success');
+          cancelUserEdit(); renderUsers();
+        }).catch(function(err2) {
+          if (err2.code === 'auth/wrong-password' || err2.code === 'auth/invalid-credential') {
+            errEl.textContent = 'USERNAME TAKEN IN FIREBASE AUTH WITH A DIFFERENT PASSWORD. USE A DIFFERENT USERNAME.';
+          } else {
+            errEl.textContent = 'ERROR: ' + err2.message;
+          }
+        });
+      } else {
+        errEl.textContent = 'ERROR: ' + err.message;
+      }
     });
   }).catch(function(err) { errEl.textContent = 'ERROR: ' + err.message; });
 }
 
 function deleteUser(id) {
   if (!currentUser || currentUser.role !== 'ADMIN') { showToast('ACCESS DENIED', 'error'); return; }
-  if (!confirm('DELETE THIS OPERATOR?\n\nThis removes their access from the system.\nTHIS CANNOT BE UNDONE.')) return;
+  if (!confirm('DELETE THIS OPERATOR?\n\nThis removes their Firestore profile and blocks login.\nNote: If you re-add the same username later, use the same password.\nTHIS CANNOT BE UNDONE.')) return;
   db.collection('users').doc(id).delete().then(function() {
     showToast('OPERATOR REMOVED', 'error'); renderUsers();
   }).catch(function(err) { showToast('ERROR: ' + err.message, 'error'); });
