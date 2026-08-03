@@ -2,7 +2,7 @@
 title FORMER REBELS DATABASE MANAGEMENT SYSTEM
 cd /d "%~dp0"
 
-:: Check if node_modules\electron exists
+:: Check if Electron is installed
 if not exist "%~dp0node_modules\.bin\electron.cmd" (
     echo.
     echo  =====================================================
@@ -26,5 +26,5 @@ echo   Starting native app window...
 echo  =====================================================
 echo.
 
-:: Launch Electron — suppress the console window after startup
-start "" /B "%~dp0node_modules\.bin\electron.cmd" "%~dp0"
+:: Launch Electron using the current directory (already cd'd above)
+start "" /B "%~dp0node_modules\.bin\electron.cmd" .

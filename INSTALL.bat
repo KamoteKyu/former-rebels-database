@@ -83,17 +83,17 @@ if exist "%ProgramFiles%\Microsoft\Edge\Application\msedge.exe"       set "EDGE=
 echo  [2/4] Setting up launcher...
 if not exist "%LAUNCHER_DIR%" mkdir "%LAUNCHER_DIR%"
 
-:: Write launch.bat — points to LAUNCH_APP.bat (Electron native window)
+:: Write launch.bat — silently invokes Electron via VBScript (no cmd window)
 > "%LAUNCHER%" echo @echo off
->> "%LAUNCHER%" echo call "%~dp0LAUNCH_APP.bat"
+>> "%LAUNCHER%" echo wscript.exe "%~dp0LAUNCH_SILENT.vbs"
 
 echo  [3/4] Creating shortcuts...
 
 :: ── DESKTOP SHORTCUT ──────────────────────────────────────────────────────────
-powershell -NoProfile -Command "$ws=New-Object -ComObject WScript.Shell; $sc=$ws.CreateShortcut('%SHORTCUT_DESKTOP%'); $sc.TargetPath='%LAUNCHER%'; $sc.WorkingDirectory='%LAUNCHER_DIR%'; $sc.Description='Former Rebels Database Management System'; $sc.IconLocation='shell32.dll,14'; $sc.Save();"
+powershell -NoProfile -Command "$ws=New-Object -ComObject WScript.Shell; $sc=$ws.CreateShortcut('%SHORTCUT_DESKTOP%'); $sc.TargetPath='wscript.exe'; $sc.Arguments='\""%~dp0LAUNCH_SILENT.vbs\""'; $sc.WorkingDirectory='%~dp0'; $sc.Description='Former Rebels Database Management System'; $sc.IconLocation='shell32.dll,14'; $sc.Save();"
 
 :: ── START MENU SHORTCUT ───────────────────────────────────────────────────────
-powershell -NoProfile -Command "$ws=New-Object -ComObject WScript.Shell; $sc=$ws.CreateShortcut('%SHORTCUT_START%'); $sc.TargetPath='%LAUNCHER%'; $sc.WorkingDirectory='%LAUNCHER_DIR%'; $sc.Description='Former Rebels Database Management System'; $sc.IconLocation='shell32.dll,14'; $sc.Save();"
+powershell -NoProfile -Command "$ws=New-Object -ComObject WScript.Shell; $sc=$ws.CreateShortcut('%SHORTCUT_START%'); $sc.TargetPath='wscript.exe'; $sc.Arguments='\""%~dp0LAUNCH_SILENT.vbs\""'; $sc.WorkingDirectory='%~dp0'; $sc.Description='Former Rebels Database Management System'; $sc.IconLocation='shell32.dll,14'; $sc.Save();"
 
 echo  [4/4] Done!
 echo.
