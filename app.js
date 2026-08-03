@@ -2096,6 +2096,24 @@ function saveUser() {
   }).catch(function(err) { errEl.textContent = 'ERROR: ' + err.message; });
 }
 
+// -- PURGE ALL OPERATORS --------------------------------------
+function purgeAllOperators() {
+  if (!currentUser || currentUser.role !== 'ADMIN') { showToast('ACCESS DENIED', 'error'); return; }
+  if (!confirm('DELETE ALL OPERATOR PROFILES FROM FIRESTORE?\n\nThis removes all operator documents.\nYou must also delete their accounts manually in the Firebase Console.\n\nTHIS CANNOT BE UNDONE.')) return;
+
+  waitForAuth().then(function() {
+    return db.collection('users').where('role', '==', 'OPERATOR').get({ source: 'server' });
+  }).then(function(snap) {
+    if (!snap.size) { showToast('NO OPERATORS TO DELETE', 'info'); return; }
+    var batch = db.batch();
+    snap.docs.forEach(function(d) { batch.delete(d.ref); });
+    return batch.commit().then(function() {
+      showToast('ALL ' + snap.size + ' OPERATOR PROFILE(S) DELETED', 'error');
+      renderUsers();
+    });
+  }).catch(function(err) { showToast('ERROR: ' + err.message, 'error'); });
+}
+
 function deleteUser(id) {
   if (!currentUser || currentUser.role !== 'ADMIN') { showToast('ACCESS DENIED', 'error'); return; }
   if (!confirm('DELETE THIS OPERATOR?\n\nThis removes their Firestore profile and blocks login.\nNote: If you re-add the same username later, use the same password.\nTHIS CANNOT BE UNDONE.')) return;

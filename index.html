@@ -907,6 +907,13 @@
         </div>
 
         <!-- CHANGE ADMIN PASSWORD -->
+        <div class="change-pw-panel" style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
+          <h4 style="color:#f85149;margin-bottom:10px">🗑️ PURGE ALL OPERATORS</h4>
+          <p style="font-size:0.72rem;color:var(--text3);margin-bottom:10px">Removes all operator Firestore profiles. Delete their Firebase Auth accounts separately at <a href="https://console.firebase.google.com/project/ocmfrdb/authentication/users" target="_blank" style="color:var(--accent)">Firebase Console → Authentication</a>.</p>
+          <button type="button" class="btn-danger" onclick="purgeAllOperators()">🗑️ DELETE ALL OPERATOR PROFILES</button>
+        </div>
+
+        <!-- CHANGE ADMIN PASSWORD -->
         <div class="change-pw-panel">
           <h4>🔑 CHANGE ADMIN PASSWORD</h4>
           <div class="change-pw-grid">
