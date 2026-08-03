@@ -1965,7 +1965,9 @@ function exportCSV() {
 var editingUserId = null;
 
 function renderUsers() {
-  db.collection('users').get().then(function(snap) {
+  waitForAuth().then(function() {
+    return db.collection('users').get({ source: 'server' });
+  }).then(function(snap) {
     var users = snap.docs.map(function(d) { return Object.assign({ id: d.id }, d.data()); });
     var operators = users.filter(function(u) { return u.role === 'OPERATOR'; });
     document.getElementById('operatorCount').textContent = operators.length;
