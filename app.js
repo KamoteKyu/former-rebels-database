@@ -1169,6 +1169,172 @@ function printFilteredRecords() {
   showToast('PRINT PREVIEW OPENED', 'success');
 }
 
+// -- PRINTABLE LISTS ------------------------------------------
+
+// Shared helper — builds and opens a print-ready list table
+function buildPrintableList(title, subtitle, list, extraCol) {
+  if (!list || !list.length) { showToast('NO RECORDS TO PRINT', 'info'); return; }
+  var printed   = new Date().toLocaleString('en-PH');
+  var printedBy = currentUser ? currentUser.username + ' (' + currentUser.role + ')' : 'UNKNOWN';
+
+  var rows = list.map(function(r, i) {
+    var age = calcAgeFromDob(r.dob);
+    var statusStyle = '';
+    if (r.recordStatus === 'DECEASED')          statusStyle = 'color:#cf222e;font-weight:700';
+    if (r.recordStatus === 'CANNOT BE LOCATED') statusStyle = 'color:#9a6700;font-weight:700';
+    if (r.recordStatus === 'INCARCERATED')      statusStyle = 'color:#7a43b6;font-weight:700';
+    var extraCell = extraCol ? '<td style="font-size:9px;color:#555">' + (extraCol(r) || '-') + '</td>' : '';
+    return '<tr>' +
+      '<td style="text-align:center">'  + (i + 1) + '</td>' +
+      '<td><strong>' + (r.lastName||'') + ', ' + (r.firstName||'') + '</strong>' + (r.middleName ? ' ' + r.middleName : '') + '</td>' +
+      '<td style="text-align:center">'  + age + '</td>' +
+      '<td style="text-align:center">'  + (r.sex||'-') + '</td>' +
+      '<td>'                            + (r.membershipType||'-') + '</td>' +
+      '<td>'                            + (r.referringUnit||'-') + '</td>' +
+      '<td style="text-align:center">'  + formatDate(r.dateSurrendered) + '</td>' +
+      '<td style="' + statusStyle + '">' + (r.recordStatus||'ACTIVE') + '</td>' +
+      extraCell +
+      '</tr>';
+  }).join('');
+
+  var colSpan = extraCol ? 9 : 8;
+  var extraHeader = extraCol ? '<th>' + extraCol.label + '</th>' : '';
+
+  var body =
+    '<div class="print-header">' +
+      '<h1>FORMER REBELS DATABASE MANAGEMENT SYSTEM</h1>' +
+      '<p>' + title + '</p>' +
+      (subtitle ? '<p style="font-size:10px">' + subtitle + '</p>' : '') +
+      '<p>Printed: ' + printed + ' &nbsp;|&nbsp; By: ' + printedBy + '</p>' +
+    '</div>' +
+    '<table class="report-table" style="width:100%;font-size:10px">' +
+      '<thead><tr>' +
+        '<th style="text-align:center;width:28px">#</th>' +
+        '<th>FULL NAME</th>' +
+        '<th style="text-align:center">AGE</th>' +
+        '<th style="text-align:center">SEX</th>' +
+        '<th>MEMBERSHIP</th>' +
+        '<th>REFERRING UNIT</th>' +
+        '<th style="text-align:center">DATE SURRENDERED</th>' +
+        '<th>STATUS</th>' +
+        extraHeader +
+      '</tr></thead>' +
+      '<tbody>' + rows + '</tbody>' +
+      '<tfoot><tr><td colspan="' + colSpan + '" style="text-align:right;font-size:9px;padding-top:6px;border-top:2px solid #333">' +
+        'TOTAL: ' + list.length + ' RECORD' + (list.length !== 1 ? 'S' : '') +
+      '</td></tr></tfoot>' +
+    '</table>';
+
+  openPrintDocument(title, body, REPORT_PRINT_STYLES);
+  showToast('PRINT PREVIEW OPENED', 'success');
+}
+
+// Print list filtered by a selected referring unit (prompts user to pick)
+function printByReferringUnit() {
+  var records = allRecordsCache;
+  if (!records.length) { showToast('NO RECORDS LOADED', 'info'); return; }
+
+  // Build unit list from actual data
+  var unitSet = {};
+  records.forEach(function(r) {
+    var u = r.referringUnit || '';
+    if (u) unitSet[u] = (unitSet[u] || 0) + 1;
+  });
+  var units = Object.keys(unitSet).sort();
+  if (!units.length) { showToast('NO REFERRING UNITS FOUND', 'info'); return; }
+
+  // Show a simple modal picker
+  var opts = units.map(function(u) {
+    return '<option value="' + u.replace(/"/g, '&quot;') + '">' + u + ' (' + unitSet[u] + ')</option>';
+  }).join('');
+
+  var modal = document.createElement('div');
+  modal.className = 'modal-overlay';
+  modal.style.zIndex = '10001';
+  modal.innerHTML =
+    '<div class="modal-card" style="max-width:420px;width:90%">' +
+      '<div class="modal-header"><h3>🖨 PRINT BY REFERRING UNIT</h3>' +
+        '<button class="modal-close" onclick="this.closest(\'.modal-overlay\').remove()">✕</button></div>' +
+      '<div class="modal-body" style="padding:20px">' +
+        '<div class="form-group"><label>SELECT REFERRING UNIT</label>' +
+          '<select id="_unitPickerSelect" style="width:100%;margin-top:6px;background:var(--bg3);color:var(--text1);border:1px solid var(--border);border-radius:var(--radius);padding:8px 10px;font-size:0.8rem">' +
+          opts + '</select></div></div>' +
+      '<div class="modal-footer">' +
+        '<button class="btn-secondary" onclick="this.closest(\'.modal-overlay\').remove()">CANCEL</button>' +
+        '<button class="btn-primary" onclick="' +
+          'var u=document.getElementById(\'_unitPickerSelect\').value;' +
+          'this.closest(\'.modal-overlay\').remove();' +
+          'printByUnitName(u)' +
+        '">🖨 PRINT</button>' +
+      '</div>' +
+    '</div>';
+  document.body.appendChild(modal);
+}
+
+function printByUnitName(unitName) {
+  var list = allRecordsCache.filter(function(r) { return (r.referringUnit || '') === unitName; });
+  list = list.slice().sort(function(a,b){ return (a.lastName||'').localeCompare(b.lastName||''); });
+  buildPrintableList('RECORDS LIST — ' + unitName, 'REFERRING UNIT: ' + unitName, list, null);
+}
+
+// Print list of profiles with incomplete data
+function printIncompleteData() {
+  var records = allRecordsCache;
+  if (!records.length) { showToast('NO RECORDS LOADED', 'info'); return; }
+
+  // Reuse getMissingFields — defined inside renderNoEclipWidget, so duplicate logic here
+  function getMissing(r) {
+    var m = [];
+    if (!r.lastName)    m.push('LAST NAME');
+    if (!r.firstName)   m.push('FIRST NAME');
+    if (!r.middleName)  m.push('MIDDLE NAME');
+    if (!r.sex)         m.push('SEX');
+    if (!r.civilStatus) m.push('CIVIL STATUS');
+    if (!r.religion)    m.push('RELIGION');
+    if (!r.medicalCondition) m.push('MEDICAL CONDITION');
+    if (!r.fourPs)      m.push('4Ps');
+    if (r.addressProvince !== 'OUTSIDE MINDORO') {
+      if (r.addressProvince !== 'ORIENTAL MINDORO') {
+        if (!r.addressBarangay && !r.address) m.push('BARANGAY');
+      }
+      if (!r.addressMunicipality) m.push('MUNICIPALITY');
+    }
+    if (!r.addressProvince)  m.push('PROVINCE');
+    if (!r.tribalGroup)      m.push('TRIBAL GROUP');
+    if (!r.sector || r.sector.length === 0) m.push('SECTOR');
+    if (!r.unit)             m.push('UNIT');
+    if (!r.position)         m.push('POSITION');
+    if (!r.membershipType)   m.push('MEMBERSHIP TYPE');
+    if (!r.areaOfOperation)  m.push('AREA OF OPERATION');
+    if (!r.yearsInMovement && r.yearsInMovement !== 0) m.push('YEARS IN MOVEMENT');
+    if (!r.dateSurrendered)  m.push('DATE SURRENDERED');
+    if (!r.pendingCase)      m.push('PENDING CASE');
+    if (!r.referringUnit)    m.push('REFERRING UNIT');
+    return m;
+  }
+
+  var list = records.filter(function(r) { return getMissing(r).length > 0; });
+  list = list.slice().sort(function(a,b){ return (a.lastName||'').localeCompare(b.lastName||''); });
+
+  var missingCol = function(r) { return getMissing(r).join(', '); };
+  missingCol.label = 'MISSING FIELDS';
+
+  buildPrintableList('PROFILES WITH INCOMPLETE DATA', 'TOTAL: ' + list.length + ' PROFILE(S) WITH MISSING FIELDS', list, missingCol);
+}
+
+// Print list of profiles with no JAPIC on file
+function printNoJapic() {
+  var records = allRecordsCache;
+  if (!records.length) { showToast('NO RECORDS LOADED', 'info'); return; }
+
+  var list = records.filter(function(r) {
+    return !r.japic || !(r.japic.url || r.japic.dataUrl || r.japic.fileName);
+  });
+  list = list.slice().sort(function(a,b){ return (a.lastName||'').localeCompare(b.lastName||''); });
+
+  buildPrintableList('PROFILES WITH NO JAPIC CERTIFICATE', 'TOTAL: ' + list.length + ' PROFILE(S) WITHOUT JAPIC ON FILE', list, null);
+}
+
 // -- ID PHOTO -------------------------------------------------
 function previewIdPhoto(event) {
   var file = event.target.files[0]; if (!file) return;
