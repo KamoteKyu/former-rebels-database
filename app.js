@@ -1527,6 +1527,8 @@ function editRecord(id) {
   document.getElementById('remarks').value=r.remarks||'';
   var KNOWN_UNITS=['102nd SAC','1st Infantry "Always First" Battalion','1st OMPMFC','203rd Infantry "Bantay Kapayapaan" Brigade','23MICO','2CMO Battalion','2nd OMPMFC','402nd B MC RMFB 4B','405th B MC RMFB 4B','4th Infantry "Scorpion" Battalion','68th Infantry "Kaagapay" Battalion','76th Infantry "Victrix" Battalion','ISAFP','PIT Occidental Mindoro RIU 4B','OTHERS'];
   var savedUnit=r.referringUnit||'';
+  // Normalize saved unit to canonical form before matching dropdown
+  var savedUnit = normalizeReferringUnit(savedUnit) || savedUnit;
   if(!savedUnit){document.getElementById('referringUnit').value='';document.getElementById('referringUnitOthersGroup').style.display='none';}
   else if(KNOWN_UNITS.indexOf(savedUnit)!==-1){document.getElementById('referringUnit').value=savedUnit;document.getElementById('referringUnitOthersGroup').style.display='none';}
   else if(savedUnit.indexOf('OTHERS')===0){document.getElementById('referringUnit').value='OTHERS';document.getElementById('referringUnitOthersGroup').style.display='block';document.getElementById('referringUnitOthers').value=savedUnit.replace('OTHERS: ','').replace('OTHERS','');}
@@ -1762,6 +1764,15 @@ function normalizeAsstList(raw) {
 }
 
 // Normalize referring unit — keep known units verbatim, uppercase everything else.
+// Also maps known all-caps variants to the canonical mixed-case form.
+var REFERRING_UNIT_ALIASES = {
+  '4TH INFANTRY "SCORPION" BATTALION': '4th Infantry "Scorpion" Battalion',
+  '4TH INFANTRY "SCORPION" BATTALION.': '4th Infantry "Scorpion" Battalion',
+  '1ST INFANTRY "ALWAYS FIRST" BATTALION': '1st Infantry "Always First" Battalion',
+  '203RD INFANTRY "BANTAY KAPAYAPAAN" BRIGADE': '203rd Infantry "Bantay Kapayapaan" Brigade',
+  '68TH INFANTRY "KAAGAPAY" BATTALION': '68th Infantry "Kaagapay" Battalion',
+  '76TH INFANTRY "VICTRIX" BATTALION': '76th Infantry "Victrix" Battalion'
+};
 var IMPORT_KNOWN_UNITS = [
   '102nd SAC','1st Infantry "Always First" Battalion','1st OMPMFC',
   '203rd Infantry "Bantay Kapayapaan" Brigade','23MICO','2CMO Battalion',
@@ -1772,6 +1783,8 @@ var IMPORT_KNOWN_UNITS = [
 function normalizeReferringUnit(raw) {
   if (!raw) return '';
   var up = raw.toString().trim().toUpperCase();
+  // Check alias map first
+  if (REFERRING_UNIT_ALIASES[up]) return REFERRING_UNIT_ALIASES[up];
   for (var i = 0; i < IMPORT_KNOWN_UNITS.length; i++) {
     if (IMPORT_KNOWN_UNITS[i].toUpperCase() === up) return IMPORT_KNOWN_UNITS[i];
   }
@@ -2282,6 +2295,11 @@ function migrateDefaults() {
       if (!r.yearsInMovement && r.yearsInMovement !== 0)
                               updates.yearsInMovement = '1';
       if (!r.civilStatus)     updates.civilStatus     = defaultCivilStatus(r.dob);
+      // Fix referring unit variants (e.g. all-caps "SCORPION" → canonical form)
+      if (r.referringUnit) {
+        var normalized = normalizeReferringUnit(r.referringUnit);
+        if (normalized && normalized !== r.referringUnit) updates.referringUnit = normalized;
+      }
       if (Object.keys(updates).length > 0) {
         updates.updatedAt = new Date().toISOString();
         toFix.push({ ref: d.ref, updates: updates });
