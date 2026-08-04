@@ -2268,6 +2268,44 @@ function toggleTheme() {
   applyTheme(saved);
 })();
 
+// -- DEFAULTS MIGRATION ---------------------------------------
+// Fills in missing position, yearsInMovement, civilStatus on existing records
+function migrateDefaults() {
+  waitForAuth().then(function() {
+    return db.collection('records').get({ source: 'server' });
+  }).then(function(snap) {
+    var toFix = [];
+    snap.docs.forEach(function(d) {
+      var r = d.data();
+      var updates = {};
+      if (!r.position)        updates.position        = 'MEMBER';
+      if (!r.yearsInMovement && r.yearsInMovement !== 0)
+                              updates.yearsInMovement = '1';
+      if (!r.civilStatus)     updates.civilStatus     = defaultCivilStatus(r.dob);
+      if (Object.keys(updates).length > 0) {
+        updates.updatedAt = new Date().toISOString();
+        toFix.push({ ref: d.ref, updates: updates });
+      }
+    });
+    if (!toFix.length) { console.log('[FRDB] migrateDefaults: nothing to fix'); return; }
+    // Firestore batch limit is 500
+    var BATCH_SIZE = 400;
+    var batches = [];
+    for (var i = 0; i < toFix.length; i += BATCH_SIZE) {
+      var batch = db.batch();
+      toFix.slice(i, i + BATCH_SIZE).forEach(function(item) {
+        batch.update(item.ref, item.updates);
+      });
+      batches.push(batch.commit());
+    }
+    return Promise.all(batches).then(function() {
+      console.log('[FRDB] migrateDefaults: updated ' + toFix.length + ' record(s)');
+    });
+  }).catch(function(err) {
+    console.warn('[FRDB] migrateDefaults failed:', err.message);
+  });
+}
+
 // -- CIVIL STATUS MIGRATION -----------------------------------
 // Rewrites legacy values: "LIVE-IN" and "COMMON-LAW PARTNER" → "COMMON-LAW"
 function migrateCivilStatus() {
@@ -2325,8 +2363,9 @@ auth.onAuthStateChanged(function(user) {
           console.warn('[FRDB] Could not load user profile:', err.code);
         });
       onLoginSuccess();
-      // One-time migration: normalize old civil status values
+      // One-time migrations: normalize old values + apply new defaults
       migrateCivilStatus();
+      migrateDefaults();
     }
   }
 });
