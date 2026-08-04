@@ -651,6 +651,93 @@ textarea { resize: vertical; min-height: 120px; }
   border-radius: var(--radius); font-size: 0.8rem; letter-spacing: .5px;
   z-index: 999; box-shadow: var(--shadow); animation: slideIn .3s ease;
 }
+
+/* ===== IMPORT OVERLAY ===== */
+.import-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.72);
+  z-index: 10000; display: flex; align-items: center; justify-content: center;
+  backdrop-filter: blur(4px);
+}
+.import-overlay.hidden { display: none; }
+.import-overlay-card {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: 40px 48px;
+  display: flex; flex-direction: column; align-items: center; gap: 20px;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.5); min-width: 280px;
+}
+.import-overlay-msg {
+  font-size: 1rem; font-weight: 700; letter-spacing: 2px; color: var(--text1);
+}
+.import-overlay-sub {
+  font-size: 0.65rem; letter-spacing: 1px; color: var(--text3);
+}
+
+/* Hourglass shape */
+.hourglass-wrap { position: relative; width: 56px; height: 80px; }
+.hourglass {
+  width: 56px; height: 80px; position: relative;
+  animation: hg-flip 2s ease-in-out infinite;
+  transform-origin: center center;
+}
+.hourglass-top {
+  position: absolute; top: 0; left: 0; right: 0;
+  width: 0; height: 0;
+  border-left: 28px solid transparent;
+  border-right: 28px solid transparent;
+  border-top: 36px solid var(--accent);
+  filter: drop-shadow(0 0 6px var(--accent));
+}
+.hourglass-bot {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  width: 0; height: 0;
+  border-left: 28px solid transparent;
+  border-right: 28px solid transparent;
+  border-bottom: 36px solid var(--accent);
+  filter: drop-shadow(0 0 6px var(--accent));
+}
+.hourglass-mid {
+  position: absolute; top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  width: 6px; height: 8px;
+  background: var(--accent); border-radius: 1px;
+}
+/* Falling sand top */
+.hourglass-sand-top {
+  position: absolute; top: 6px; left: 50%;
+  transform: translateX(-50%);
+  width: 4px; background: rgba(255,255,255,0.55);
+  border-radius: 2px;
+  animation: hg-sand-fall 2s ease-in-out infinite;
+}
+/* Sand pile bot */
+.hourglass-sand-bot {
+  position: absolute; bottom: 4px; left: 50%;
+  transform: translateX(-50%);
+  width: 18px; height: 6px;
+  background: rgba(255,255,255,0.35);
+  border-radius: 50%;
+  animation: hg-sand-pile 2s ease-in-out infinite;
+}
+
+@keyframes hg-flip {
+  0%,40%   { transform: rotate(0deg); }
+  50%,90%  { transform: rotate(180deg); }
+  100%     { transform: rotate(180deg); }
+}
+@keyframes hg-sand-fall {
+  0%       { height: 22px; opacity: 1; }
+  40%      { height: 2px;  opacity: 0.3; }
+  50%      { height: 22px; opacity: 1; }
+  90%      { height: 2px;  opacity: 0.3; }
+  100%     { height: 22px; opacity: 1; }
+}
+@keyframes hg-sand-pile {
+  0%       { width: 18px; opacity: 0.35; }
+  40%      { width: 28px; opacity: 0.6; }
+  50%      { width: 18px; opacity: 0.35; }
+  90%      { width: 28px; opacity: 0.6; }
+  100%     { width: 18px; opacity: 0.35; }
+}
 .toast.success { background: rgba(63,185,80,.9); color: #fff; border: 1px solid var(--green); }
 .toast.error { background: rgba(248,81,73,.9); color: #fff; border: 1px solid var(--red); }
 .toast.info { background: rgba(31,111,235,.9); color: #fff; border: 1px solid var(--accent); }

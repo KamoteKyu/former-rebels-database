@@ -1769,13 +1769,27 @@ function normalizeReferringUnit(raw) {
   return up; // uppercase free-text / OTHERS
 }
 
+// -- IMPORT OVERLAY -------------------------------------------
+function showImportOverlay(msg) {
+  var el = document.getElementById('importOverlay');
+  var msgEl = document.getElementById('importOverlayMsg');
+  if (msgEl) msgEl.textContent = msg || 'IMPORTING...';
+  if (el) el.classList.remove('hidden');
+}
+function hideImportOverlay() {
+  var el = document.getElementById('importOverlay');
+  if (el) el.classList.add('hidden');
+}
+
 // -- IMPORT CSV -----------------------------------------------
 function importCSVFile(event) {
   var file = event.target.files[0]; if (!file) return;
+  showImportOverlay('READING FILE...');
   var reader = new FileReader();
   reader.onload = function(e) {
     var text = e.target.result, lines = text.split(/\r?\n/).filter(function(l) { return l.trim(); });
-    if (lines.length < 2) { showToast('CSV IS EMPTY OR INVALID', 'error'); return; }
+    if (lines.length < 2) { hideImportOverlay(); showToast('CSV IS EMPTY OR INVALID', 'error'); return; }
+    showImportOverlay('PARSING ' + (lines.length - 1) + ' RECORDS...');
     var headers = parseCSVLine(lines[0]), idx = {};
     headers.forEach(function(h, i) { idx[h.trim()] = i; });
 
@@ -1906,8 +1920,8 @@ function importCSVFile(event) {
       });
     }
 
-    if (!parsed.length) { showToast('NO RECORDS FOUND IN CSV', 'error'); return; }
-    showToast('IMPORTING ' + parsed.length + ' RECORDS...', 'info');
+    if (!parsed.length) { showToast('NO RECORDS FOUND IN CSV', 'error'); hideImportOverlay(); return; }
+    showImportOverlay('CHECKING FOR DUPLICATES...');
     dbGetAll().then(function(existing) {
       // Build lookup keys: id-based AND name+dob-based (to catch duplicates regardless of ID)
       var existingIds  = {};
@@ -1939,14 +1953,16 @@ function importCSVFile(event) {
       });
 
       var skipped = skippedDupId + skippedDupName;
-      if (!toImport.length) { showToast('ALL RECORDS ALREADY EXIST — NOTHING IMPORTED', 'info'); return; }
+      if (!toImport.length) { hideImportOverlay(); showToast('ALL RECORDS ALREADY EXIST — NOTHING IMPORTED', 'info'); return; }
+      showImportOverlay('IMPORTING ' + toImport.length + ' RECORD' + (toImport.length !== 1 ? 'S' : '') + '...');
       Promise.all(toImport.map(function(r) { return dbPut(r); })).then(function() {
+        hideImportOverlay();
         allRecordsCache = [];
         var msg = toImport.length + ' RECORDS IMPORTED SUCCESSFULLY';
         if (skipped > 0) msg += ' (' + skipped + ' DUPLICATE' + (skipped > 1 ? 'S' : '') + ' SKIPPED)';
         showToast(msg, 'success');
         showPage('records');
-      }).catch(function(err) { showToast('IMPORT ERROR: ' + err.message, 'error'); });
+      }).catch(function(err) { hideImportOverlay(); showToast('IMPORT ERROR: ' + err.message, 'error'); });
     });
   };
   reader.readAsText(file);
