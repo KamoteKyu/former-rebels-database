@@ -508,8 +508,10 @@ function renderNoEclipWidget(records) {
     if (!r.religion)                                         missing.push('RELIGION');
     if (!r.medicalCondition)                                 missing.push('MEDICAL CONDITION');
     if (!r.fourPs)                                           missing.push('4Ps');
-    if (!r.addressBarangay && !r.address)                    missing.push('BARANGAY');
-    if (!r.addressMunicipality)                              missing.push('MUNICIPALITY');
+    if (r.addressProvince !== 'OUTSIDE MINDORO') {
+      if (!r.addressBarangay && !r.address)                  missing.push('BARANGAY');
+      if (!r.addressMunicipality)                            missing.push('MUNICIPALITY');
+    }
     if (!r.addressProvince)                                  missing.push('PROVINCE');
     if (!r.tribalGroup)                                      missing.push('TRIBAL GROUP');
     if (!r.sector || r.sector.length === 0)                  missing.push('SECTOR');
