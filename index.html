@@ -166,9 +166,6 @@
       </div>
       <div class="dashboard-toolbar">
         <button type="button" class="btn-primary" onclick="generateReport()">📄 GENERATE REPORT</button>
-        <button type="button" class="btn-secondary" onclick="printByReferringUnit()">🖨 LIST BY UNIT</button>
-        <button type="button" class="btn-secondary" onclick="printIncompleteData()">🖨 INCOMPLETE DATA</button>
-        <button type="button" class="btn-secondary" onclick="printNoJapic()">🖨 NO JAPIC</button>
       </div>
 
       <!-- NO E-CLIP PROFILES WIDGET -->
@@ -914,6 +911,13 @@
           <h4 style="color:#f85149;margin-bottom:10px">🗑️ PURGE ALL OPERATORS</h4>
           <p style="font-size:0.72rem;color:var(--text3);margin-bottom:10px">Removes all operator Firestore profiles. Delete their Firebase Auth accounts separately at <a href="https://console.firebase.google.com/project/ocmfrdb/authentication/users" target="_blank" style="color:var(--accent)">Firebase Console → Authentication</a>.</p>
           <button type="button" class="btn-danger" onclick="purgeAllOperators()">🗑️ DELETE ALL OPERATOR PROFILES</button>
+        </div>
+
+        <!-- DATA MIGRATION -->
+        <div class="change-pw-panel" style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
+          <h4 style="color:var(--accent2);margin-bottom:10px">🔧 APPLY DATA MIGRATIONS</h4>
+          <p style="font-size:0.72rem;color:var(--text3);margin-bottom:10px">Fixes missing defaults (position, civil status, years in movement) and normalizes referring unit names (e.g. SCORPION → Scorpion) on all existing records.</p>
+          <button type="button" class="btn-warning" onclick="runMigrationsManually()">🔧 RUN MIGRATIONS NOW</button>
         </div>
 
         <!-- CHANGE ADMIN PASSWORD -->
