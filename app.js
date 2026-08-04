@@ -250,9 +250,9 @@ var SECTOR_IDS = ['sec_farmer','sec_fisherfolk','sec_women','sec_pwd','sec_youth
 // Returns the default civil status based on age
 // 30+ → COMMON-LAW, under 30 → SINGLE
 function defaultCivilStatus(dob) {
-  if (!dob) return 'COMMON-LAW'; // no DOB — default to COMMON-LAW (assume older)
+  if (!dob) return 'SINGLE'; // no DOB — default to SINGLE
   var age = parseInt(calcAgeFromDob(dob), 10);
-  if (isNaN(age)) return 'COMMON-LAW';
+  if (isNaN(age)) return 'SINGLE';
   return age >= 30 ? 'COMMON-LAW' : 'SINGLE';
 }
 
