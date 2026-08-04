@@ -499,19 +499,36 @@ function renderNoEclipWidget(records) {
   // Returns an array of missing field labels for a given record
   function getMissingFields(r) {
     var missing = [];
+    // Part I — Personal Details
     if (!r.lastName)                                         missing.push('LAST NAME');
     if (!r.firstName)                                        missing.push('FIRST NAME');
+    if (!r.middleName)                                       missing.push('MIDDLE NAME');
     if (!r.dob)                                              missing.push('DATE OF BIRTH');
     if (!r.sex)                                              missing.push('SEX');
     if (!r.civilStatus)                                      missing.push('CIVIL STATUS');
     if (!r.religion)                                         missing.push('RELIGION');
+    if (!r.contactNumber)                                    missing.push('CONTACT NUMBER');
     if (!r.medicalCondition)                                 missing.push('MEDICAL CONDITION');
     if (!r.fourPs)                                           missing.push('4Ps');
+    if (!r.addressBarangay && !r.address)                    missing.push('BARANGAY');
+    if (!r.addressMunicipality)                              missing.push('MUNICIPALITY');
+    if (!r.addressProvince)                                  missing.push('PROVINCE');
+    if (!r.tribalGroup)                                      missing.push('TRIBAL GROUP');
+    if (!r.sector || r.sector.length === 0)                  missing.push('SECTOR');
+    // Part II — Movement History
+    if (!r.unit)                                             missing.push('UNIT');
+    if (!r.position)                                         missing.push('POSITION');
+    if (!r.membershipType)                                   missing.push('MEMBERSHIP TYPE');
+    if (!r.areaOfOperation)                                  missing.push('AREA OF OPERATION');
+    if (!r.yearsInMovement && r.yearsInMovement !== 0)       missing.push('YEARS IN MOVEMENT');
+    if (!r.dateSurrendered)                                  missing.push('DATE SURRENDERED');
     if (!r.pendingCase)                                      missing.push('PENDING CASE');
     if (!r.referringUnit)                                    missing.push('REFERRING UNIT');
-    if (!r.sector || r.sector.length === 0)                  missing.push('SECTOR');
-    if (!r.membershipType)                                   missing.push('MEMBERSHIP TYPE');
-    if (!r.dateSurrendered)                                  missing.push('DATE SURRENDERED');
+    // Part III — Reintegration
+    if (!r.assistance || r.assistance.length === 0)          missing.push('ASSISTANCE');
+    // Part IV — Social Case Profile
+    if (!r.japic || !(r.japic.url || r.japic.dataUrl || r.japic.fileName))
+                                                             missing.push('JAPIC');
     return missing;
   }
   var incomplete = records.filter(function(r) {
