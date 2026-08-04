@@ -507,7 +507,6 @@ function renderNoEclipWidget(records) {
     if (!r.sex)                                              missing.push('SEX');
     if (!r.civilStatus)                                      missing.push('CIVIL STATUS');
     if (!r.religion)                                         missing.push('RELIGION');
-    if (!r.contactNumber)                                    missing.push('CONTACT NUMBER');
     if (!r.medicalCondition)                                 missing.push('MEDICAL CONDITION');
     if (!r.fourPs)                                           missing.push('4Ps');
     if (!r.addressBarangay && !r.address)                    missing.push('BARANGAY');
