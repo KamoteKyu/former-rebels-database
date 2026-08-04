@@ -524,11 +524,6 @@ function renderNoEclipWidget(records) {
     if (!r.dateSurrendered)                                  missing.push('DATE SURRENDERED');
     if (!r.pendingCase)                                      missing.push('PENDING CASE');
     if (!r.referringUnit)                                    missing.push('REFERRING UNIT');
-    // Part III — Reintegration
-    if (!r.assistance || r.assistance.length === 0)          missing.push('ASSISTANCE');
-    // Part IV — Social Case Profile
-    if (!r.japic || !(r.japic.url || r.japic.dataUrl || r.japic.fileName))
-                                                             missing.push('JAPIC');
     return missing;
   }
   var incomplete = records.filter(function(r) {
