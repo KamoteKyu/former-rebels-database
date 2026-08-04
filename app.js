@@ -503,7 +503,6 @@ function renderNoEclipWidget(records) {
     if (!r.lastName)                                         missing.push('LAST NAME');
     if (!r.firstName)                                        missing.push('FIRST NAME');
     if (!r.middleName)                                       missing.push('MIDDLE NAME');
-    if (!r.dob)                                              missing.push('DATE OF BIRTH');
     if (!r.sex)                                              missing.push('SEX');
     if (!r.civilStatus)                                      missing.push('CIVIL STATUS');
     if (!r.religion)                                         missing.push('RELIGION');
@@ -1456,7 +1455,7 @@ function resetForm() {
   editingRecordId=null;
   document.getElementById('recordForm').reset();
   document.getElementById('recordId').value='';
-  document.getElementById('age').value='';
+  document.getElementById('age').value='UNKNOWN';
   removeIdPhoto(); validIdSlots=[]; renderValidIdSlots(); removeJapic(); removeSocialCase();
   ['asst_eclip','asst_noteclip','asst_fea','asst_livelihood','asst_medical','asst_educational','asst_credentials','asst_philhealth','asst_safeconduct','asst_amnesty','asst_others'].forEach(function(id){document.getElementById(id).checked=false;});
   document.getElementById('asst_others_spec').style.display='none'; document.getElementById('asst_others_spec').value='';
