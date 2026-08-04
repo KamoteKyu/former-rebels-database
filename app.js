@@ -247,6 +247,15 @@ var TRIBAL_GROUP_TYPES = [
 ];
 var SECTOR_IDS = ['sec_farmer','sec_fisherfolk','sec_women','sec_pwd','sec_youth','sec_senior','sec_solo_parent','sec_ip','sec_urban_poor','sec_others'];
 
+// Returns the default civil status based on age
+// 30+ → COMMON-LAW, under 30 → SINGLE
+function defaultCivilStatus(dob) {
+  if (!dob) return 'COMMON-LAW'; // no DOB — default to COMMON-LAW (assume older)
+  var age = parseInt(calcAgeFromDob(dob), 10);
+  if (isNaN(age)) return 'COMMON-LAW';
+  return age >= 30 ? 'COMMON-LAW' : 'SINGLE';
+}
+
 function normalizeTribalGroup(val) {
   if (!val) return '';
   var v = val.toString().trim().toUpperCase();
@@ -1346,7 +1355,7 @@ function saveRecord(event) {
     alias:               document.getElementById('alias').value.trim().toUpperCase(),
     dob:                 document.getElementById('dob').value,
     sex:                 document.getElementById('sex').value,
-    civilStatus:         document.getElementById('civilStatus').value,
+    civilStatus:         document.getElementById('civilStatus').value || defaultCivilStatus(document.getElementById('dob').value),
     tribalGroup:         document.getElementById('tribalGroup').value,
     recordStatus:        document.getElementById('recordStatus').value,
     religion:            religionVal,
@@ -1362,10 +1371,10 @@ function saveRecord(event) {
     sector:              sectorList,
     idPhoto:             idPhotoData,
     unit:                document.getElementById('unit').value.trim().toUpperCase(),
-    position:            document.getElementById('position').value.trim().toUpperCase(),
+    position:            document.getElementById('position').value.trim().toUpperCase() || 'MEMBER',
     membershipType:      document.getElementById('membershipType').value,
     areaOfOperation:     document.getElementById('areaOfOperation').value,
-    yearsInMovement:     document.getElementById('yearsInMovement').value,
+    yearsInMovement:     document.getElementById('yearsInMovement').value || '1',
     dateSurrendered:     document.getElementById('dateSurrendered').value,
     pendingCase:         document.getElementById('pendingCase').value,
     referringUnit:       referringUnitVal,
@@ -1816,16 +1825,16 @@ function importCSVFile(event) {
       var alias          = ucField(col('ALIAS'));
       var addressBarangay = ucField(col('BARANGAY'));
       var unit           = ucField(col('UNIT'));
-      var position       = ucField(col('POSITION'));
+      var position       = ucField(col('POSITION')) || 'MEMBER';
       var remarks        = ucField(col('REMARKS'));
       var pwdDisability  = ucField(col('PWD DISABILITY'));
       var medicalSpec    = ucField(col('MEDICAL CONDITION SPECIFY'));
       var contactNumber  = (col('CONTACT NUMBER') || '').trim();
-      var yearsInMovement = (col('YEARS IN MOVEMENT') || '').trim();
+      var yearsInMovement = (col('YEARS IN MOVEMENT') || '1').trim();
 
       // -- Enum fields — match against known values
       var sex            = matchEnum(col('SEX'), SEX_VALS);
-      var civilStatus    = matchEnum(col('CIVIL STATUS'), CIVIL_VALS);
+      var civilStatus    = matchEnum(col('CIVIL STATUS'), CIVIL_VALS) || defaultCivilStatus(dob);
       var medicalCond    = matchEnum(col('MEDICAL CONDITION'), MEDICAL_VALS);
       var fourPs         = matchEnum(col('4Ps'), FOURPS_VALS);
       var pendingCase    = matchEnum(col('PENDING CASE'), PENDING_VALS);
