@@ -913,6 +913,22 @@ function closeDuplicatesModal() {
   document.getElementById('duplicatesModal').classList.add('hidden');
 }
 
+function deleteDuplicateRecord(id) {
+  if (!confirm('DELETE THIS RECORD?\n\nThis cannot be undone.')) return;
+  dbDelete(id).then(function() {
+    showToast('RECORD DELETED', 'error');
+    allRecordsCache = [];
+    // Refresh the modal with updated data
+    dbGetAll().then(function(records) {
+      allRecordsCache = records;
+      // Re-render records table in background
+      if (currentPage === 'records') renderRecords(records, document.getElementById('searchInput').value, document.getElementById('unitFilterSelect').value);
+      // Refresh modal content
+      showPossibleDuplicates();
+    });
+  }).catch(function(err) { showToast('DELETE FAILED: ' + err.message, 'error'); });
+}
+
 function showPossibleDuplicates() {
   var modal   = document.getElementById('duplicatesModal');
   var content = document.getElementById('duplicatesModalContent');
@@ -961,6 +977,7 @@ function showPossibleDuplicates() {
           '<td style="padding:8px 10px;text-align:center">' +
             '<button class="btn-view" style="margin:2px" onclick="closeDuplicatesModal();viewRecord(\'' + r.id + '\')">👁 VIEW</button>' +
             '<button class="btn-edit" style="margin:2px" onclick="closeDuplicatesModal();editRecord(\'' + r.id + '\')">✏ EDIT</button>' +
+            '<button class="btn-del" style="margin:2px" onclick="deleteDuplicateRecord(\'' + r.id + '\')">🗑 DEL</button>' +
           '</td>' +
         '</tr>';
       });

@@ -516,9 +516,9 @@
           <option value="OTHERS">OTHERS</option>
         </select>
         <button class="btn-primary" onclick="showPage('addRecord')">+ ADD NEW RECORD</button>
-        <button class="btn-secondary" onclick="exportCSV()">⬇ EXPORT CSV</button>
-        <button class="btn-secondary" id="printFilteredBtn" onclick="printFilteredRecords()" style="display:none">🖨 PRINT LIST</button>
         <button class="btn-warning" onclick="showPossibleDuplicates()">⚠ POSSIBLE DUPLICATES</button>
+        <button class="btn-secondary" id="printFilteredBtn" onclick="printFilteredRecords()" style="display:none">🖨 PRINT LIST</button>
+        <button class="btn-secondary" onclick="exportCSV()">⬇ EXPORT CSV</button>
         <button class="btn-secondary" onclick="document.getElementById('csvImportInput').click()">⬆ IMPORT CSV</button>
         <input type="file" id="csvImportInput" accept=".csv" style="display:none" onchange="importCSVFile(event)"/>
       </div>
