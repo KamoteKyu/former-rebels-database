@@ -486,6 +486,20 @@ function toggleNoEclipList(listId, badgeId) {
   badge.style.borderRadius = open ? '20px' : '20px 20px 0 0';
 }
 
+// Called when a status stat card is clicked — scrolls to widget and opens the list
+function toggleStatusWidget(listId, badgeId) {
+  // Close all status lists first, open the target one
+  ['cannotLocateList','deceasedList','incarceratedList'].forEach(function(id) {
+    var l = document.getElementById(id);
+    var b = document.getElementById(id.replace('List','Badge'));
+    if (l && id !== listId) { l.style.display = 'none'; if(b) b.style.borderRadius = '20px'; }
+  });
+  toggleNoEclipList(listId, badgeId);
+  // Scroll the widget into view
+  var widget = document.querySelector('.no-eclip-widget');
+  if (widget) widget.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
 function renderNoEclipWidget(records) {
   // Group 1 — no e-clip at all (neither E-CLIP nor NOT QUALIFIED)
   var noEclip = records.filter(function(r) {
@@ -547,6 +561,18 @@ function renderNoEclipWidget(records) {
   document.getElementById('noJapicBadge').textContent    = noJapic.length    + ' PROFILE' + (noJapic.length    !== 1 ? 'S' : '');
   document.getElementById('incompleteBadge').textContent = incomplete.length + ' PROFILE' + (incomplete.length !== 1 ? 'S' : '');
 
+  // Status groups
+  var cannotLocate = records.filter(function(r) { return r.recordStatus === 'CANNOT BE LOCATED'; })
+    .slice().sort(function(a,b){return(a.lastName||'').localeCompare(b.lastName||'');});
+  var deceased = records.filter(function(r) { return r.recordStatus === 'DECEASED'; })
+    .slice().sort(function(a,b){return(a.lastName||'').localeCompare(b.lastName||'');});
+  var incarcerated = records.filter(function(r) { return r.recordStatus === 'INCARCERATED'; })
+    .slice().sort(function(a,b){return(a.lastName||'').localeCompare(b.lastName||'');});
+
+  document.getElementById('cannotLocateBadge').textContent  = cannotLocate.length  + ' PROFILE' + (cannotLocate.length  !== 1 ? 'S' : '');
+  document.getElementById('deceasedBadge').textContent      = deceased.length      + ' PROFILE' + (deceased.length      !== 1 ? 'S' : '');
+  document.getElementById('incarceratedBadge').textContent  = incarcerated.length  + ' PROFILE' + (incarcerated.length  !== 1 ? 'S' : '');
+
   function buildItems(list, emptyMsg) {
     if (!list.length) return '<div class="no-eclip-empty">' + emptyMsg + '</div>';
     return list.map(function(r) {
@@ -581,6 +607,9 @@ function renderNoEclipWidget(records) {
   document.getElementById('notQualList').innerHTML    = buildItems(notQual,  'NO PROFILES MARKED AS NOT QUALIFIED FOR E-CLIP');
   document.getElementById('noJapicList').innerHTML    = buildItems(noJapic,  '&#10003; ALL PROFILES HAVE A JAPIC CERTIFICATE ON FILE');
   document.getElementById('incompleteList').innerHTML = buildIncompleteItems(incomplete);
+  document.getElementById('cannotLocateList').innerHTML  = buildItems(cannotLocate,  '&#10003; NO PROFILES MARKED AS CANNOT BE LOCATED');
+  document.getElementById('deceasedList').innerHTML      = buildItems(deceased,      '&#10003; NO PROFILES MARKED AS DECEASED');
+  document.getElementById('incarceratedList').innerHTML  = buildItems(incarcerated,  '&#10003; NO PROFILES MARKED AS INCARCERATED');
 }
 
 // -- DASHBOARD ------------------------------------------------

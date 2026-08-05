@@ -142,21 +142,21 @@
             <div class="stat-label">MILISYANG BAYAN</div>
           </div>
         </div>
-        <div class="stat-card stat-card--warning">
+        <div class="stat-card stat-card--warning" onclick="toggleStatusWidget('cannotLocateList','cannotLocateBadge')" style="cursor:pointer">
           <div class="stat-icon">🔍</div>
           <div class="stat-info">
             <div class="stat-num" id="statCannotLocate">0</div>
             <div class="stat-label">CANNOT BE LOCATED</div>
           </div>
         </div>
-        <div class="stat-card stat-card--danger">
+        <div class="stat-card stat-card--danger" onclick="toggleStatusWidget('deceasedList','deceasedBadge')" style="cursor:pointer">
           <div class="stat-icon">💀</div>
           <div class="stat-info">
             <div class="stat-num" id="statDeceased">0</div>
             <div class="stat-label">DECEASED</div>
           </div>
         </div>
-        <div class="stat-card stat-card--purple">
+        <div class="stat-card stat-card--purple" onclick="toggleStatusWidget('incarceratedList','incarceratedBadge')" style="cursor:pointer">
           <div class="stat-icon">⛓️</div>
           <div class="stat-info">
             <div class="stat-num" id="statIncarcerated">0</div>
@@ -200,6 +200,30 @@
           <span id="incompleteBadge" class="no-eclip-badge no-eclip-badge--red">0</span>
         </div>
         <div id="incompleteList" class="no-eclip-list" style="display:none">
+          <div class="no-eclip-empty">LOADING...</div>
+        </div>
+        <!-- Row 5: CANNOT BE LOCATED -->
+        <div class="no-eclip-header no-eclip-header--second" onclick="toggleNoEclipList('cannotLocateList','cannotLocateBadge')" style="cursor:pointer; margin-top:8px;">
+          <span class="no-eclip-title">🔍 PROFILES — CANNOT BE LOCATED</span>
+          <span id="cannotLocateBadge" class="no-eclip-badge no-eclip-badge--warning">0</span>
+        </div>
+        <div id="cannotLocateList" class="no-eclip-list" style="display:none">
+          <div class="no-eclip-empty">LOADING...</div>
+        </div>
+        <!-- Row 6: DECEASED -->
+        <div class="no-eclip-header no-eclip-header--second" onclick="toggleNoEclipList('deceasedList','deceasedBadge')" style="cursor:pointer; margin-top:8px;">
+          <span class="no-eclip-title">💀 PROFILES — DECEASED</span>
+          <span id="deceasedBadge" class="no-eclip-badge no-eclip-badge--red">0</span>
+        </div>
+        <div id="deceasedList" class="no-eclip-list" style="display:none">
+          <div class="no-eclip-empty">LOADING...</div>
+        </div>
+        <!-- Row 7: INCARCERATED -->
+        <div class="no-eclip-header no-eclip-header--second" onclick="toggleNoEclipList('incarceratedList','incarceratedBadge')" style="cursor:pointer; margin-top:8px;">
+          <span class="no-eclip-title">⛓️ PROFILES — INCARCERATED</span>
+          <span id="incarceratedBadge" class="no-eclip-badge no-eclip-badge--purple">0</span>
+        </div>
+        <div id="incarceratedList" class="no-eclip-list" style="display:none">
           <div class="no-eclip-empty">LOADING...</div>
         </div>
       </div>

@@ -257,6 +257,14 @@ a { text-decoration: none; color: inherit; }
   background: rgba(248,81,73,0.15); border-color: #f85149;
   color: #f85149;
 }
+.no-eclip-badge--warning {
+  background: rgba(210,153,34,0.15); border-color: var(--yellow);
+  color: var(--yellow);
+}
+.no-eclip-badge--purple {
+  background: rgba(163,113,247,0.15); border-color: #a371f7;
+  color: #a371f7;
+}
 .no-eclip-header--second {
   border-top: 1px solid var(--border);
   padding-top: 10px;
