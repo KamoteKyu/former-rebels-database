@@ -1629,23 +1629,36 @@ function saveRecord(event) {
   var isEdit = !!editingRecordId;
 
   // -- DUPLICATE CHECK -----------------------------------------
-  // Block if another record already has same Last Name + First Name + DOB
+  // Strip name extension suffixes for comparison purposes
+  // JR./SR. holders are NOT considered duplicates of each other
+  function stripSuffix(name) {
+    return (name || '').replace(/\b(JR\.?|SR\.?|II|III|IV)\s*$/i, '').trim().toUpperCase();
+  }
+  function hasSuffix(r) {
+    var combined = [r.lastName, r.firstName, r.middleName, r.alias].join(' ').toUpperCase();
+    return /\b(JR\.?|SR\.?)\b/.test(combined);
+  }
+
   showToast('CHECKING FOR DUPLICATES...', 'info');
   db.collection('records')
-    .where('lastName',    '==', record.lastName)
-    .where('firstName',   '==', record.firstName)
-    .where('dob',         '==', record.dob)
+    .where('lastName',  '==', record.lastName)
+    .where('firstName', '==', record.firstName)
     .get({ source: 'server' })
     .then(function(snap) {
       var duplicate = null;
       snap.docs.forEach(function(d) {
-        // Ignore the record being edited
-        if (d.id !== record.id) duplicate = d.data();
+        if (d.id === record.id) return; // skip self when editing
+        var existing = d.data();
+        // If BOTH the new record AND the existing one carry Jr./Sr., they are different people
+        if (hasSuffix(record) && hasSuffix(existing)) return;
+        // Same last + first name → flag as duplicate
+        duplicate = existing;
       });
       if (duplicate) {
         showToast(
           'DUPLICATE ENTRY — ' + duplicate.lastName + ', ' + duplicate.firstName +
-          ' (DOB: ' + formatDate(duplicate.dob) + ') ALREADY EXISTS.',
+          (duplicate.middleName ? ' ' + duplicate.middleName : '') +
+          ' ALREADY EXISTS. ADD JR. OR SR. IF THIS IS A DIFFERENT PERSON.',
           'error'
         );
         unlockSave();
@@ -2187,32 +2200,57 @@ function importCSVFile(event) {
     if (!parsed.length) { showToast('NO RECORDS FOUND IN CSV', 'error'); hideImportOverlay(); return; }
     showImportOverlay('CHECKING FOR DUPLICATES...');
     dbGetAll().then(function(existing) {
-      // Build lookup keys: id-based AND name+dob-based (to catch duplicates regardless of ID)
-      var existingIds  = {};
-      var existingKeys = {}; // "LASTNAME|FIRSTNAME|DOB"
+      // Helper: does a record carry a Jr./Sr. suffix anywhere in their name fields?
+      function recHasSuffix(r) {
+        return /\b(JR\.?|SR\.?)\b/i.test([r.lastName, r.firstName, r.middleName, r.alias].join(' '));
+      }
+      // Name-only key (no DOB) — used to detect duplicates by first+last name alone
+      function nameKey(r) {
+        return (r.lastName || '').toUpperCase() + '|' + (r.firstName || '').toUpperCase();
+      }
+
+      // Build lookup: id-based + name-based
+      var existingIds      = {};
+      var existingNameKeys = {}; // "LASTNAME|FIRSTNAME" → array of existing records
       existing.forEach(function(r) {
         existingIds[r.id] = true;
-        var key = (r.lastName || '') + '|' + (r.firstName || '') + '|' + (r.dob || '');
-        existingKeys[key] = true;
+        var k = nameKey(r);
+        if (!existingNameKeys[k]) existingNameKeys[k] = [];
+        existingNameKeys[k].push(r);
       });
 
       // Also deduplicate within the CSV batch itself (keep first occurrence)
-      var batchKeys = {};
+      var batchIds      = {};
+      var batchNameKeys = {};
       var skippedDupId   = 0;
       var skippedDupName = 0;
 
       var toImport = parsed.filter(function(r) {
         // Skip if ID already exists in Firestore
         if (existingIds[r.id]) { skippedDupId++; return false; }
-        // Skip if same Last Name + First Name + DOB already exists in Firestore
-        var key = (r.lastName || '') + '|' + (r.firstName || '') + '|' + (r.dob || '');
-        if (existingKeys[key]) { skippedDupName++; return false; }
-        // Skip if this same name+dob appeared earlier in the CSV
-        if (batchKeys[key]) { skippedDupName++; return false; }
+        // Check name-based duplicate against Firestore
+        var k = nameKey(r);
+        var existingMatches = existingNameKeys[k] || [];
+        for (var i = 0; i < existingMatches.length; i++) {
+          var ex = existingMatches[i];
+          // Both carry Jr./Sr. — different people, allow import
+          if (recHasSuffix(r) && recHasSuffix(ex)) continue;
+          // Same name, no suffix exemption → duplicate
+          skippedDupName++; return false;
+        }
+        // Check within the batch itself
+        var batchMatches = batchNameKeys[k] || [];
+        for (var j = 0; j < batchMatches.length; j++) {
+          var bm = batchMatches[j];
+          if (recHasSuffix(r) && recHasSuffix(bm)) continue;
+          skippedDupName++; return false;
+        }
         // Mark as seen
-        existingIds[r.id]  = true;
-        existingKeys[key]  = true;
-        batchKeys[key]     = true;
+        existingIds[r.id] = true;
+        if (!existingNameKeys[k]) existingNameKeys[k] = [];
+        existingNameKeys[k].push(r);
+        if (!batchNameKeys[k]) batchNameKeys[k] = [];
+        batchNameKeys[k].push(r);
         return true;
       });
 
