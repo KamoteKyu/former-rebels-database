@@ -1795,12 +1795,23 @@ function normalizeAsstList(raw) {
 // Normalize referring unit — keep known units verbatim, uppercase everything else.
 // Also maps known all-caps variants to the canonical mixed-case form.
 var REFERRING_UNIT_ALIASES = {
-  '4TH INFANTRY "SCORPION" BATTALION': '4th Infantry "Scorpion" Battalion',
-  '4TH INFANTRY "SCORPION" BATTALION.': '4th Infantry "Scorpion" Battalion',
-  '1ST INFANTRY "ALWAYS FIRST" BATTALION': '1st Infantry "Always First" Battalion',
-  '203RD INFANTRY "BANTAY KAPAYAPAAN" BRIGADE': '203rd Infantry "Bantay Kapayapaan" Brigade',
-  '68TH INFANTRY "KAAGAPAY" BATTALION': '68th Infantry "Kaagapay" Battalion',
-  '76TH INFANTRY "VICTRIX" BATTALION': '76th Infantry "Victrix" Battalion'
+  // Correct spelling, all-caps
+  '4TH INFANTRY "SCORPION" BATTALION':   '4th Infantry "Scorpion" Battalion',
+  '4TH INFANTRY "SCORPION" BATTALION.':  '4th Infantry "Scorpion" Battalion',
+  // Misspelled BATALLION (double L)
+  '4TH INFANTRY "SCORPION" BATALLION':   '4th Infantry "Scorpion" Battalion',
+  '4TH INFANTRY "SCORPION" BATALLION.':  '4th Infantry "Scorpion" Battalion',
+  '4th Infantry "Scorpion" Batallion':   '4th Infantry "Scorpion" Battalion',
+  '4th INFANTRY "SCORPION" BATALLION':   '4th Infantry "Scorpion" Battalion',
+  '4th INFANTRY "SCORPION" Battalion':   '4th Infantry "Scorpion" Battalion',
+  // Other units all-caps
+  '1ST INFANTRY "ALWAYS FIRST" BATTALION':         '1st Infantry "Always First" Battalion',
+  '1ST INFANTRY "ALWAYS FIRST" BATALLION':         '1st Infantry "Always First" Battalion',
+  '203RD INFANTRY "BANTAY KAPAYAPAAN" BRIGADE':    '203rd Infantry "Bantay Kapayapaan" Brigade',
+  '68TH INFANTRY "KAAGAPAY" BATTALION':            '68th Infantry "Kaagapay" Battalion',
+  '68TH INFANTRY "KAAGAPAY" BATALLION':            '68th Infantry "Kaagapay" Battalion',
+  '76TH INFANTRY "VICTRIX" BATTALION':             '76th Infantry "Victrix" Battalion',
+  '76TH INFANTRY "VICTRIX" BATALLION':             '76th Infantry "Victrix" Battalion'
 };
 var IMPORT_KNOWN_UNITS = [
   '102nd SAC','1st Infantry "Always First" Battalion','1st OMPMFC',
