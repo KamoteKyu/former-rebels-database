@@ -165,7 +165,24 @@
         </div>
       </div>
       <div class="dashboard-toolbar">
-        <button type="button" class="btn-primary" onclick="generateReport()">📄 GENERATE REPORT</button>
+        <!-- GENERATE REPORT DROPDOWN -->
+        <div class="report-dropdown" id="reportDropdown">
+          <button type="button" class="btn-primary report-dropdown-btn" onclick="toggleReportDropdown()">
+            📄 GENERATE REPORT <span class="report-dropdown-arrow">▾</span>
+          </button>
+          <div class="report-dropdown-menu" id="reportDropdownMenu">
+            <button class="report-dropdown-item" onclick="generateReport();closeReportDropdown()">
+              <span>📊</span><span>DASHBOARD SUMMARY REPORT</span>
+            </button>
+            <div class="report-dropdown-divider"></div>
+            <button class="report-dropdown-item" onclick="printNoJapicList();closeReportDropdown()">
+              <span>📄</span><span>PROFILES WITH NO JAPIC</span>
+            </button>
+            <button class="report-dropdown-item" onclick="printIncompleteList();closeReportDropdown()">
+              <span>⚠</span><span>PROFILES WITH INCOMPLETE DATA</span>
+            </button>
+          </div>
+        </div>
       </div>
 
       <!-- NO E-CLIP PROFILES WIDGET -->

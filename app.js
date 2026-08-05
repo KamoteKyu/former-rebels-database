@@ -477,6 +477,19 @@ function showPage(page) {
 
 function toggleSidebar() { document.getElementById('sidebar').classList.toggle('open'); }
 
+// -- REPORT DROPDOWN ------------------------------------------
+function toggleReportDropdown() {
+  document.getElementById('reportDropdown').classList.toggle('open');
+}
+function closeReportDropdown() {
+  document.getElementById('reportDropdown').classList.remove('open');
+}
+// Close dropdown when clicking outside
+document.addEventListener('click', function(e) {
+  var dd = document.getElementById('reportDropdown');
+  if (dd && !dd.contains(e.target)) dd.classList.remove('open');
+});
+
 // -- NO E-CLIP WIDGET -----------------------------------------
 function toggleNoEclipList(listId, badgeId) {
   var list  = document.getElementById(listId);
@@ -500,6 +513,39 @@ function toggleStatusWidget(listId, badgeId) {
   if (widget) widget.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
+// -- MISSING FIELDS CHECK (global, reused by widget + print) -
+function getMissingFieldsGlobal(r) {
+  var missing = [];
+  // Part I — Personal Details
+  if (!r.lastName)                                         missing.push('LAST NAME');
+  if (!r.firstName)                                        missing.push('FIRST NAME');
+  if (!r.middleName)                                       missing.push('MIDDLE NAME');
+  if (!r.sex)                                              missing.push('SEX');
+  if (!r.civilStatus)                                      missing.push('CIVIL STATUS');
+  if (!r.religion)                                         missing.push('RELIGION');
+  if (!r.medicalCondition)                                 missing.push('MEDICAL CONDITION');
+  if (!r.fourPs)                                           missing.push('4Ps');
+  if (r.addressProvince !== 'OUTSIDE MINDORO') {
+    if (r.addressProvince !== 'ORIENTAL MINDORO') {
+      if (!r.addressBarangay && !r.address)                missing.push('BARANGAY');
+    }
+    if (!r.addressMunicipality)                            missing.push('MUNICIPALITY');
+  }
+  if (!r.addressProvince)                                  missing.push('PROVINCE');
+  if (!r.tribalGroup)                                      missing.push('TRIBAL GROUP');
+  if (!r.sector || r.sector.length === 0)                  missing.push('SECTOR');
+  // Part II — Movement History
+  if (!r.unit)                                             missing.push('UNIT');
+  if (!r.position)                                         missing.push('POSITION');
+  if (!r.membershipType)                                   missing.push('MEMBERSHIP TYPE');
+  if (!r.areaOfOperation)                                  missing.push('AREA OF OPERATION');
+  if (!r.yearsInMovement && r.yearsInMovement !== 0)       missing.push('YEARS IN MOVEMENT');
+  if (!r.dateSurrendered)                                  missing.push('DATE SURRENDERED');
+  if (!r.pendingCase)                                      missing.push('PENDING CASE');
+  if (!r.referringUnit)                                    missing.push('REFERRING UNIT');
+  return missing;
+}
+
 function renderNoEclipWidget(records) {
   // Group 1 — no e-clip at all (neither E-CLIP nor NOT QUALIFIED)
   var noEclip = records.filter(function(r) {
@@ -518,39 +564,8 @@ function renderNoEclipWidget(records) {
     return !r.japic || !(r.japic.url || r.japic.dataUrl || r.japic.fileName);
   }).slice().sort(function(a, b) { return (a.lastName || '').localeCompare(b.lastName || ''); });
 
-  // Group 4 — incomplete required data (fields that are required on the form)
-  // Returns an array of missing field labels for a given record
-  function getMissingFields(r) {
-    var missing = [];
-    // Part I — Personal Details
-    if (!r.lastName)                                         missing.push('LAST NAME');
-    if (!r.firstName)                                        missing.push('FIRST NAME');
-    if (!r.middleName)                                       missing.push('MIDDLE NAME');
-    if (!r.sex)                                              missing.push('SEX');
-    if (!r.civilStatus)                                      missing.push('CIVIL STATUS');
-    if (!r.religion)                                         missing.push('RELIGION');
-    if (!r.medicalCondition)                                 missing.push('MEDICAL CONDITION');
-    if (!r.fourPs)                                           missing.push('4Ps');
-    if (r.addressProvince !== 'OUTSIDE MINDORO') {
-      if (r.addressProvince !== 'ORIENTAL MINDORO') {
-        if (!r.addressBarangay && !r.address)                missing.push('BARANGAY');
-      }
-      if (!r.addressMunicipality)                            missing.push('MUNICIPALITY');
-    }
-    if (!r.addressProvince)                                  missing.push('PROVINCE');
-    if (!r.tribalGroup)                                      missing.push('TRIBAL GROUP');
-    if (!r.sector || r.sector.length === 0)                  missing.push('SECTOR');
-    // Part II — Movement History
-    if (!r.unit)                                             missing.push('UNIT');
-    if (!r.position)                                         missing.push('POSITION');
-    if (!r.membershipType)                                   missing.push('MEMBERSHIP TYPE');
-    if (!r.areaOfOperation)                                  missing.push('AREA OF OPERATION');
-    if (!r.yearsInMovement && r.yearsInMovement !== 0)       missing.push('YEARS IN MOVEMENT');
-    if (!r.dateSurrendered)                                  missing.push('DATE SURRENDERED');
-    if (!r.pendingCase)                                      missing.push('PENDING CASE');
-    if (!r.referringUnit)                                    missing.push('REFERRING UNIT');
-    return missing;
-  }
+  // Group 4 — incomplete required data — reuse global function
+  function getMissingFields(r) { return getMissingFieldsGlobal(r); }
   var incomplete = records.filter(function(r) {
     return getMissingFields(r).length > 0;
   }).slice().sort(function(a, b) { return (a.lastName || '').localeCompare(b.lastName || ''); });
@@ -784,6 +799,109 @@ function generateReport() {
       buildDashboardReportHtml(records);
     openPrintDocument('FR Dashboard Report', body, REPORT_PRINT_STYLES);
     showToast('REPORT GENERATED', 'success');
+  }
+  if (allRecordsCache.length) run(allRecordsCache);
+  else dbGetAll().then(function(records) { allRecordsCache = records; run(records); })
+    .catch(function(err) { showToast('ERROR: ' + err.message, 'error'); });
+}
+
+// -- PRINT NO JAPIC LIST --------------------------------------
+function printNoJapicList() {
+  function run(records) {
+    var list = records.filter(function(r) {
+      return !r.japic || !(r.japic.url || r.japic.dataUrl || r.japic.fileName);
+    }).sort(function(a, b) { return (a.lastName||'').localeCompare(b.lastName||''); });
+
+    if (!list.length) { showToast('ALL PROFILES HAVE JAPIC ON FILE', 'success'); return; }
+
+    var printed    = new Date().toLocaleString('en-PH');
+    var printedBy  = currentUser ? currentUser.username + ' (' + currentUser.role + ')' : 'UNKNOWN';
+
+    var rows = list.map(function(r, i) {
+      var age = calcAgeFromDob(r.dob);
+      return '<tr>' +
+        '<td style="text-align:center">' + (i + 1) + '</td>' +
+        '<td><strong>' + (r.lastName||'') + ', ' + (r.firstName||'') + '</strong>' + (r.middleName ? ' ' + r.middleName : '') + '</td>' +
+        '<td>' + (r.alias||'-') + '</td>' +
+        '<td style="text-align:center">' + (r.sex||'-') + '</td>' +
+        '<td style="text-align:center">' + age + '</td>' +
+        '<td>' + (r.referringUnit||'-') + '</td>' +
+        '<td style="text-align:center">' + formatDate(r.dateSurrendered) + '</td>' +
+        '</tr>';
+    }).join('');
+
+    var body =
+      '<div class="print-header">' +
+        '<h1>FORMER REBELS DATABASE MANAGEMENT SYSTEM</h1>' +
+        '<p>PROFILES WITH NO JAPIC CERTIFICATE ON FILE</p>' +
+        '<p>Generated: ' + printed + ' &nbsp;|&nbsp; By: ' + printedBy + '</p>' +
+      '</div>' +
+      '<table class="report-table" style="width:100%;font-size:10px">' +
+        '<thead><tr>' +
+          '<th style="text-align:center;width:28px">#</th>' +
+          '<th>FULL NAME</th><th>ALIAS</th>' +
+          '<th style="text-align:center">SEX</th>' +
+          '<th style="text-align:center">AGE</th>' +
+          '<th>REFERRING UNIT</th>' +
+          '<th style="text-align:center">DATE SURRENDERED</th>' +
+        '</tr></thead>' +
+        '<tbody>' + rows + '</tbody>' +
+        '<tfoot><tr><td colspan="7" style="text-align:right;font-size:9px;padding-top:6px;border-top:2px solid #333">' +
+          'TOTAL: ' + list.length + ' PROFILE' + (list.length !== 1 ? 'S' : '') + ' WITHOUT JAPIC' +
+        '</td></tr></tfoot>' +
+      '</table>';
+
+    openPrintDocument('No JAPIC List', body, REPORT_PRINT_STYLES);
+    showToast('NO JAPIC LIST GENERATED — ' + list.length + ' PROFILE(S)', 'success');
+  }
+  if (allRecordsCache.length) run(allRecordsCache);
+  else dbGetAll().then(function(records) { allRecordsCache = records; run(records); })
+    .catch(function(err) { showToast('ERROR: ' + err.message, 'error'); });
+}
+
+// -- PRINT INCOMPLETE DATA LIST --------------------------------
+function printIncompleteList() {
+  function run(records) {
+    var list = records.filter(function(r) {
+      return getMissingFieldsGlobal(r).length > 0;
+    }).sort(function(a, b) { return (a.lastName||'').localeCompare(b.lastName||''); });
+
+    if (!list.length) { showToast('ALL PROFILES HAVE COMPLETE DATA', 'success'); return; }
+
+    var printed   = new Date().toLocaleString('en-PH');
+    var printedBy = currentUser ? currentUser.username + ' (' + currentUser.role + ')' : 'UNKNOWN';
+
+    var rows = list.map(function(r, i) {
+      var missing = getMissingFieldsGlobal(r);
+      return '<tr>' +
+        '<td style="text-align:center">' + (i + 1) + '</td>' +
+        '<td><strong>' + (r.lastName||'') + ', ' + (r.firstName||'') + '</strong>' + (r.middleName ? ' ' + r.middleName : '') + '</td>' +
+        '<td>' + (r.referringUnit||'-') + '</td>' +
+        '<td style="color:#cf222e;font-size:9px">' + missing.join(', ') + '</td>' +
+        '</tr>';
+    }).join('');
+
+    var body =
+      '<div class="print-header">' +
+        '<h1>FORMER REBELS DATABASE MANAGEMENT SYSTEM</h1>' +
+        '<p>PROFILES WITH INCOMPLETE DATA</p>' +
+        '<p>Generated: ' + printed + ' &nbsp;|&nbsp; By: ' + printedBy + '</p>' +
+      '</div>' +
+      '<table class="report-table" style="width:100%;font-size:10px">' +
+        '<thead><tr>' +
+          '<th style="text-align:center;width:28px">#</th>' +
+          '<th>FULL NAME</th>' +
+          '<th>REFERRING UNIT</th>' +
+          '<th style="color:#cf222e">MISSING FIELDS</th>' +
+        '</tr></thead>' +
+        '<tbody>' + rows + '</tbody>' +
+        '<tfoot><tr><td colspan="4" style="text-align:right;font-size:9px;padding-top:6px;border-top:2px solid #333">' +
+          'TOTAL: ' + list.length + ' PROFILE' + (list.length !== 1 ? 'S' : '') + ' WITH INCOMPLETE DATA' +
+        '</td></tr></tfoot>' +
+      '</table>';
+
+    openPrintDocument('Incomplete Data List', body, REPORT_PRINT_STYLES);
+    showToast('INCOMPLETE DATA LIST GENERATED — ' + list.length + ' PROFILE(S)', 'success');
   }
   if (allRecordsCache.length) run(allRecordsCache);
   else dbGetAll().then(function(records) { allRecordsCache = records; run(records); })

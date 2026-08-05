@@ -190,7 +190,44 @@ a { text-decoration: none; color: inherit; }
 
 /* ===== DASHBOARD ===== */
 .dashboard-toolbar {
-  display: flex; justify-content: flex-end; margin-bottom: 16px;
+  display: flex; justify-content: flex-end; margin-bottom: 16px; gap: 8px;
+}
+
+/* ===== REPORT DROPDOWN ===== */
+.report-dropdown {
+  position: relative; display: inline-block;
+}
+.report-dropdown-btn {
+  display: flex; align-items: center; gap: 8px;
+}
+.report-dropdown-arrow {
+  font-size: 0.7rem; transition: transform .2s; display: inline-block;
+}
+.report-dropdown.open .report-dropdown-arrow {
+  transform: rotate(180deg);
+}
+.report-dropdown-menu {
+  display: none; position: absolute; top: calc(100% + 6px); right: 0;
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: var(--radius); min-width: 260px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4); z-index: 500;
+  overflow: hidden; animation: dropFadeIn .15s ease;
+}
+.report-dropdown.open .report-dropdown-menu { display: block; }
+.report-dropdown-item {
+  width: 100%; background: none; border: none; color: var(--text1);
+  padding: 10px 16px; font-size: 0.78rem; letter-spacing: .5px;
+  cursor: pointer; display: flex; align-items: center; gap: 10px;
+  text-align: left; transition: background .15s;
+  font-family: inherit;
+}
+.report-dropdown-item:hover { background: var(--bg3); color: var(--accent2); }
+.report-dropdown-divider {
+  height: 1px; background: var(--border); margin: 4px 0;
+}
+@keyframes dropFadeIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
 .stat-card {
