@@ -908,6 +908,112 @@ function printIncompleteList() {
     .catch(function(err) { showToast('ERROR: ' + err.message, 'error'); });
 }
 
+// -- FIND DUPLICATE GROUPS ------------------------------------
+// Returns array of groups, each group is an array of records with the same
+// last+first name (excluding Jr./Sr. pairs which are different people)
+function findDuplicateGroups(records) {
+  function recHasSuffix(r) {
+    return /\b(JR\.?|SR\.?)\b/i.test([r.lastName, r.firstName, r.middleName, r.alias].join(' '));
+  }
+  // Group by LASTNAME|FIRSTNAME
+  var groups = {};
+  records.forEach(function(r) {
+    var k = (r.lastName || '').toUpperCase() + '|' + (r.firstName || '').toUpperCase();
+    if (!groups[k]) groups[k] = [];
+    groups[k].push(r);
+  });
+  // Keep only groups with 2+ members, but remove Jr./Sr. pair exemptions
+  var duplicates = [];
+  Object.keys(groups).forEach(function(k) {
+    var grp = groups[k];
+    if (grp.length < 2) return;
+    // Filter out cases where all members carry Jr./Sr. (no real duplicate)
+    // A group is a real duplicate if at least two members exist where
+    // not both of them have a suffix
+    var realDups = [];
+    for (var i = 0; i < grp.length; i++) {
+      for (var j = i + 1; j < grp.length; j++) {
+        if (!(recHasSuffix(grp[i]) && recHasSuffix(grp[j]))) {
+          // These two are a duplicate pair — include entire group
+          realDups = grp;
+          break;
+        }
+      }
+      if (realDups.length) break;
+    }
+    if (realDups.length) duplicates.push(realDups);
+  });
+  // Sort groups alphabetically by last name
+  duplicates.sort(function(a, b) { return (a[0].lastName||'').localeCompare(b[0].lastName||''); });
+  return duplicates;
+}
+
+// -- PRINT DUPLICATES LIST ------------------------------------
+function printDuplicatesList() {
+  function run(records) {
+    var groups = findDuplicateGroups(records);
+    if (!groups.length) { showToast('NO POSSIBLE DUPLICATES FOUND', 'success'); return; }
+
+    var printed   = new Date().toLocaleString('en-PH');
+    var printedBy = currentUser ? currentUser.username + ' (' + currentUser.role + ')' : 'UNKNOWN';
+    var totalPairs = groups.length;
+    var totalRecords = groups.reduce(function(s, g) { return s + g.length; }, 0);
+
+    var rows = '';
+    groups.forEach(function(grp, gi) {
+      grp.forEach(function(r, ri) {
+        var age = calcAgeFromDob(r.dob);
+        var bgStyle = ri % 2 === 0 ? 'background:#1a1f2e' : '';
+        var firstCell = ri === 0
+          ? '<td rowspan="' + grp.length + '" style="text-align:center;vertical-align:middle;font-weight:700;color:#f85149;font-size:1rem">' + (gi + 1) + '</td>'
+          : '';
+        rows += '<tr style="' + bgStyle + '">' +
+          firstCell +
+          '<td><strong>' + (r.lastName||'') + ', ' + (r.firstName||'') + '</strong>' + (r.middleName ? ' ' + r.middleName : '') + '</td>' +
+          '<td>' + (r.alias||'-') + '</td>' +
+          '<td style="text-align:center">' + (r.sex||'-') + '</td>' +
+          '<td style="text-align:center">' + age + '</td>' +
+          '<td style="text-align:center">' + formatDate(r.dob) + '</td>' +
+          '<td>' + (r.referringUnit||'-') + '</td>' +
+          '<td style="text-align:center">' + formatDate(r.dateSurrendered) + '</td>' +
+          '<td><a onclick="return false" style="color:#388bfd;cursor:pointer" href="#">' + r.id + '</a></td>' +
+          '</tr>';
+      });
+      rows += '<tr><td colspan="9" style="border:none;height:8px"></td></tr>';
+    });
+
+    var body =
+      '<div class="print-header">' +
+        '<h1>FORMER REBELS DATABASE MANAGEMENT SYSTEM</h1>' +
+        '<p>POSSIBLE DUPLICATE PROFILES</p>' +
+        '<p>Generated: ' + printed + ' &nbsp;|&nbsp; By: ' + printedBy + '</p>' +
+      '</div>' +
+      '<div style="margin-bottom:12px;font-size:11px"><strong>' + totalPairs + ' DUPLICATE GROUP' + (totalPairs !== 1 ? 'S' : '') + '</strong> &nbsp;|&nbsp; ' + totalRecords + ' TOTAL RECORDS AFFECTED</div>' +
+      '<table class="report-table" style="width:100%;font-size:10px">' +
+        '<thead><tr>' +
+          '<th style="text-align:center;width:24px">#</th>' +
+          '<th>FULL NAME</th><th>ALIAS</th>' +
+          '<th style="text-align:center">SEX</th>' +
+          '<th style="text-align:center">AGE</th>' +
+          '<th style="text-align:center">DATE OF BIRTH</th>' +
+          '<th>REFERRING UNIT</th>' +
+          '<th style="text-align:center">DATE SURRENDERED</th>' +
+          '<th>RECORD ID</th>' +
+        '</tr></thead>' +
+        '<tbody>' + rows + '</tbody>' +
+        '<tfoot><tr><td colspan="9" style="text-align:right;font-size:9px;padding-top:6px;border-top:2px solid #333">' +
+          totalPairs + ' GROUP' + (totalPairs !== 1 ? 'S' : '') + ' — ' + totalRecords + ' RECORDS AFFECTED' +
+        '</td></tr></tfoot>' +
+      '</table>';
+
+    openPrintDocument('Possible Duplicates', body, REPORT_PRINT_STYLES);
+    showToast('DUPLICATES REPORT — ' + totalPairs + ' GROUP(S) FOUND', 'success');
+  }
+  if (allRecordsCache.length) run(allRecordsCache);
+  else dbGetAll().then(function(records) { allRecordsCache = records; run(records); })
+    .catch(function(err) { showToast('ERROR: ' + err.message, 'error'); });
+}
+
 // -- DOWNLOAD REPORT CSV --------------------------------------
 function downloadReportCSV(type) {
   function run(records) {
@@ -976,6 +1082,24 @@ function downloadReportCSV(type) {
       });
       count = list.length;
       filename = 'FR_INCOMPLETE_DATA_' + dateStr + '.csv';
+      csv = [headers.map(q).join(',')].concat(rows.map(function(r){return r.join(',');})).join('\n');
+
+    } else if (type === 'duplicates') {
+      var groups = findDuplicateGroups(records);
+      if (!groups.length) { showToast('NO POSSIBLE DUPLICATES FOUND', 'success'); return; }
+      var headers = ['GROUP #','LAST NAME','FIRST NAME','MIDDLE NAME','ALIAS',
+        'SEX','AGE','DATE OF BIRTH','REFERRING UNIT','DATE SURRENDERED','RECORD ID'];
+      var rows = [];
+      groups.forEach(function(grp, gi) {
+        grp.forEach(function(r) {
+          rows.push([gi+1, r.lastName, r.firstName, r.middleName||'', r.alias||'',
+            r.sex||'', calcAgeFromDob(r.dob), r.dob||'',
+            r.referringUnit||'', r.dateSurrendered||'', r.id].map(q));
+        });
+        rows.push(['---','---','---','---','---','---','---','---','---','---','---'].map(q));
+      });
+      count = groups.reduce(function(s, g) { return s + g.length; }, 0);
+      filename = 'FR_POSSIBLE_DUPLICATES_' + dateStr + '.csv';
       csv = [headers.map(q).join(',')].concat(rows.map(function(r){return r.join(',');})).join('\n');
     }
 

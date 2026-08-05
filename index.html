@@ -194,6 +194,14 @@
             <button class="report-dropdown-item" onclick="downloadReportCSV('incomplete');closeReportDropdown()">
               <span>⬇</span><span>DOWNLOAD CSV</span>
             </button>
+            <div class="report-dropdown-divider"></div>
+            <div class="report-dropdown-label">POSSIBLE DUPLICATES</div>
+            <button class="report-dropdown-item" onclick="printDuplicatesList();closeReportDropdown()">
+              <span>🖨</span><span>PRINT / VIEW PDF</span>
+            </button>
+            <button class="report-dropdown-item" onclick="downloadReportCSV('duplicates');closeReportDropdown()">
+              <span>⬇</span><span>DOWNLOAD CSV</span>
+            </button>
           </div>
         </div>
       </div>
