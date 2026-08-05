@@ -209,14 +209,14 @@ a { text-decoration: none; color: inherit; }
 .report-dropdown-menu {
   display: none; position: absolute; top: calc(100% + 6px); right: 0;
   background: var(--bg2); border: 1px solid var(--border);
-  border-radius: var(--radius); min-width: 260px;
+  border-radius: var(--radius); min-width: 280px;
   box-shadow: 0 8px 24px rgba(0,0,0,0.4); z-index: 500;
   overflow: hidden; animation: dropFadeIn .15s ease;
 }
 .report-dropdown.open .report-dropdown-menu { display: block; }
 .report-dropdown-item {
   width: 100%; background: none; border: none; color: var(--text1);
-  padding: 10px 16px; font-size: 0.78rem; letter-spacing: .5px;
+  padding: 9px 16px; font-size: 0.76rem; letter-spacing: .5px;
   cursor: pointer; display: flex; align-items: center; gap: 10px;
   text-align: left; transition: background .15s;
   font-family: inherit;
@@ -224,6 +224,10 @@ a { text-decoration: none; color: inherit; }
 .report-dropdown-item:hover { background: var(--bg3); color: var(--accent2); }
 .report-dropdown-divider {
   height: 1px; background: var(--border); margin: 4px 0;
+}
+.report-dropdown-label {
+  padding: 8px 16px 3px; font-size: 0.62rem; letter-spacing: 1.5px;
+  color: var(--text3); font-weight: 700;
 }
 @keyframes dropFadeIn {
   from { opacity: 0; transform: translateY(-6px); }

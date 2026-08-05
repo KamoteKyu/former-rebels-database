@@ -908,6 +908,90 @@ function printIncompleteList() {
     .catch(function(err) { showToast('ERROR: ' + err.message, 'error'); });
 }
 
+// -- DOWNLOAD REPORT CSV --------------------------------------
+function downloadReportCSV(type) {
+  function run(records) {
+    var csv, filename, count;
+    var dateStr = new Date().toISOString().slice(0, 10);
+    var printedBy = currentUser ? currentUser.username : 'ADMIN';
+
+    function q(v) { return '"' + String(v === null || v === undefined ? '' : v).replace(/"/g, '""') + '"'; }
+
+    if (type === 'summary') {
+      // Full database export with all fields
+      var headers = ['#','LAST NAME','FIRST NAME','MIDDLE NAME','ALIAS','DATE OF BIRTH','AGE',
+        'SEX','CIVIL STATUS','TRIBAL GROUP','STATUS','RELIGION','CONTACT NUMBER',
+        'MEDICAL CONDITION','MEDICAL CONDITION SPECIFY','4Ps','PWD DISABILITY',
+        'BARANGAY','MUNICIPALITY','PROVINCE','SECTOR','UNIT','POSITION',
+        'MEMBERSHIP TYPE','AREA OF OPERATION','YEARS IN MOVEMENT','DATE SURRENDERED',
+        'PENDING CASE','REFERRING UNIT','REMARKS','ASSISTANCE PROVIDED',
+        'JAPIC ON FILE','SOCIAL CASE REPORT FILE','CREATED BY','CREATED AT'];
+      var rows = records.map(function(r, i) {
+        return [
+          i+1, r.lastName, r.firstName, r.middleName, r.alias, r.dob,
+          calcAgeFromDob(r.dob), r.sex, r.civilStatus,
+          normalizeTribalGroup(r.tribalGroup)||r.tribalGroup,
+          r.recordStatus||'', r.religion, r.contactNumber,
+          r.medicalCondition, r.medicalConditionSpec, r.fourPs, r.pwdDisability,
+          r.addressBarangay||r.address, r.addressMunicipality||'',
+          r.addressProvince||'OCCIDENTAL MINDORO',
+          (r.sector||[]).join('; '), r.unit, r.position, r.membershipType,
+          r.areaOfOperation, r.yearsInMovement, r.dateSurrendered,
+          r.pendingCase, r.referringUnit, r.remarks||'',
+          (r.assistance||[]).join('; '),
+          (r.japic && (r.japic.url||r.japic.dataUrl||r.japic.fileName)) ? 'YES' : 'NO',
+          r.socialCaseReport ? (typeof r.socialCaseReport==='object' ? r.socialCaseReport.fileName : r.socialCaseReport) : '',
+          r.createdBy, r.createdAt ? new Date(r.createdAt).toLocaleString('en-PH') : ''
+        ].map(q);
+      });
+      count = records.length;
+      filename = 'FR_SUMMARY_REPORT_' + dateStr + '.csv';
+      csv = [headers.map(q).join(',')].concat(rows.map(function(r){return r.join(',');})).join('\n');
+
+    } else if (type === 'nojapic') {
+      var list = records.filter(function(r) {
+        return !r.japic || !(r.japic.url || r.japic.dataUrl || r.japic.fileName);
+      }).sort(function(a,b){return(a.lastName||'').localeCompare(b.lastName||'');});
+      if (!list.length) { showToast('ALL PROFILES HAVE JAPIC ON FILE', 'success'); return; }
+      var headers = ['#','LAST NAME','FIRST NAME','MIDDLE NAME','ALIAS','SEX','AGE',
+        'REFERRING UNIT','DATE SURRENDERED','STATUS'];
+      var rows = list.map(function(r, i) {
+        return [i+1, r.lastName, r.firstName, r.middleName||'', r.alias||'',
+          r.sex||'', calcAgeFromDob(r.dob),
+          r.referringUnit||'', r.dateSurrendered||'', r.recordStatus||''].map(q);
+      });
+      count = list.length;
+      filename = 'FR_NO_JAPIC_' + dateStr + '.csv';
+      csv = [headers.map(q).join(',')].concat(rows.map(function(r){return r.join(',');})).join('\n');
+
+    } else if (type === 'incomplete') {
+      var list = records.filter(function(r) {
+        return getMissingFieldsGlobal(r).length > 0;
+      }).sort(function(a,b){return(a.lastName||'').localeCompare(b.lastName||'');});
+      if (!list.length) { showToast('ALL PROFILES HAVE COMPLETE DATA', 'success'); return; }
+      var headers = ['#','LAST NAME','FIRST NAME','MIDDLE NAME','REFERRING UNIT','MISSING FIELDS'];
+      var rows = list.map(function(r, i) {
+        return [i+1, r.lastName, r.firstName, r.middleName||'',
+          r.referringUnit||'', getMissingFieldsGlobal(r).join('; ')].map(q);
+      });
+      count = list.length;
+      filename = 'FR_INCOMPLETE_DATA_' + dateStr + '.csv';
+      csv = [headers.map(q).join(',')].concat(rows.map(function(r){return r.join(',');})).join('\n');
+    }
+
+    var blob = new Blob([csv], { type: 'text/csv' });
+    var url  = URL.createObjectURL(blob);
+    var a    = document.createElement('a');
+    a.href = url; a.download = filename; a.click();
+    URL.revokeObjectURL(url);
+    showToast('CSV DOWNLOADED — ' + count + ' RECORD' + (count !== 1 ? 'S' : ''), 'success');
+  }
+
+  if (allRecordsCache.length) run(allRecordsCache);
+  else dbGetAll().then(function(records) { allRecordsCache = records; run(records); })
+    .catch(function(err) { showToast('ERROR: ' + err.message, 'error'); });
+}
+
 
 // -- DASHBOARD REPORT HTML ------------------------------------
 function buildDashboardReportHtml(records) {

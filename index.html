@@ -171,15 +171,28 @@
             📄 GENERATE REPORT <span class="report-dropdown-arrow">▾</span>
           </button>
           <div class="report-dropdown-menu" id="reportDropdownMenu">
+            <div class="report-dropdown-label">DASHBOARD SUMMARY</div>
             <button class="report-dropdown-item" onclick="generateReport();closeReportDropdown()">
-              <span>📊</span><span>DASHBOARD SUMMARY REPORT</span>
+              <span>🖨</span><span>PRINT / VIEW PDF</span>
+            </button>
+            <button class="report-dropdown-item" onclick="downloadReportCSV('summary');closeReportDropdown()">
+              <span>⬇</span><span>DOWNLOAD CSV</span>
             </button>
             <div class="report-dropdown-divider"></div>
+            <div class="report-dropdown-label">PROFILES WITH NO JAPIC</div>
             <button class="report-dropdown-item" onclick="printNoJapicList();closeReportDropdown()">
-              <span>📄</span><span>PROFILES WITH NO JAPIC</span>
+              <span>🖨</span><span>PRINT / VIEW PDF</span>
             </button>
+            <button class="report-dropdown-item" onclick="downloadReportCSV('nojapic');closeReportDropdown()">
+              <span>⬇</span><span>DOWNLOAD CSV</span>
+            </button>
+            <div class="report-dropdown-divider"></div>
+            <div class="report-dropdown-label">PROFILES WITH INCOMPLETE DATA</div>
             <button class="report-dropdown-item" onclick="printIncompleteList();closeReportDropdown()">
-              <span>⚠</span><span>PROFILES WITH INCOMPLETE DATA</span>
+              <span>🖨</span><span>PRINT / VIEW PDF</span>
+            </button>
+            <button class="report-dropdown-item" onclick="downloadReportCSV('incomplete');closeReportDropdown()">
+              <span>⬇</span><span>DOWNLOAD CSV</span>
             </button>
           </div>
         </div>
