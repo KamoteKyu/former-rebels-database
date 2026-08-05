@@ -805,6 +805,63 @@ function generateReport() {
     .catch(function(err) { showToast('ERROR: ' + err.message, 'error'); });
 }
 
+// -- PRINT NO E-CLIP LIST -------------------------------------
+function printNoEclipList() {
+  function run(records) {
+    var list = records.filter(function(r) {
+      var asst = r.assistance || [];
+      return asst.indexOf('E-CLIP') === -1 && asst.indexOf('NOT QUALIFIED FOR E-CLIP') === -1;
+    }).sort(function(a, b) { return (a.lastName||'').localeCompare(b.lastName||''); });
+
+    if (!list.length) { showToast('ALL PROFILES HAVE E-CLIP OR NOT QUALIFIED STATUS', 'success'); return; }
+
+    var printed   = new Date().toLocaleString('en-PH');
+    var printedBy = currentUser ? currentUser.username + ' (' + currentUser.role + ')' : 'UNKNOWN';
+
+    var rows = list.map(function(r, i) {
+      var age = calcAgeFromDob(r.dob);
+      return '<tr>' +
+        '<td style="text-align:center">' + (i + 1) + '</td>' +
+        '<td><strong>' + (r.lastName||'') + ', ' + (r.firstName||'') + '</strong>' + (r.middleName ? ' ' + r.middleName : '') + '</td>' +
+        '<td>' + (r.alias||'-') + '</td>' +
+        '<td style="text-align:center">' + (r.sex||'-') + '</td>' +
+        '<td style="text-align:center">' + age + '</td>' +
+        '<td>' + (r.referringUnit||'-') + '</td>' +
+        '<td style="text-align:center">' + formatDate(r.dateSurrendered) + '</td>' +
+        '<td>' + ((r.assistance||[]).join(', ')||'-') + '</td>' +
+        '</tr>';
+    }).join('');
+
+    var body =
+      '<div class="print-header">' +
+        '<h1>FORMER REBELS DATABASE MANAGEMENT SYSTEM</h1>' +
+        '<p>PROFILES WITH NO E-CLIP</p>' +
+        '<p>Generated: ' + printed + ' &nbsp;|&nbsp; By: ' + printedBy + '</p>' +
+      '</div>' +
+      '<table class="report-table" style="width:100%;font-size:10px">' +
+        '<thead><tr>' +
+          '<th style="text-align:center;width:28px">#</th>' +
+          '<th>FULL NAME</th><th>ALIAS</th>' +
+          '<th style="text-align:center">SEX</th>' +
+          '<th style="text-align:center">AGE</th>' +
+          '<th>REFERRING UNIT</th>' +
+          '<th style="text-align:center">DATE SURRENDERED</th>' +
+          '<th>CURRENT ASSISTANCE</th>' +
+        '</tr></thead>' +
+        '<tbody>' + rows + '</tbody>' +
+        '<tfoot><tr><td colspan="8" style="text-align:right;font-size:9px;padding-top:6px;border-top:2px solid #333">' +
+          'TOTAL: ' + list.length + ' PROFILE' + (list.length !== 1 ? 'S' : '') + ' WITHOUT E-CLIP' +
+        '</td></tr></tfoot>' +
+      '</table>';
+
+    openPrintDocument('No E-CLIP List', body, REPORT_PRINT_STYLES);
+    showToast('NO E-CLIP LIST GENERATED — ' + list.length + ' PROFILE(S)', 'success');
+  }
+  if (allRecordsCache.length) run(allRecordsCache);
+  else dbGetAll().then(function(records) { allRecordsCache = records; run(records); })
+    .catch(function(err) { showToast('ERROR: ' + err.message, 'error'); });
+}
+
 // -- PRINT NO JAPIC LIST --------------------------------------
 function printNoJapicList() {
   function run(records) {
@@ -1137,6 +1194,24 @@ function downloadReportCSV(type) {
       });
       count = records.length;
       filename = 'FR_SUMMARY_REPORT_' + dateStr + '.csv';
+      csv = [headers.map(q).join(',')].concat(rows.map(function(r){return r.join(',');})).join('\n');
+
+    } else if (type === 'noeclip') {
+      var list = records.filter(function(r) {
+        var asst = r.assistance || [];
+        return asst.indexOf('E-CLIP') === -1 && asst.indexOf('NOT QUALIFIED FOR E-CLIP') === -1;
+      }).sort(function(a,b){return(a.lastName||'').localeCompare(b.lastName||'');});
+      if (!list.length) { showToast('ALL PROFILES HAVE E-CLIP OR NOT QUALIFIED STATUS', 'success'); return; }
+      var headers = ['#','LAST NAME','FIRST NAME','MIDDLE NAME','ALIAS','SEX','AGE',
+        'REFERRING UNIT','DATE SURRENDERED','STATUS','CURRENT ASSISTANCE'];
+      var rows = list.map(function(r, i) {
+        return [i+1, r.lastName, r.firstName, r.middleName||'', r.alias||'',
+          r.sex||'', calcAgeFromDob(r.dob), r.referringUnit||'',
+          r.dateSurrendered||'', r.recordStatus||'',
+          (r.assistance||[]).join('; ')].map(q);
+      });
+      count = list.length;
+      filename = 'FR_NO_ECLIP_' + dateStr + '.csv';
       csv = [headers.map(q).join(',')].concat(rows.map(function(r){return r.join(',');})).join('\n');
 
     } else if (type === 'nojapic') {
