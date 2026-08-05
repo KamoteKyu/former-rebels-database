@@ -908,6 +908,74 @@ function printIncompleteList() {
     .catch(function(err) { showToast('ERROR: ' + err.message, 'error'); });
 }
 
+// -- POSSIBLE DUPLICATES MODAL --------------------------------
+function closeDuplicatesModal() {
+  document.getElementById('duplicatesModal').classList.add('hidden');
+}
+
+function showPossibleDuplicates() {
+  var modal   = document.getElementById('duplicatesModal');
+  var content = document.getElementById('duplicatesModalContent');
+  content.innerHTML = '<div style="text-align:center;padding:24px;color:var(--text3)">SCANNING RECORDS...</div>';
+  modal.classList.remove('hidden');
+
+  function run(records) {
+    var groups = findDuplicateGroups(records);
+
+    if (!groups.length) {
+      content.innerHTML = '<div style="text-align:center;padding:32px;color:var(--accent2)">✓ NO POSSIBLE DUPLICATES FOUND IN ' + records.length + ' RECORDS</div>';
+      return;
+    }
+
+    var totalRecords = groups.reduce(function(s, g) { return s + g.length; }, 0);
+    var html = '<div style="font-size:0.75rem;color:var(--text3);margin-bottom:16px;padding-bottom:10px;border-bottom:1px solid var(--border)">' +
+      '<span style="color:#f85149;font-weight:700">' + groups.length + ' DUPLICATE GROUP' + (groups.length !== 1 ? 'S' : '') + '</span>' +
+      ' &nbsp;—&nbsp; ' + totalRecords + ' RECORDS AFFECTED</div>';
+
+    groups.forEach(function(grp, gi) {
+      html += '<div style="margin-bottom:20px;background:var(--bg3);border:1px solid rgba(248,81,73,0.3);border-radius:var(--radius);overflow:hidden">' +
+        '<div style="background:rgba(248,81,73,0.1);padding:8px 14px;font-size:0.7rem;font-weight:700;letter-spacing:1px;color:#f85149;display:flex;justify-content:space-between;align-items:center">' +
+          '<span>DUPLICATE GROUP ' + (gi + 1) + ' — ' + grp.length + ' RECORDS</span>' +
+          '<span style="color:var(--text3);font-weight:400">' + (grp[0].lastName||'') + ', ' + (grp[0].firstName||'') + '</span>' +
+        '</div>' +
+        '<table style="width:100%;border-collapse:collapse;font-size:0.72rem">' +
+          '<thead><tr style="background:var(--bg2)">' +
+            '<th style="padding:6px 10px;text-align:left;color:var(--text3);font-weight:600;font-size:0.65rem">FULL NAME</th>' +
+            '<th style="padding:6px 10px;text-align:left;color:var(--text3);font-weight:600;font-size:0.65rem">ALIAS</th>' +
+            '<th style="padding:6px 10px;text-align:center;color:var(--text3);font-weight:600;font-size:0.65rem">SEX</th>' +
+            '<th style="padding:6px 10px;text-align:center;color:var(--text3);font-weight:600;font-size:0.65rem">DOB</th>' +
+            '<th style="padding:6px 10px;text-align:left;color:var(--text3);font-weight:600;font-size:0.65rem">REFERRING UNIT</th>' +
+            '<th style="padding:6px 10px;text-align:center;color:var(--text3);font-weight:600;font-size:0.65rem">DATE SURRENDERED</th>' +
+            '<th style="padding:6px 10px;text-align:center;color:var(--text3);font-weight:600;font-size:0.65rem">ACTIONS</th>' +
+          '</tr></thead><tbody>';
+
+      grp.forEach(function(r, ri) {
+        var rowBg = ri % 2 === 0 ? 'var(--bg3)' : 'var(--bg2)';
+        html += '<tr style="background:' + rowBg + ';border-top:1px solid var(--border)">' +
+          '<td style="padding:8px 10px"><strong>' + (r.lastName||'') + ', ' + (r.firstName||'') + '</strong>' + (r.middleName ? ' ' + r.middleName : '') + '</td>' +
+          '<td style="padding:8px 10px">' + (r.alias||'—') + '</td>' +
+          '<td style="padding:8px 10px;text-align:center">' + (r.sex||'—') + '</td>' +
+          '<td style="padding:8px 10px;text-align:center">' + (r.dob ? formatDate(r.dob) : '—') + '</td>' +
+          '<td style="padding:8px 10px;font-size:0.68rem">' + (r.referringUnit||'—') + '</td>' +
+          '<td style="padding:8px 10px;text-align:center">' + (r.dateSurrendered ? formatDate(r.dateSurrendered) : '—') + '</td>' +
+          '<td style="padding:8px 10px;text-align:center">' +
+            '<button class="btn-view" style="margin:2px" onclick="closeDuplicatesModal();viewRecord(\'' + r.id + '\')">👁 VIEW</button>' +
+            '<button class="btn-edit" style="margin:2px" onclick="closeDuplicatesModal();editRecord(\'' + r.id + '\')">✏ EDIT</button>' +
+          '</td>' +
+        '</tr>';
+      });
+
+      html += '</tbody></table></div>';
+    });
+
+    content.innerHTML = html;
+  }
+
+  if (allRecordsCache.length) run(allRecordsCache);
+  else dbGetAll().then(function(records) { allRecordsCache = records; run(records); })
+    .catch(function(err) { content.innerHTML = '<div style="color:#f85149;padding:16px">ERROR: ' + err.message + '</div>'; });
+}
+
 // -- FIND DUPLICATE GROUPS ------------------------------------
 // Returns array of groups, each group is an array of records with the same
 // last+first name (excluding Jr./Sr. pairs which are different people)
@@ -2619,6 +2687,7 @@ function changeAdminPassword() {
 document.getElementById('viewModal').addEventListener('click',function(e){if(e.target===this)closeModal();});
 document.getElementById('deleteModal').addEventListener('click',function(e){if(e.target===this)closeDeleteModal();});
 document.getElementById('cameraModal').addEventListener('click',function(e){if(e.target===this)closeCamera();});
+document.getElementById('duplicatesModal').addEventListener('click',function(e){if(e.target===this)closeDuplicatesModal();});
 
 // -- IDLE LOGOUT (3 minutes) ----------------------------------
 var IDLE_TIMEOUT_MS = 3 * 60 * 1000; // 3 minutes
