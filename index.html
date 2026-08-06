@@ -540,7 +540,7 @@
         <button class="btn-primary" onclick="showPage('addRecord')">+ ADD NEW RECORD</button>
         <button class="btn-warning" onclick="showPossibleDuplicates()">⚠ POSSIBLE DUPLICATES</button>
         <button class="btn-secondary" id="printFilteredBtn" onclick="printFilteredRecords()" style="display:none">🖨 PRINT LIST</button>
-        <button class="btn-secondary" onclick="exportCSV()">⬇ EXPORT CSV</button>
+        <button class="btn-secondary" onclick="exportCSV()">⬇ EXPORT XLSX</button>
         <button class="btn-secondary" onclick="document.getElementById('csvImportInput').click()">⬆ IMPORT CSV</button>
         <input type="file" id="csvImportInput" accept=".csv" style="display:none" onchange="importCSVFile(event)"/>
       </div>
@@ -1125,6 +1125,8 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
+<!-- SheetJS — xlsx export with auto column widths -->
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

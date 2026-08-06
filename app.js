@@ -2676,22 +2676,98 @@ function importCSVFile(event) {
   event.target.value = '';
 }
 
-// -- EXPORT CSV -----------------------------------------------
+// -- EXPORT XLSX -----------------------------------------------
 function exportCSV() {
-  var unitFilter = document.getElementById('unitFilterSelect') ? document.getElementById('unitFilterSelect').value : '';
-  var search     = document.getElementById('searchInput') ? document.getElementById('searchInput').value : '';
+  var unitFilter       = document.getElementById('unitFilterSelect')       ? document.getElementById('unitFilterSelect').value       : '';
+  var membershipFilter = document.getElementById('membershipFilterSelect') ? document.getElementById('membershipFilterSelect').value : '';
+  var search           = document.getElementById('searchInput')            ? document.getElementById('searchInput').value            : '';
   // Use filtered list if any filter is active, otherwise export all
-  var records = (unitFilter || search) && filteredRecordsCache.length ? filteredRecordsCache : null;
+  var records = (unitFilter || membershipFilter || search) && filteredRecordsCache.length ? filteredRecordsCache : null;
 
   function doExport(recs) {
     if (!recs.length) { showToast('NO RECORDS TO EXPORT', 'info'); return; }
+
+    var headers = [
+      'ID','LAST NAME','FIRST NAME','MIDDLE NAME','ALIAS',
+      'DATE OF BIRTH','AGE','SEX','CIVIL STATUS','TRIBAL GROUP','STATUS',
+      'RELIGION','CONTACT NUMBER','MEDICAL CONDITION','MEDICAL CONDITION SPECIFY',
+      '4Ps','PWD DISABILITY','BARANGAY','MUNICIPALITY','PROVINCE','SECTOR',
+      'UNIT','POSITION','MEMBERSHIP TYPE','AREA OF OPERATION','YEARS IN MOVEMENT',
+      'DATE SURRENDERED','PENDING CASE','REFERRING UNIT','REMARKS',
+      'ASSISTANCE PROVIDED','JAPIC','SOCIAL CASE REPORT FILE',
+      'CREATED BY','CREATED AT'
+    ];
+
+    var rows = recs.map(function(r) {
+      var japic = r.japic && (r.japic.url || r.japic.fileName) ? 'ON FILE' : 'NO JAPIC ATTACHED';
+      return [
+        r.id,
+        r.lastName,
+        r.firstName,
+        r.middleName,
+        r.alias,
+        r.dob,
+        calcAgeFromDob(r.dob),
+        r.sex,
+        r.civilStatus,
+        normalizeTribalGroup(r.tribalGroup) || r.tribalGroup,
+        r.recordStatus || '',
+        r.religion,
+        r.contactNumber,
+        r.medicalCondition,
+        r.medicalConditionSpec,
+        r.fourPs,
+        r.pwdDisability,
+        r.addressBarangay || r.address,
+        r.addressMunicipality || '',
+        r.addressProvince || 'OCCIDENTAL MINDORO',
+        (r.sector || []).join('; '),
+        r.unit,
+        r.position,
+        r.membershipType,
+        r.areaOfOperation,
+        r.yearsInMovement,
+        r.dateSurrendered,
+        r.pendingCase,
+        r.referringUnit,
+        r.remarks || '',
+        (r.assistance || []).join('; '),
+        japic,
+        r.socialCaseReport ? (typeof r.socialCaseReport === 'object' ? r.socialCaseReport.fileName : r.socialCaseReport) : '',
+        r.createdBy,
+        r.createdAt ? new Date(r.createdAt).toLocaleString('en-PH') : ''
+      ];
+    });
+
+    // Build worksheet data: header row + data rows
+    var wsData = [headers].concat(rows);
+    var ws = XLSX.utils.aoa_to_sheet(wsData);
+
+    // Auto-fit column widths based on the longest value in each column
+    var colWidths = headers.map(function(h, ci) {
+      var maxLen = h.length;
+      rows.forEach(function(row) {
+        var cell = row[ci];
+        var len = cell !== null && cell !== undefined ? String(cell).length : 0;
+        if (len > maxLen) maxLen = len;
+      });
+      return { wch: Math.min(maxLen + 2, 60) }; // +2 padding, cap at 60
+    });
+    ws['!cols'] = colWidths;
+
+    // Set row height for all rows (header + data)
+    var rowHeights = wsData.map(function() { return { hpt: 18 }; }); // 18pt per row
+    rowHeights[0] = { hpt: 22 }; // slightly taller header row
+    ws['!rows'] = rowHeights;
+
+    var wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'FR DATABASE');
+
     var unitLabel = unitFilter ? '_' + unitFilter.replace(/[^A-Z0-9]/gi, '_').toUpperCase() : '';
-    var headers=['ID','LAST NAME','FIRST NAME','MIDDLE NAME','ALIAS','DATE OF BIRTH','AGE','SEX','CIVIL STATUS','TRIBAL GROUP','STATUS','RELIGION','CONTACT NUMBER','MEDICAL CONDITION','MEDICAL CONDITION SPECIFY','4Ps','PWD DISABILITY','BARANGAY','MUNICIPALITY','PROVINCE','SECTOR','UNIT','POSITION','MEMBERSHIP TYPE','AREA OF OPERATION','YEARS IN MOVEMENT','DATE SURRENDERED','PENDING CASE','REFERRING UNIT','REMARKS','ASSISTANCE PROVIDED','SOCIAL CASE REPORT FILE','CREATED BY','CREATED AT'];
-    var rows=recs.map(function(r){return[r.id,r.lastName,r.firstName,r.middleName,r.alias,r.dob,calcAgeFromDob(r.dob),r.sex,r.civilStatus,normalizeTribalGroup(r.tribalGroup)||r.tribalGroup,r.recordStatus||'',r.religion,r.contactNumber,r.medicalCondition,r.medicalConditionSpec,r.fourPs,r.pwdDisability,r.addressBarangay||r.address,r.addressMunicipality||'',r.addressProvince||'OCCIDENTAL MINDORO',(r.sector||[]).join('; '),r.unit,r.position,r.membershipType,r.areaOfOperation,r.yearsInMovement,r.dateSurrendered,r.pendingCase,r.referringUnit,r.remarks||'',(r.assistance||[]).join('; '),r.socialCaseReport?(typeof r.socialCaseReport==='object'?r.socialCaseReport.fileName:r.socialCaseReport):'',r.createdBy,r.createdAt?new Date(r.createdAt).toLocaleString('en-PH'):''].map(function(v){return'"'+String(v||'').replace(/"/g,'""')+'"';});});
-    var csv=[headers.join(',')].concat(rows.map(function(r){return r.join(',');})).join('\n');
-    var blob=new Blob([csv],{type:'text/csv'}), url=URL.createObjectURL(blob), a=document.createElement('a');
-    a.href=url; a.download='FR_DATABASE'+unitLabel+'_'+new Date().toISOString().slice(0,10)+'.csv'; a.click(); URL.revokeObjectURL(url);
-    showToast('CSV EXPORTED — ' + recs.length + ' RECORD' + (recs.length !== 1 ? 'S' : ''), 'success');
+    var fileName  = 'FR_DATABASE' + unitLabel + '_' + new Date().toISOString().slice(0, 10) + '.xlsx';
+    XLSX.writeFile(wb, fileName);
+
+    showToast('XLSX EXPORTED — ' + recs.length + ' RECORD' + (recs.length !== 1 ? 'S' : ''), 'success');
   }
 
   if (records) { doExport(records); return; }
