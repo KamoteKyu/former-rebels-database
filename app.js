@@ -1685,6 +1685,9 @@ function renderRecords(records, filter, unitFilter) {
   }
   if (unitFilter) {
     list = list.filter(function(r) {
+      // Membership type filters
+      if (unitFilter === '__MB__')  return r.membershipType === 'MILISYANG BAYAN';
+      if (unitFilter === '__NPA__') return r.membershipType === 'REGULAR NPA';
       var ru = r.referringUnit || '';
       // match exact unit name, or OTHERS prefix for free-text entries
       if (unitFilter === 'OTHERS') return ru.indexOf('OTHERS') === 0;
