@@ -15,6 +15,7 @@
     <span class="title-bar-text">FORMER REBELS DATABASE MANAGEMENT SYSTEM</span>
   </div>
   <div class="title-bar-controls">
+    <button class="tb-btn tb-refresh" onclick="tbRefresh()" title="Refresh">&#8635;</button>
     <button class="tb-btn tb-min"  onclick="tbMinimize()"  title="Minimize">&#8722;</button>
     <button class="tb-btn tb-max"  id="tbMaxBtn" onclick="tbMaximize()" title="Maximize">&#9744;</button>
     <button class="tb-btn tb-close" onclick="tbClose()"   title="Close">&#10005;</button>
@@ -200,6 +201,14 @@
               <span>🖨</span><span>PRINT / VIEW PDF</span>
             </button>
             <button class="report-dropdown-item" onclick="downloadReportCSV('incomplete');closeReportDropdown()">
+              <span>⬇</span><span>DOWNLOAD CSV</span>
+            </button>
+            <div class="report-dropdown-divider"></div>
+            <div class="report-dropdown-label">FULL LIST OF FORMER REBELS</div>
+            <button class="report-dropdown-item" onclick="printFullList();closeReportDropdown()">
+              <span>🖨</span><span>PRINT / VIEW PDF</span>
+            </button>
+            <button class="report-dropdown-item" onclick="downloadReportCSV('fulllist');closeReportDropdown()">
               <span>⬇</span><span>DOWNLOAD CSV</span>
             </button>
           </div>
@@ -981,6 +990,14 @@
           <h4 style="color:var(--accent2);margin-bottom:10px">🔧 APPLY DATA MIGRATIONS</h4>
           <p style="font-size:0.72rem;color:var(--text3);margin-bottom:10px">Fixes missing defaults (position, civil status, years in movement) and normalizes referring unit names (e.g. SCORPION → Scorpion) on all existing records.</p>
           <button type="button" class="btn-warning" onclick="runMigrationsManually()">🔧 RUN MIGRATIONS NOW</button>
+        </div>
+
+        <!-- MIDDLE NAME UPDATE -->
+        <div class="change-pw-panel" style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
+          <h4 style="color:var(--accent2);margin-bottom:10px">📝 FIX MISSING MIDDLE NAMES</h4>
+          <p style="font-size:0.72rem;color:var(--text3);margin-bottom:10px">Sets middleName to "UNKNOWN" on all existing records that have an empty or missing middle name.</p>
+          <button type="button" class="btn-warning" onclick="runMiddleNameUpdate()">📝 UPDATE MISSING MIDDLE NAMES</button>
+          <span id="middleNameUpdateStatus" style="margin-left:10px;font-size:0.75rem;color:var(--text3)"></span>
         </div>
 
         <!-- CHANGE ADMIN PASSWORD -->

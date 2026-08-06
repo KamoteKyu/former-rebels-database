@@ -592,7 +592,7 @@ function renderNoEclipWidget(records) {
     if (!list.length) return '<div class="no-eclip-empty">' + emptyMsg + '</div>';
     return list.map(function(r) {
       var photo = r.idPhoto ? r.idPhoto : 'BHB.png';
-      var name  = r.lastName + ', ' + r.firstName + (r.middleName ? ' ' + r.middleName : '');
+      var name  = r.lastName + ', ' + r.firstName + ' ' + (r.middleName || 'UNKNOWN');
       var unit  = r.unit || r.referringUnit || 'NO UNIT';
       return '<div class="no-eclip-item" onclick="viewRecord(\'' + r.id + '\')" title="CLICK TO VIEW PROFILE">' +
         '<img src="' + photo + '" alt=""/>' +
@@ -606,7 +606,7 @@ function renderNoEclipWidget(records) {
     if (!list.length) return '<div class="no-eclip-empty">&#10003; ALL PROFILES HAVE COMPLETE REQUIRED DATA</div>';
     return list.map(function(r) {
       var photo   = r.idPhoto ? r.idPhoto : 'BHB.png';
-      var name    = r.lastName + ', ' + r.firstName + (r.middleName ? ' ' + r.middleName : '');
+      var name    = r.lastName + ', ' + r.firstName + ' ' + (r.middleName || 'UNKNOWN');
       var missing = getMissingFields(r);
       return '<div class="no-eclip-item no-eclip-item--incomplete" onclick="editRecord(\'' + r.id + '\')" title="CLICK TO EDIT AND COMPLETE PROFILE">' +
         '<img src="' + photo + '" alt=""/>' +
@@ -822,7 +822,7 @@ function printNoEclipList() {
       var age = calcAgeFromDob(r.dob);
       return '<tr>' +
         '<td style="text-align:center">' + (i + 1) + '</td>' +
-        '<td><strong>' + (r.lastName||'') + ', ' + (r.firstName||'') + '</strong>' + (r.middleName ? ' ' + r.middleName : '') + '</td>' +
+        '<td><strong>' + (r.lastName||'') + ', ' + (r.firstName||'') + ' ' + (r.middleName || 'UNKNOWN') + '</strong></td>' +
         '<td>' + (r.alias||'-') + '</td>' +
         '<td style="text-align:center">' + (r.sex||'-') + '</td>' +
         '<td style="text-align:center">' + age + '</td>' +
@@ -959,6 +959,79 @@ function printIncompleteList() {
 
     openPrintDocument('Incomplete Data List', body, REPORT_PRINT_STYLES);
     showToast('INCOMPLETE DATA LIST GENERATED — ' + list.length + ' PROFILE(S)', 'success');
+  }
+  if (allRecordsCache.length) run(allRecordsCache);
+  else dbGetAll().then(function(records) { allRecordsCache = records; run(records); })
+    .catch(function(err) { showToast('ERROR: ' + err.message, 'error'); });
+}
+
+// -- PRINT FULL LIST ------------------------------------------
+function printFullList() {
+  function run(records) {
+    if (!records.length) { showToast('NO RECORDS TO PRINT', 'info'); return; }
+
+    // Sort alphabetically by last name then first name
+    var list = records.slice().sort(function(a, b) {
+      var la = (a.lastName  || '').toUpperCase();
+      var lb = (b.lastName  || '').toUpperCase();
+      var fa = (a.firstName || '').toUpperCase();
+      var fb = (b.firstName || '').toUpperCase();
+      if (la < lb) return -1; if (la > lb) return 1;
+      if (fa < fb) return -1; if (fa > fb) return 1;
+      return 0;
+    });
+
+    var printed   = new Date().toLocaleString('en-PH');
+    var printedBy = currentUser ? currentUser.username + ' (' + currentUser.role + ')' : 'UNKNOWN';
+
+    var rows = list.map(function(r, i) {
+      var age = calcAgeFromDob(r.dob);
+      var statusStyle = '';
+      if (r.recordStatus === 'DECEASED')          statusStyle = 'color:#cf222e;font-weight:700';
+      if (r.recordStatus === 'CANNOT BE LOCATED') statusStyle = 'color:#9a6700;font-weight:700';
+      if (r.recordStatus === 'INCARCERATED')      statusStyle = 'color:#7a43b6;font-weight:700';
+      var asstText = (r.assistance && r.assistance.length) ? r.assistance.join(', ') : '-';
+      return '<tr>' +
+        '<td style="text-align:center">' + (i + 1) + '</td>' +
+        '<td><strong>' + (r.lastName  || '') + '</strong></td>' +
+        '<td>'          + (r.firstName || '') + '</td>' +
+        '<td>'          + (r.middleName || '-') + '</td>' +
+        '<td>'          + (r.alias || '-') + '</td>' +
+        '<td style="font-size:9px">' + (r.referringUnit || '-') + '</td>' +
+        '<td style="text-align:center">' + (r.sex || '-') + '</td>' +
+        '<td style="text-align:center">' + age + '</td>' +
+        '<td style="text-align:center">' + formatDate(r.dateSurrendered) + '</td>' +
+        '<td style="font-size:9px;' + statusStyle + '">' + asstText + '</td>' +
+        '</tr>';
+    }).join('');
+
+    var body =
+      '<div class="print-header">' +
+        '<h1>FORMER REBELS DATABASE MANAGEMENT SYSTEM</h1>' +
+        '<p>FULL LIST OF FORMER REBELS</p>' +
+        '<p>Generated: ' + printed + ' &nbsp;|&nbsp; By: ' + printedBy + '</p>' +
+      '</div>' +
+      '<table class="report-table" style="width:100%;font-size:10px">' +
+        '<thead><tr>' +
+          '<th style="text-align:center;width:26px">#</th>' +
+          '<th>LAST NAME</th>' +
+          '<th>FIRST NAME</th>' +
+          '<th>MIDDLE NAME</th>' +
+          '<th>ALIAS</th>' +
+          '<th>REFERRING UNIT</th>' +
+          '<th style="text-align:center">SEX</th>' +
+          '<th style="text-align:center">AGE</th>' +
+          '<th style="text-align:center">DATE SURRENDERED</th>' +
+          '<th>CURRENT ASSISTANCE</th>' +
+        '</tr></thead>' +
+        '<tbody>' + rows + '</tbody>' +
+        '<tfoot><tr><td colspan="10" style="text-align:right;font-size:9px;padding-top:6px;border-top:2px solid #333">' +
+          'TOTAL: ' + list.length + ' RECORD' + (list.length !== 1 ? 'S' : '') +
+        '</td></tr></tfoot>' +
+      '</table>';
+
+    openPrintDocument('FR Full List', body, REPORT_PRINT_STYLES);
+    showToast('FULL LIST GENERATED — ' + list.length + ' RECORD(S)', 'success');
   }
   if (allRecordsCache.length) run(allRecordsCache);
   else dbGetAll().then(function(records) { allRecordsCache = records; run(records); })
@@ -1243,6 +1316,36 @@ function downloadReportCSV(type) {
       count = list.length;
       filename = 'FR_INCOMPLETE_DATA_' + dateStr + '.csv';
       csv = [headers.map(q).join(',')].concat(rows.map(function(r){return r.join(',');})).join('\n');
+
+    } else if (type === 'fulllist') {
+      var list = records.slice().sort(function(a, b) {
+        var la = (a.lastName  || '').toUpperCase();
+        var lb = (b.lastName  || '').toUpperCase();
+        var fa = (a.firstName || '').toUpperCase();
+        var fb = (b.firstName || '').toUpperCase();
+        if (la < lb) return -1; if (la > lb) return 1;
+        if (fa < fb) return -1; if (fa > fb) return 1;
+        return 0;
+      });
+      var headers = ['#','LAST NAME','FIRST NAME','MIDDLE NAME','ALIAS',
+        'REFERRING UNIT','SEX','AGE','DATE SURRENDERED','CURRENT ASSISTANCE'];
+      var rows = list.map(function(r, i) {
+        return [
+          i + 1,
+          r.lastName   || '',
+          r.firstName  || '',
+          r.middleName || '',
+          r.alias      || '',
+          r.referringUnit || '',
+          r.sex        || '',
+          calcAgeFromDob(r.dob),
+          r.dateSurrendered || '',
+          (r.assistance || []).join('; ')
+        ].map(q);
+      });
+      count    = list.length;
+      filename = 'FR_FULL_LIST_' + dateStr + '.csv';
+      csv = [headers.map(q).join(',')].concat(rows.map(function(r) { return r.join(','); })).join('\n');
 
     } else if (type === 'duplicates') {
       var groups = findDuplicateGroups(records);
@@ -1866,7 +1969,7 @@ function saveRecord(event) {
     id: recordId,
     lastName:            document.getElementById('lastName').value.trim().toUpperCase(),
     firstName:           document.getElementById('firstName').value.trim().toUpperCase(),
-    middleName:          document.getElementById('middleName').value.trim().toUpperCase(),
+    middleName:          document.getElementById('middleName').value.trim().toUpperCase() || 'UNKNOWN',
     alias:               document.getElementById('alias').value.trim().toUpperCase(),
     dob:                 document.getElementById('dob').value,
     sex:                 document.getElementById('sex').value,
@@ -1914,13 +2017,14 @@ function saveRecord(event) {
 
   // -- DUPLICATE CHECK -----------------------------------------
   // Strip name extension suffixes for comparison purposes
-  // JR./SR. holders are NOT considered duplicates of each other
   function stripSuffix(name) {
     return (name || '').replace(/\b(JR\.?|SR\.?|II|III|IV)\s*$/i, '').trim().toUpperCase();
   }
-  function hasSuffix(r) {
+  // Returns the matched suffix (e.g. "JR" or "SR") or empty string
+  function getSuffix(r) {
     var combined = [r.lastName, r.firstName, r.middleName, r.alias].join(' ').toUpperCase();
-    return /\b(JR\.?|SR\.?)\b/.test(combined);
+    var m = combined.match(/\b(JR\.?|SR\.?)\b/);
+    return m ? m[1].replace('.', '') : '';
   }
 
   showToast('CHECKING FOR DUPLICATES...', 'info');
@@ -1933,8 +2037,11 @@ function saveRecord(event) {
       snap.docs.forEach(function(d) {
         if (d.id === record.id) return; // skip self when editing
         var existing = d.data();
-        // If BOTH the new record AND the existing one carry Jr./Sr., they are different people
-        if (hasSuffix(record) && hasSuffix(existing)) return;
+        var newSuffix = getSuffix(record);
+        var exSuffix  = getSuffix(existing);
+        // Only skip if the suffixes are DIFFERENT (e.g. one is JR, other is SR)
+        // Two records both carrying SR (or both JR) are still duplicates
+        if (newSuffix && exSuffix && newSuffix !== exSuffix) return;
         // Same last + first name → flag as duplicate
         duplicate = existing;
       });
@@ -2725,6 +2832,112 @@ function runMigrationsManually() {
   }, 4000);
 }
 
+// -- MIDDLE NAME UPDATE ----------------------------------------
+function runMiddleNameUpdate() {
+  if (!currentUser || currentUser.role !== 'ADMIN') { 
+    showToast('ACCESS DENIED — ADMIN ONLY', 'error'); 
+    return; 
+  }
+
+  var statusSpan = document.getElementById('middleNameUpdateStatus');
+  if (statusSpan) statusSpan.textContent = '⏳ Checking records...';
+  
+  showToast('CHECKING RECORDS WITH MISSING MIDDLE NAMES...', 'info');
+
+  waitForAuth().then(function() {
+    return db.collection('records').get({ source: 'server' });
+  }).then(function(snapshot) {
+    var needsUpdate = [];
+    var alreadySet = 0;
+
+    snapshot.forEach(function(doc) {
+      var data = doc.data();
+      var middleName = data.middleName;
+
+      if (!middleName || middleName.trim() === '') {
+        var fullName = (data.lastName || '?') + ', ' + (data.firstName || '?');
+        needsUpdate.push({
+          id: doc.id,
+          name: fullName,
+          ref: doc.ref
+        });
+      } else {
+        alreadySet++;
+      }
+    });
+
+    if (statusSpan) {
+      statusSpan.textContent = 'Found ' + needsUpdate.length + ' record(s) needing update';
+    }
+
+    if (needsUpdate.length === 0) {
+      showToast('✓ ALL RECORDS ALREADY HAVE MIDDLE NAMES SET', 'success');
+      if (statusSpan) statusSpan.textContent = '✓ All records have middle names';
+      return;
+    }
+
+    // Build confirmation message with record list
+    var recordsList = needsUpdate.slice(0, 10).map(function(r) { return '  • ' + r.name; }).join('\n');
+    if (needsUpdate.length > 10) {
+      recordsList += '\n  ... and ' + (needsUpdate.length - 10) + ' more';
+    }
+
+    var confirmMsg = 'UPDATE ' + needsUpdate.length + ' RECORD(S)?\n\n' +
+                     'These records will have middleName set to "UNKNOWN":\n\n' +
+                     recordsList + '\n\n' +
+                     'CONTINUE?';
+
+    if (!confirm(confirmMsg)) {
+      showToast('UPDATE CANCELLED', 'info');
+      if (statusSpan) statusSpan.textContent = '';
+      return;
+    }
+
+    // Update records
+    if (statusSpan) statusSpan.textContent = '⏳ Updating ' + needsUpdate.length + ' record(s)...';
+    showToast('UPDATING RECORDS...', 'info');
+
+    var completed = 0;
+    var failed = 0;
+    var promises = needsUpdate.map(function(record) {
+      return record.ref.update({ middleName: 'UNKNOWN' })
+        .then(function() {
+          completed++;
+        })
+        .catch(function(error) {
+          failed++;
+          console.error('Failed to update ' + record.name + ':', error);
+        });
+    });
+
+    return Promise.all(promises).then(function() {
+      var msg = '✓ UPDATED ' + completed + ' RECORD(S)';
+      if (failed > 0) {
+        msg += ' (' + failed + ' FAILED)';
+        showToast(msg, 'error');
+      } else {
+        showToast(msg, 'success');
+      }
+      
+      if (statusSpan) {
+        statusSpan.textContent = '✓ Updated ' + completed + ' record(s)';
+      }
+
+      // Refresh cache and current page
+      allRecordsCache = [];
+      if (currentPage) {
+        setTimeout(function() { showPage(currentPage); }, 1000);
+      }
+    });
+
+  }).catch(function(error) {
+    var errorMsg = 'ERROR: ' + error.message;
+    showToast(errorMsg, 'error');
+    if (statusSpan) statusSpan.textContent = '✗ Error';
+    console.error('Middle name update error:', error);
+  });
+}
+
 // -- PURGE ALL OPERATORS --------------------------------------
 function purgeAllOperators() {
   if (!currentUser || currentUser.role !== 'ADMIN') { showToast('ACCESS DENIED', 'error'); return; }
@@ -2832,6 +3045,7 @@ function resetIdleTimer() {
 function tbMinimize() { if (window.electronAPI) window.electronAPI.minimize(); }
 function tbMaximize() { if (window.electronAPI) window.electronAPI.maximize(); }
 function tbClose()    { if (window.electronAPI) window.electronAPI.close();    }
+function tbRefresh()  { location.reload(); }
 
 // -- THEME TOGGLE --------------------------------------------
 function applyTheme(theme) {
