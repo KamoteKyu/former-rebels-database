@@ -1991,7 +1991,7 @@ function saveRecord(event) {
     addressProvince:     document.getElementById('addressProvince').value,
     sector:              sectorList,
     idPhoto:             idPhotoData,
-    unit:                document.getElementById('unit').value.trim().toUpperCase(),
+    unit:                document.getElementById('unit').value.trim().toUpperCase() || (document.getElementById('membershipType').value === 'MILISYANG BAYAN' ? 'MB' : ''),
     position:            document.getElementById('position').value.trim().toUpperCase() || 'MEMBER',
     membershipType:      document.getElementById('membershipType').value,
     areaOfOperation:     document.getElementById('areaOfOperation').value,
@@ -3094,6 +3094,10 @@ function migrateDefaults() {
       if (r.referringUnit) {
         var normalized = normalizeReferringUnit(r.referringUnit);
         if (normalized && normalized !== r.referringUnit) updates.referringUnit = normalized;
+      }
+      // MILISYANG BAYAN with no unit → default unit to "MB"
+      if (r.membershipType === 'MILISYANG BAYAN' && !r.unit) {
+        updates.unit = 'MB';
       }
       if (Object.keys(updates).length > 0) {
         updates.updatedAt = new Date().toISOString();
