@@ -1127,8 +1127,10 @@ function showPossibleDuplicates() {
 // Returns array of groups, each group is an array of records with the same
 // last+first name (excluding Jr./Sr. pairs which are different people)
 function findDuplicateGroups(records) {
-  function recHasSuffix(r) {
-    return /\b(JR\.?|SR\.?)\b/i.test([r.lastName, r.firstName, r.middleName, r.alias].join(' '));
+  function recGetSuffix(r) {
+    var combined = [r.lastName, r.firstName, r.middleName, r.alias].join(' ').toUpperCase();
+    var m = combined.match(/\b(JR\.?|SR\.?)\b/);
+    return m ? m[1].replace('.', '') : '';
   }
   // Group by LASTNAME|FIRSTNAME
   var groups = {};
@@ -1142,17 +1144,18 @@ function findDuplicateGroups(records) {
   Object.keys(groups).forEach(function(k) {
     var grp = groups[k];
     if (grp.length < 2) return;
-    // Filter out cases where all members carry Jr./Sr. (no real duplicate)
-    // A group is a real duplicate if at least two members exist where
-    // not both of them have a suffix
+    // Filter out cases where members have DIFFERENT suffixes (JR vs SR = different people)
+    // A group is a real duplicate if at least two members have the SAME suffix (or no suffix)
     var realDups = [];
     for (var i = 0; i < grp.length; i++) {
       for (var j = i + 1; j < grp.length; j++) {
-        if (!(recHasSuffix(grp[i]) && recHasSuffix(grp[j]))) {
-          // These two are a duplicate pair — include entire group
-          realDups = grp;
-          break;
-        }
+        var sufA = recGetSuffix(grp[i]);
+        var sufB = recGetSuffix(grp[j]);
+        // If both have suffixes AND they're different, skip this pair
+        if (sufA && sufB && sufA !== sufB) continue;
+        // Otherwise, they're duplicates — include entire group
+        realDups = grp;
+        break;
       }
       if (realDups.length) break;
     }
