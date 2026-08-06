@@ -514,6 +514,11 @@
     <div id="page-records" class="page">
       <div class="page-toolbar">
         <input type="text" id="searchInput" class="search-input" placeholder="SEARCH BY NAME, ALIAS, UNIT..." oninput="filterRecords()"/>
+        <select id="membershipFilterSelect" class="unit-filter-select" onchange="filterRecords()">
+          <option value="">ALL MEMBERSHIP TYPES</option>
+          <option value="MILISYANG BAYAN">MILISYANG BAYAN</option>
+          <option value="REGULAR NPA">REGULAR NPA</option>
+        </select>
         <select id="unitFilterSelect" class="unit-filter-select" onchange="filterRecords()">
           <option value="">ALL REFERRING UNITS</option>
           <option value="102nd SAC">102nd SAC</option>

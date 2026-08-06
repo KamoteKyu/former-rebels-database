@@ -1052,7 +1052,7 @@ function deleteDuplicateRecord(id) {
     dbGetAll().then(function(records) {
       allRecordsCache = records;
       // Re-render records table in background
-      if (currentPage === 'records') renderRecords(records, document.getElementById('searchInput').value, document.getElementById('unitFilterSelect').value);
+      if (currentPage === 'records') renderRecords(records, document.getElementById('searchInput').value, document.getElementById('unitFilterSelect').value, document.getElementById('membershipFilterSelect').value);
       // Refresh modal content
       showPossibleDuplicates();
     });
@@ -1663,9 +1663,10 @@ function renderReferringUnitReport(records) {
 }
 
 // -- RECORDS LIST ---------------------------------------------
-function renderRecords(records, filter, unitFilter) {
-  filter     = filter     || '';
-  unitFilter = unitFilter || '';
+function renderRecords(records, filter, unitFilter, membershipFilter) {
+  filter           = filter           || '';
+  unitFilter       = unitFilter       || '';
+  membershipFilter = membershipFilter || '';
   var list = records;
   if (filter) {
     var q = filter.toLowerCase();
@@ -1682,6 +1683,9 @@ function renderRecords(records, filter, unitFilter) {
         (r.referringUnit||'').toLowerCase().indexOf(q)!==-1 ||
         eclipStatus.indexOf(q) !== -1;
     });
+  }
+  if (membershipFilter) {
+    list = list.filter(function(r) { return r.membershipType === membershipFilter; });
   }
   if (unitFilter) {
     list = list.filter(function(r) {
@@ -1719,12 +1723,13 @@ function renderRecords(records, filter, unitFilter) {
 var filteredRecordsCache = [];
 
 function filterRecords() {
-  var search     = document.getElementById('searchInput').value;
-  var unitFilter = document.getElementById('unitFilterSelect').value;
-  renderRecords(allRecordsCache, search, unitFilter);
+  var search           = document.getElementById('searchInput').value;
+  var unitFilter       = document.getElementById('unitFilterSelect').value;
+  var membershipFilter = document.getElementById('membershipFilterSelect').value;
+  renderRecords(allRecordsCache, search, unitFilter, membershipFilter);
   // Show print button whenever any filter is active
   var printBtn = document.getElementById('printFilteredBtn');
-  if (printBtn) printBtn.style.display = (search || unitFilter) ? 'inline-flex' : 'none';
+  if (printBtn) printBtn.style.display = (search || unitFilter || membershipFilter) ? 'inline-flex' : 'none';
 }
 
 // -- PRINT FILTERED RECORDS LIST ------------------------------
@@ -2301,7 +2306,7 @@ function confirmDelete() {
   if(!deleteTargetId) return;
   dbDelete(deleteTargetId).then(function() {
     closeDeleteModal(); showToast('RECORD DELETED','error');
-    dbGetAll().then(function(records){allRecordsCache=records;renderRecords(records,document.getElementById('searchInput').value);});
+    dbGetAll().then(function(records){allRecordsCache=records;renderRecords(records,document.getElementById('searchInput').value,document.getElementById('unitFilterSelect').value,document.getElementById('membershipFilterSelect').value);});
   }).catch(function(err){showToast('DELETE FAILED: '+err.message,'error');});
 }
 
