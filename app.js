@@ -1753,6 +1753,10 @@ function printFilteredRecords() {
     if (r.recordStatus === 'DECEASED')          statusStyle = 'color:#cf222e;font-weight:700';
     if (r.recordStatus === 'CANNOT BE LOCATED') statusStyle = 'color:#9a6700;font-weight:700';
     if (r.recordStatus === 'INCARCERATED')      statusStyle = 'color:#7a43b6;font-weight:700';
+    var hasJapic = r.japic && (r.japic.url || r.japic.fileName);
+    var japicCell = hasJapic
+      ? '<span style="color:#1a7f37;font-weight:700">YES</span>'
+      : '<span style="color:#cf222e;font-weight:700">NO</span>';
     return '<tr>' +
       '<td style="text-align:center">' + (i + 1) + '</td>' +
       '<td><strong>' + (r.lastName || '') + ', ' + (r.firstName || '') + '</strong>' + (r.middleName ? ' ' + r.middleName : '') + '</td>' +
@@ -1762,6 +1766,7 @@ function printFilteredRecords() {
       '<td>' + (r.membershipType || '-') + '</td>' +
       '<td>' + (r.referringUnit || '-') + '</td>' +
       '<td style="text-align:center">' + formatDate(r.dateSurrendered) + '</td>' +
+      '<td style="text-align:center">' + japicCell + '</td>' +
       '<td style="' + statusStyle + '">' + (r.recordStatus || 'ACTIVE') + '</td>' +
       '</tr>';
   }).join('');
@@ -1783,10 +1788,11 @@ function printFilteredRecords() {
         '<th>MEMBERSHIP</th>' +
         '<th>REFERRING UNIT</th>' +
         '<th style="text-align:center">DATE SURRENDERED</th>' +
+        '<th style="text-align:center">JAPIC</th>' +
         '<th>STATUS</th>' +
       '</tr></thead>' +
       '<tbody>' + tableRows + '</tbody>' +
-      '<tfoot><tr><td colspan="9" style="text-align:right;font-size:9px;padding-top:6px;border-top:2px solid #333">' +
+      '<tfoot><tr><td colspan="10" style="text-align:right;font-size:9px;padding-top:6px;border-top:2px solid #333">' +
         'TOTAL: ' + list.length + ' RECORD' + (list.length !== 1 ? 'S' : '') +
       '</td></tr></tfoot>' +
     '</table>';
