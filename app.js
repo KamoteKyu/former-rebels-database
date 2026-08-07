@@ -2670,7 +2670,6 @@ function importCSVFile(event) {
       var fourPs         = matchEnum(col('4Ps'), FOURPS_VALS) || 'NO';
       var pendingCase    = matchEnum(col('PENDING CASE'), PENDING_VALS);
       var membershipType = matchEnum(col('MEMBERSHIP TYPE'), MEMBERSHIP_VALS);
-      if (!membershipType) continue; // MEMBERSHIP TYPE is required — skip row if missing
       var areaOfOp       = matchEnum(col('AREA OF OPERATION'), AOO_VALS);
       var recordStatus   = col('STATUS') ? matchEnum(col('STATUS'), STATUS_VALS) : '';
       var province       = col('PROVINCE') ? matchEnum(col('PROVINCE'), PROVINCE_VALS) : 'OCCIDENTAL MINDORO';
