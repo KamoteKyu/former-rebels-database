@@ -2667,9 +2667,10 @@ function importCSVFile(event) {
       var sex            = matchEnum(col('SEX'), SEX_VALS);
       var civilStatus    = matchEnum(col('CIVIL STATUS'), CIVIL_VALS) || defaultCivilStatus(dob);
       var medicalCond    = matchEnum(col('MEDICAL CONDITION'), MEDICAL_VALS);
-      var fourPs         = matchEnum(col('4Ps'), FOURPS_VALS);
+      var fourPs         = matchEnum(col('4Ps'), FOURPS_VALS) || 'NO';
       var pendingCase    = matchEnum(col('PENDING CASE'), PENDING_VALS);
       var membershipType = matchEnum(col('MEMBERSHIP TYPE'), MEMBERSHIP_VALS);
+      if (!membershipType) continue; // MEMBERSHIP TYPE is required — skip row if missing
       var areaOfOp       = matchEnum(col('AREA OF OPERATION'), AOO_VALS);
       var recordStatus   = col('STATUS') ? matchEnum(col('STATUS'), STATUS_VALS) : '';
       var province       = col('PROVINCE') ? matchEnum(col('PROVINCE'), PROVINCE_VALS) : 'OCCIDENTAL MINDORO';
@@ -2682,6 +2683,8 @@ function importCSVFile(event) {
           religion = rawReligion;
         } else if (rawReligion === 'INC') {
           religion = 'IGLESIA NI CRISTO';
+        } else if (rawReligion === 'ROMAN CATHOLIC' || rawReligion === 'ROMANO KATOLIKO' || rawReligion === 'RC') {
+          religion = 'CATHOLIC';
         } else if (rawReligion.indexOf('OTHERS') === 0) {
           religion = rawReligion;
         } else {
