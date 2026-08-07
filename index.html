@@ -215,6 +215,20 @@
         </div>
       </div>
 
+      <!-- RECENTLY IMPORTED / UPDATED PROFILES WIDGET -->
+      <div class="no-eclip-widget" style="margin-bottom:12px">
+        <div class="no-eclip-header" onclick="toggleNoEclipList('recentImportsList','recentImportsBadge')" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between">
+          <span class="no-eclip-title">🕒 RECENTLY UPDATED PROFILES <span style="font-size:0.65rem;color:var(--text3);font-weight:400">(IMPORT ONLY)</span></span>
+          <div style="display:flex;align-items:center;gap:8px">
+            <button type="button" onclick="event.stopPropagation();dismissAllRecentImports()" class="btn-secondary" style="padding:2px 10px;font-size:0.65rem;border-radius:20px">DISMISS ALL</button>
+            <span id="recentImportsBadge" class="no-eclip-badge no-eclip-badge--blue">0 PROFILES</span>
+          </div>
+        </div>
+        <div id="recentImportsList" class="no-eclip-list" style="display:none">
+          <div class="no-eclip-empty">NO RECENT IMPORTS</div>
+        </div>
+      </div>
+
       <!-- NO E-CLIP PROFILES WIDGET -->
       <div class="no-eclip-widget">
         <!-- Row 1: NO E-CLIP -->

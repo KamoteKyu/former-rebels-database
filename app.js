@@ -636,6 +636,62 @@ function renderNoEclipWidget(records) {
   document.getElementById('incarceratedList').innerHTML  = buildItems(incarcerated,  '&#10003; NO PROFILES MARKED AS INCARCERATED');
 }
 
+// -- RECENTLY IMPORTED/UPDATED WIDGET -------------------------
+function renderRecentImportsWidget() {
+  var el = document.getElementById('recentImportsList');
+  var badge = document.getElementById('recentImportsBadge');
+  if (!el || !badge) return;
+
+  var entries = [];
+  try { entries = JSON.parse(localStorage.getItem('frdb-recentImports') || '[]'); } catch(e) { entries = []; }
+
+  // Most recent first
+  entries = entries.slice().reverse();
+
+  badge.textContent = entries.length + ' PROFILE' + (entries.length !== 1 ? 'S' : '');
+
+  if (!entries.length) {
+    el.innerHTML = '<div class="no-eclip-empty">NO RECENT IMPORTS</div>';
+    return;
+  }
+
+  el.innerHTML = entries.map(function(e) {
+    var r = null;
+    for (var i = 0; i < allRecordsCache.length; i++) {
+      if (allRecordsCache[i].id === e.id) { r = allRecordsCache[i]; break; }
+    }
+    var photo = r && r.idPhoto ? r.idPhoto : 'BHB.png';
+    var typeColor = e.type === 'NEW' ? '#3fb950' : '#d29922';
+    var typeLabel = e.type === 'NEW' ? 'NEW' : 'UPDATED';
+    var ts = e.timestamp ? new Date(e.timestamp).toLocaleString('en-PH', { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' }) : '';
+    return '<div class="no-eclip-item" onclick="viewRecord(\'' + e.id + '\')" title="CLICK TO VIEW PROFILE">' +
+      '<img src="' + photo + '" alt=""/>' +
+      '<div style="flex:1">' +
+        '<div class="no-eclip-item-name">' + e.name + '</div>' +
+        '<div class="no-eclip-item-unit">' +
+          '<span style="color:' + typeColor + ';font-weight:700;margin-right:6px">' + typeLabel + '</span>' + ts +
+        '</div>' +
+      '</div>' +
+      '<button onclick="event.stopPropagation();dismissRecentImport(\'' + e.id + '\')" ' +
+        'style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:1rem;padding:4px 6px" title="DISMISS">&#10005;</button>' +
+    '</div>';
+  }).join('');
+}
+
+function dismissRecentImport(id) {
+  try {
+    var entries = JSON.parse(localStorage.getItem('frdb-recentImports') || '[]');
+    entries = entries.filter(function(e) { return e.id !== id; });
+    localStorage.setItem('frdb-recentImports', JSON.stringify(entries));
+  } catch(ex) {}
+  renderRecentImportsWidget();
+}
+
+function dismissAllRecentImports() {
+  try { localStorage.setItem('frdb-recentImports', '[]'); } catch(ex) {}
+  renderRecentImportsWidget();
+}
+
 // -- DASHBOARD ------------------------------------------------
 function renderDashboard(records) {
   var banner = document.getElementById('recoveryBanner');
@@ -649,6 +705,7 @@ function renderDashboard(records) {
   document.getElementById('statDeceased').textContent      = records.filter(function(r) { return r.recordStatus === 'DECEASED'; }).length;
   document.getElementById('statIncarcerated').textContent  = records.filter(function(r) { return r.recordStatus === 'INCARCERATED'; }).length;
   renderNoEclipWidget(records);
+  renderRecentImportsWidget();
   renderAssistanceReport(records);
   renderMembershipReport(records);
   renderTribalReport(records);
@@ -2086,6 +2143,8 @@ function saveRecord(event) {
         unlockSave();
         playChime();
         showToast(isEdit ? 'RECORD UPDATED SUCCESSFULLY' : 'RECORD SAVED SUCCESSFULLY', 'success');
+        // Manual save — remove this record from the recent imports widget
+        try { var _ri = JSON.parse(localStorage.getItem('frdb-recentImports')||'[]'); localStorage.setItem('frdb-recentImports', JSON.stringify(_ri.filter(function(e){return e.id!==recordId;}))); } catch(ex) {}
         editingRecordId = null;
         allRecordsCache = [];
         dbGetAll().then(function(records) {
@@ -2751,6 +2810,26 @@ function importCSVFile(event) {
 
       var allOps = toInsert.concat(toUpdate).map(function(r) { return dbPut(r); });
       Promise.all(allOps).then(function() {
+        hideImportOverlay();
+        allRecordsCache = [];
+
+        // -- Save recently imported/updated to localStorage for dashboard widget
+        var recentKey = 'frdb-recentImports';
+        var existing  = [];
+        try { existing = JSON.parse(localStorage.getItem(recentKey) || '[]'); } catch(e) { existing = []; }
+        var now = new Date().toISOString();
+        toInsert.forEach(function(r) {
+          existing.push({ id: r.id, name: (r.lastName||'') + ', ' + (r.firstName||'') + ' ' + (r.middleName||''), type: 'NEW', timestamp: now });
+        });
+        toUpdate.forEach(function(r) {
+          // Remove any prior entry for this record then re-add as UPDATED
+          existing = existing.filter(function(e) { return e.id !== r.id; });
+          existing.push({ id: r.id, name: (r.lastName||'') + ', ' + (r.firstName||'') + ' ' + (r.middleName||''), type: 'UPDATED', timestamp: now });
+        });
+        // Keep only the 50 most recent
+        existing = existing.slice(-50);
+        try { localStorage.setItem(recentKey, JSON.stringify(existing)); } catch(e) {}
+        renderRecentImportsWidget();
         hideImportOverlay();
         allRecordsCache = [];
         var parts = [];
