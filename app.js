@@ -2152,7 +2152,7 @@ function editRecord(id) {
   onProvinceChange();
   if(r.addressProvince==='OUTSIDE MINDORO')document.getElementById('addressMunicipalityText').value=r.addressMunicipality||'';
   else document.getElementById('addressMunicipality').value=r.addressMunicipality||'';
-  var savedReligion=r.religion||'', knownReligions=['CATHOLIC','SEVENTH DAY ADVENTIST','CHRISTIAN','IGLESIA NI CRISTO'];
+  var savedReligion=r.religion||'', knownReligions=['CATHOLIC','SEVENTH DAY ADVENTIST','CHRISTIAN','BORN AGAIN CHRISTIAN','IGLESIA NI CRISTO'];
   if(knownReligions.indexOf(savedReligion)!==-1){document.getElementById('religion').value=savedReligion;document.getElementById('religionOthersGroup').style.display='none';document.getElementById('religionOthers').value='';}
   else if(savedReligion){document.getElementById('religion').value='OTHERS';document.getElementById('religionOthersGroup').style.display='block';document.getElementById('religionOthers').value=savedReligion.replace('OTHERS: ','').replace('OTHERS','');}
   else{document.getElementById('religion').value='';document.getElementById('religionOthersGroup').style.display='none';}
@@ -2483,7 +2483,7 @@ function importCSVFile(event) {
     var MEMBERSHIP_VALS = ['REGULAR NPA', 'MILISYANG BAYAN'];
     var AOO_VALS       = ['SOUTHERN PART OF MINDORO','NORTHERN PART OF MINDORO','MINDORO ISLAND'];
     var STATUS_VALS    = ['CANNOT BE LOCATED','DECEASED','INCARCERATED'];
-    var RELIGION_VALS  = ['CATHOLIC','SEVENTH DAY ADVENTIST','CHRISTIAN','IGLESIA NI CRISTO'];
+    var RELIGION_VALS  = ['CATHOLIC','SEVENTH DAY ADVENTIST','CHRISTIAN','BORN AGAIN CHRISTIAN','IGLESIA NI CRISTO'];
     var PROVINCE_VALS  = ['OCCIDENTAL MINDORO','ORIENTAL MINDORO','OUTSIDE MINDORO'];
 
     var parsed = [];
@@ -2522,6 +2522,8 @@ function importCSVFile(event) {
       if (rawReligion) {
         if (RELIGION_VALS.indexOf(rawReligion) !== -1) {
           religion = rawReligion;
+        } else if (rawReligion === 'INC') {
+          religion = 'IGLESIA NI CRISTO';
         } else if (rawReligion.indexOf('OTHERS') === 0) {
           religion = rawReligion;
         } else {
