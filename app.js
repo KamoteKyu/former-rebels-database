@@ -359,6 +359,13 @@ function doLogin() {
   if (!u || !p) { err.textContent = 'PLEASE ENTER EMAIL AND PASSWORD.'; return; }
   var email = u.indexOf('@') === -1 ? u.toLowerCase() + '@frdb.local' : u.toLowerCase();
   err.textContent = 'SIGNING IN...';
+
+  // Connection pre-check
+  fetch('https://identitytoolkit.googleapis.com/', { method: 'HEAD', mode: 'no-cors' })
+    .catch(function() {
+      err.textContent = 'NO INTERNET CONNECTION — CANNOT REACH FIREBASE.';
+    });
+
   auth.signInWithEmailAndPassword(email, p)
     .then(function(cred) {
       err.textContent = '';
@@ -376,8 +383,10 @@ function doLogin() {
       if (e.code === 'auth/user-not-found' || e.code === 'auth/wrong-password' ||
           e.code === 'auth/invalid-credential' || e.code === 'auth/invalid-email') {
         err.textContent = 'INVALID USERNAME OR PASSWORD.';
+      } else if (e.code === 'auth/network-request-failed') {
+        err.textContent = 'NETWORK ERROR — CHECK INTERNET CONNECTION. (' + e.code + ')';
       } else {
-        err.textContent = 'LOGIN ERROR: ' + e.message;
+        err.textContent = 'LOGIN ERROR: ' + e.code + ' — ' + e.message;
       }
     });
 }
