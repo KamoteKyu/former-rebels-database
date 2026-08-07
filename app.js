@@ -1,4 +1,4 @@
-/* ============================================================
+﻿/* ============================================================
    FORMER REBELS DATABASE MANAGEMENT SYSTEM - app.js
    Storage: Firebase Firestore (records) + Firebase Auth (users)
             + Firebase Storage (files/photos)
@@ -61,9 +61,9 @@ function dbPut(record) {
   // Only strip if still a massive uncompressed base64 (>800KB)
   if (safe.idPhoto && safe.idPhoto.startsWith('data:') && safe.idPhoto.length > 800000) {
     safe.idPhoto = null;
-    showToast('ID PHOTO TOO LARGE — ENABLE FIREBASE STORAGE', 'error');
+    showToast('ID PHOTO TOO LARGE - ENABLE FIREBASE STORAGE', 'error');
   }
-  // Sanitize nested objects — Firestore rejects undefined values
+  // Sanitize nested objects - Firestore rejects undefined values
   safe = sanitizeForFirestore(safe);
   return waitForAuth().then(function() {
     return db.collection('records').doc(id).set(safe);
@@ -125,10 +125,10 @@ function compressImage(dataUrl, maxSize) {
 
 function uploadFile(path, dataUrl, maxSize) {
   if (!dataUrl) return Promise.resolve(null);
-  // Already a cloud URL — skip upload
+  // Already a cloud URL - skip upload
   if (dataUrl.startsWith('https://')) return Promise.resolve(dataUrl);
 
-  // Compress image first — reduces a 3MB photo to ~50-80KB
+  // Compress image first - reduces a 3MB photo to ~50-80KB
   return compressImage(dataUrl, maxSize || 800).then(function(compressed) {
     // Try Firebase Storage upload (fast if Storage is enabled)
     return new Promise(function(resolve) {
@@ -136,7 +136,7 @@ function uploadFile(path, dataUrl, maxSize) {
       var timer = setTimeout(function() {
         if (!settled) {
           settled = true;
-          // Storage not available — use compressed base64 as fallback
+          // Storage not available - use compressed base64 as fallback
           // compressImage guarantees it's small enough for Firestore
           resolve(compressed || null);
         }
@@ -162,7 +162,7 @@ function uploadRecordFiles(record) {
   var base = 'records/' + record.id + '/';
   var promises = [];
 
-  // ID Photo — compress harder (2x2 only needs 300px)
+  // ID Photo - compress harder (2x2 only needs 300px)
   promises.push(
     uploadFile(base + 'idPhoto.jpg', record.idPhoto, 300).then(function(url) {
       record.idPhoto = url;
@@ -179,7 +179,7 @@ function uploadRecordFiles(record) {
         })
       );
     } else {
-      // Already a clean object with cloud URL — ensure no dataUrl field
+      // Already a clean object with cloud URL - ensure no dataUrl field
       record.japic = { fileName: record.japic.fileName || null, url: record.japic.url || null, type: record.japic.type || null };
     }
   }
@@ -250,7 +250,7 @@ var SECTOR_IDS = ['sec_farmer','sec_fisherfolk','sec_women','sec_pwd','sec_youth
 // Returns the default civil status based on age
 // 30+ → COMMON-LAW, under 30 → SINGLE
 function defaultCivilStatus(dob) {
-  if (!dob) return 'SINGLE'; // no DOB — default to SINGLE
+  if (!dob) return 'SINGLE'; // no DOB - default to SINGLE
   var age = parseInt(calcAgeFromDob(dob), 10);
   if (isNaN(age)) return 'SINGLE';
   return age >= 30 ? 'COMMON-LAW' : 'SINGLE';
@@ -262,7 +262,7 @@ function normalizeTribalGroup(val) {
   // Exact known aliases
   if (v === 'MANGYAN') return 'OTHERS';
   if (v === 'TAU-BUHID') return 'TAU-BUID';
-  // Strip trailing " MANGYAN" suffix — e.g. "HANUNUO MANGYAN" → "HANUNUO"
+  // Strip trailing " MANGYAN" suffix - e.g. "HANUNUO MANGYAN" → "HANUNUO"
   // This covers IRAYA MANGYAN, ALANGAN MANGYAN, TADYAWAN MANGYAN, etc.
   var withoutMangyan = v.replace(/\s+MANGYAN$/, '').trim();
   if (withoutMangyan !== v && TRIBAL_GROUP_TYPES.indexOf(withoutMangyan) !== -1) {
@@ -304,7 +304,7 @@ function playChime() {
       osc.stop(end);
     });
   } catch(e) {
-    // Audio not available — silent fail
+    // Audio not available - silent fail
   }
 }
 
@@ -363,13 +363,13 @@ function doLogin() {
   // Connection pre-check
   fetch('https://identitytoolkit.googleapis.com/', { method: 'HEAD', mode: 'no-cors' })
     .catch(function() {
-      err.textContent = 'NO INTERNET CONNECTION — CANNOT REACH FIREBASE.';
+      err.textContent = 'NO INTERNET CONNECTION - CANNOT REACH FIREBASE.';
     });
 
   auth.signInWithEmailAndPassword(email, p)
     .then(function(cred) {
       err.textContent = '';
-      // Determine role by email — only admin@frdb.local is ADMIN
+      // Determine role by email - only admin@frdb.local is ADMIN
       var role = cred.user.email === 'admin@frdb.local' ? 'ADMIN' : 'OPERATOR';
       currentUser = {
         uid:      cred.user.uid,
@@ -384,9 +384,9 @@ function doLogin() {
           e.code === 'auth/invalid-credential' || e.code === 'auth/invalid-email') {
         err.textContent = 'INVALID USERNAME OR PASSWORD.';
       } else if (e.code === 'auth/network-request-failed') {
-        err.textContent = 'NETWORK ERROR — CHECK INTERNET CONNECTION. (' + e.code + ')';
+        err.textContent = 'NETWORK ERROR - CHECK INTERNET CONNECTION. (' + e.code + ')';
       } else {
-        err.textContent = 'LOGIN ERROR: ' + e.code + ' — ' + e.message;
+        err.textContent = 'LOGIN ERROR: ' + e.code + ' - ' + e.message;
       }
     });
 }
@@ -451,7 +451,7 @@ function showPage(page) {
       .catch(function(err) {
         console.error('[FRDB] dbGetAll error:', err.code, err.message);
         if (err.code === 'permission-denied') {
-          showToast('FIRESTORE RULES BLOCKING READ — SET: allow read, write: if true', 'error');
+          showToast('FIRESTORE RULES BLOCKING READ - SET: allow read, write: if true', 'error');
         } else if (err.message === 'Not authenticated') {
           showToast('NOT LOGGED IN', 'error');
         } else {
@@ -466,7 +466,7 @@ function showPage(page) {
       .catch(function(err) {
         console.error('[FRDB] dbGetAll error:', err.code, err.message);
         if (err.code === 'permission-denied') {
-          showToast('FIRESTORE RULES BLOCKING READ — SET: allow read, write: if true', 'error');
+          showToast('FIRESTORE RULES BLOCKING READ - SET: allow read, write: if true', 'error');
         } else {
           showToast('ERROR LOADING DATA: ' + err.message, 'error');
         }
@@ -475,7 +475,7 @@ function showPage(page) {
   if (page === 'addRecord' && !editingRecordId) { resetForm(); document.getElementById('formTitle').textContent = 'ADD NEW RECORD'; }
   if (page === 'users') {
     if (!currentUser || currentUser.role !== 'ADMIN') {
-      showToast('ACCESS DENIED — ADMIN ONLY', 'error');
+      showToast('ACCESS DENIED - ADMIN ONLY', 'error');
       showPage('dashboard');
       return;
     }
@@ -508,7 +508,7 @@ function toggleNoEclipList(listId, badgeId) {
   badge.style.borderRadius = open ? '20px' : '20px 20px 0 0';
 }
 
-// Called when a status stat card is clicked — scrolls to widget and opens the list
+// Called when a status stat card is clicked - scrolls to widget and opens the list
 function toggleStatusWidget(listId, badgeId) {
   // Close all status lists first, open the target one
   ['cannotLocateList','deceasedList','incarceratedList'].forEach(function(id) {
@@ -525,7 +525,7 @@ function toggleStatusWidget(listId, badgeId) {
 // -- MISSING FIELDS CHECK (global, reused by widget + print) -
 function getMissingFieldsGlobal(r) {
   var missing = [];
-  // Part I — Personal Details
+  // Part I - Personal Details
   if (!r.lastName)                                         missing.push('LAST NAME');
   if (!r.firstName)                                        missing.push('FIRST NAME');
   if (!r.middleName)                                       missing.push('MIDDLE NAME');
@@ -543,7 +543,7 @@ function getMissingFieldsGlobal(r) {
   if (!r.addressProvince)                                  missing.push('PROVINCE');
   if (!r.tribalGroup)                                      missing.push('TRIBAL GROUP');
   if (!r.sector || r.sector.length === 0)                  missing.push('SECTOR');
-  // Part II — Movement History
+  // Part II - Movement History
   if (!r.unit)                                             missing.push('UNIT');
   if (!r.position)                                         missing.push('POSITION');
   if (!r.membershipType)                                   missing.push('MEMBERSHIP TYPE');
@@ -556,24 +556,24 @@ function getMissingFieldsGlobal(r) {
 }
 
 function renderNoEclipWidget(records) {
-  // Group 1 — no e-clip at all (neither E-CLIP nor NOT QUALIFIED)
+  // Group 1 - no e-clip at all (neither E-CLIP nor NOT QUALIFIED)
   var noEclip = records.filter(function(r) {
     var asst = r.assistance || [];
     return asst.indexOf('E-CLIP') === -1 && asst.indexOf('NOT QUALIFIED FOR E-CLIP') === -1;
   }).slice().sort(function(a, b) { return (a.lastName || '').localeCompare(b.lastName || ''); });
 
-  // Group 2 — explicitly marked NOT QUALIFIED FOR E-CLIP
+  // Group 2 - explicitly marked NOT QUALIFIED FOR E-CLIP
   var notQual = records.filter(function(r) {
     var asst = r.assistance || [];
     return asst.indexOf('NOT QUALIFIED FOR E-CLIP') !== -1;
   }).slice().sort(function(a, b) { return (a.lastName || '').localeCompare(b.lastName || ''); });
 
-  // Group 3 — no JAPIC certificate on file
+  // Group 3 - no JAPIC certificate on file
   var noJapic = records.filter(function(r) {
     return !r.japic || !(r.japic.url || r.japic.dataUrl || r.japic.fileName);
   }).slice().sort(function(a, b) { return (a.lastName || '').localeCompare(b.lastName || ''); });
 
-  // Group 4 — incomplete required data — reuse global function
+  // Group 4 - incomplete required data - reuse global function
   function getMissingFields(r) { return getMissingFieldsGlobal(r); }
   var incomplete = records.filter(function(r) {
     return getMissingFields(r).length > 0;
@@ -674,7 +674,7 @@ function updateStorageBar() {
   var usedEl = document.getElementById('storageUsedBytes');
   var availEl = document.getElementById('storageAvailBytes');
   var warnEl = document.getElementById('storageWarning');
-  // Firebase Storage — show record count as proxy, no quota API
+  // Firebase Storage - show record count as proxy, no quota API
   label.textContent = 'CLOUD STORAGE (FIREBASE)';
   fill.style.width = '0%';
   usedEl.textContent = 'RECORDS IN CLOUD: ' + allRecordsCache.length;
@@ -864,7 +864,7 @@ function printNoEclipList() {
       '</table>';
 
     openPrintDocument('No E-CLIP List', body, REPORT_PRINT_STYLES);
-    showToast('NO E-CLIP LIST GENERATED — ' + list.length + ' PROFILE(S)', 'success');
+    showToast('NO E-CLIP LIST GENERATED - ' + list.length + ' PROFILE(S)', 'success');
   }
   if (allRecordsCache.length) run(allRecordsCache);
   else dbGetAll().then(function(records) { allRecordsCache = records; run(records); })
@@ -918,7 +918,7 @@ function printNoJapicList() {
       '</table>';
 
     openPrintDocument('No JAPIC List', body, REPORT_PRINT_STYLES);
-    showToast('NO JAPIC LIST GENERATED — ' + list.length + ' PROFILE(S)', 'success');
+    showToast('NO JAPIC LIST GENERATED - ' + list.length + ' PROFILE(S)', 'success');
   }
   if (allRecordsCache.length) run(allRecordsCache);
   else dbGetAll().then(function(records) { allRecordsCache = records; run(records); })
@@ -967,7 +967,7 @@ function printIncompleteList() {
       '</table>';
 
     openPrintDocument('Incomplete Data List', body, REPORT_PRINT_STYLES);
-    showToast('INCOMPLETE DATA LIST GENERATED — ' + list.length + ' PROFILE(S)', 'success');
+    showToast('INCOMPLETE DATA LIST GENERATED - ' + list.length + ' PROFILE(S)', 'success');
   }
   if (allRecordsCache.length) run(allRecordsCache);
   else dbGetAll().then(function(records) { allRecordsCache = records; run(records); })
@@ -1040,7 +1040,7 @@ function printFullList() {
       '</table>';
 
     openPrintDocument('FR Full List', body, REPORT_PRINT_STYLES);
-    showToast('FULL LIST GENERATED — ' + list.length + ' RECORD(S)', 'success');
+    showToast('FULL LIST GENERATED - ' + list.length + ' RECORD(S)', 'success');
   }
   if (allRecordsCache.length) run(allRecordsCache);
   else dbGetAll().then(function(records) { allRecordsCache = records; run(records); })
@@ -1085,12 +1085,12 @@ function showPossibleDuplicates() {
     var totalRecords = groups.reduce(function(s, g) { return s + g.length; }, 0);
     var html = '<div style="font-size:0.75rem;color:var(--text3);margin-bottom:16px;padding-bottom:10px;border-bottom:1px solid var(--border)">' +
       '<span style="color:#f85149;font-weight:700">' + groups.length + ' DUPLICATE GROUP' + (groups.length !== 1 ? 'S' : '') + '</span>' +
-      ' &nbsp;—&nbsp; ' + totalRecords + ' RECORDS AFFECTED</div>';
+      ' &nbsp;-&nbsp; ' + totalRecords + ' RECORDS AFFECTED</div>';
 
     groups.forEach(function(grp, gi) {
       html += '<div style="margin-bottom:20px;background:var(--bg3);border:1px solid rgba(248,81,73,0.3);border-radius:var(--radius);overflow:hidden">' +
         '<div style="background:rgba(248,81,73,0.1);padding:8px 14px;font-size:0.7rem;font-weight:700;letter-spacing:1px;color:#f85149;display:flex;justify-content:space-between;align-items:center">' +
-          '<span>DUPLICATE GROUP ' + (gi + 1) + ' — ' + grp.length + ' RECORDS</span>' +
+          '<span>DUPLICATE GROUP ' + (gi + 1) + ' - ' + grp.length + ' RECORDS</span>' +
           '<span style="color:var(--text3);font-weight:400">' + (grp[0].lastName||'') + ', ' + (grp[0].firstName||'') + '</span>' +
         '</div>' +
         '<table style="width:100%;border-collapse:collapse;font-size:0.72rem">' +
@@ -1108,11 +1108,11 @@ function showPossibleDuplicates() {
         var rowBg = ri % 2 === 0 ? 'var(--bg3)' : 'var(--bg2)';
         html += '<tr style="background:' + rowBg + ';border-top:1px solid var(--border)">' +
           '<td style="padding:8px 10px"><strong>' + (r.lastName||'') + ', ' + (r.firstName||'') + '</strong>' + (r.middleName ? ' ' + r.middleName : '') + '</td>' +
-          '<td style="padding:8px 10px">' + (r.alias||'—') + '</td>' +
-          '<td style="padding:8px 10px;text-align:center">' + (r.sex||'—') + '</td>' +
-          '<td style="padding:8px 10px;text-align:center">' + (r.dob ? formatDate(r.dob) : '—') + '</td>' +
-          '<td style="padding:8px 10px;font-size:0.68rem">' + (r.referringUnit||'—') + '</td>' +
-          '<td style="padding:8px 10px;text-align:center">' + (r.dateSurrendered ? formatDate(r.dateSurrendered) : '—') + '</td>' +
+          '<td style="padding:8px 10px">' + (r.alias||'-') + '</td>' +
+          '<td style="padding:8px 10px;text-align:center">' + (r.sex||'-') + '</td>' +
+          '<td style="padding:8px 10px;text-align:center">' + (r.dob ? formatDate(r.dob) : '-') + '</td>' +
+          '<td style="padding:8px 10px;font-size:0.68rem">' + (r.referringUnit||'-') + '</td>' +
+          '<td style="padding:8px 10px;text-align:center">' + (r.dateSurrendered ? formatDate(r.dateSurrendered) : '-') + '</td>' +
           '<td style="padding:8px 10px;text-align:center">' +
             '<button class="btn-view" style="margin:2px" onclick="closeDuplicatesModal();viewRecord(\'' + r.id + '\')">👁 VIEW</button>' +
             '<button class="btn-edit" style="margin:2px" onclick="closeDuplicatesModal();editRecord(\'' + r.id + '\')">✏ EDIT</button>' +
@@ -1162,7 +1162,7 @@ function findDuplicateGroups(records) {
         var sufB = recGetSuffix(grp[j]);
         // If both have suffixes AND they're different, skip this pair
         if (sufA && sufB && sufA !== sufB) continue;
-        // Otherwise, they're duplicates — include entire group
+        // Otherwise, they're duplicates - include entire group
         realDups = grp;
         break;
       }
@@ -1229,12 +1229,12 @@ function printDuplicatesList() {
         '</tr></thead>' +
         '<tbody>' + rows + '</tbody>' +
         '<tfoot><tr><td colspan="9" style="text-align:right;font-size:9px;padding-top:6px;border-top:2px solid #333">' +
-          totalPairs + ' GROUP' + (totalPairs !== 1 ? 'S' : '') + ' — ' + totalRecords + ' RECORDS AFFECTED' +
+          totalPairs + ' GROUP' + (totalPairs !== 1 ? 'S' : '') + ' - ' + totalRecords + ' RECORDS AFFECTED' +
         '</td></tr></tfoot>' +
       '</table>';
 
     openPrintDocument('Possible Duplicates', body, REPORT_PRINT_STYLES);
-    showToast('DUPLICATES REPORT — ' + totalPairs + ' GROUP(S) FOUND', 'success');
+    showToast('DUPLICATES REPORT - ' + totalPairs + ' GROUP(S) FOUND', 'success');
   }
   if (allRecordsCache.length) run(allRecordsCache);
   else dbGetAll().then(function(records) { allRecordsCache = records; run(records); })
@@ -1383,7 +1383,7 @@ function downloadReportCSV(type) {
     var a    = document.createElement('a');
     a.href = url; a.download = filename; a.click();
     URL.revokeObjectURL(url);
-    showToast('CSV DOWNLOADED — ' + count + ' RECORD' + (count !== 1 ? 'S' : ''), 'success');
+    showToast('CSV DOWNLOADED - ' + count + ' RECORD' + (count !== 1 ? 'S' : ''), 'success');
   }
 
   if (allRecordsCache.length) run(allRecordsCache);
@@ -1513,7 +1513,7 @@ function buildDashboardReportHtml(records) {
       '<div class="report-stat report-stat--danger"><strong>'+deceased+'</strong><span>DECEASED</span></div>' +
       '<div class="report-stat report-stat--purple"><strong>'+incarcerated+'</strong><span>INCARCERATED</span></div>' +
     '</div></div>' +
-    '<div class="report-section"><h2>STATUS — CANNOT BE LOCATED / DECEASED</h2>' + buildReportTable(['STATUS','COUNT','% OF TOTAL'], statusRows) + '</div>' +
+    '<div class="report-section"><h2>STATUS - CANNOT BE LOCATED / DECEASED</h2>' + buildReportTable(['STATUS','COUNT','% OF TOTAL'], statusRows) + '</div>' +
     '<div class="report-section"><h2>ASSISTANCE PROVIDED</h2>' + buildReportTable(['TYPE OF ASSISTANCE','COUNT','% OF TOTAL'], asstRows) + '</div>' +
     '<div class="report-section"><h2>JAPIC CERTIFICATE STATUS</h2>' + buildReportTable(['JAPIC STATUS','COUNT','% OF TOTAL'], japicRows) + '</div>' +
     '<div class="report-section"><h2>SURRENDER BY YEAR ('+START_YEAR+'–'+curYear+')</h2>' + buildReportTable(['YEAR','COUNT','% OF TOTAL'], yrRows) + '</div>' +
@@ -1955,8 +1955,8 @@ var isSaving = false; // guard against double-submit
 
 function saveRecord(event) {
   event.preventDefault();
-  if (isSaving) return; // already saving — ignore extra clicks
-  isSaving = true; // lock immediately — before any async work
+  if (isSaving) return; // already saving - ignore extra clicks
+  isSaving = true; // lock immediately - before any async work
 
   var saveBtn = document.querySelector('#recordForm button[type="submit"]');
   if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = '⏳ SAVING...'; }
@@ -2070,7 +2070,7 @@ function saveRecord(event) {
       });
       if (duplicate) {
         showToast(
-          'DUPLICATE ENTRY — ' + duplicate.lastName + ', ' + duplicate.firstName +
+          'DUPLICATE ENTRY - ' + duplicate.lastName + ', ' + duplicate.firstName +
           (duplicate.middleName ? ' ' + duplicate.middleName : '') +
           ' ALREADY EXISTS. ADD JR. OR SR. IF THIS IS A DIFFERENT PERSON.',
           'error'
@@ -2078,7 +2078,7 @@ function saveRecord(event) {
         unlockSave();
         return;
       }
-      // No duplicate — proceed with save
+      // No duplicate - proceed with save
       showToast('SAVING RECORD...', 'info');
       uploadRecordFiles(record).then(function(r) {
         return dbPut(r);
@@ -2225,7 +2225,7 @@ function buildRecordDetailHtml(r, forPrint) {
   function attachCard(src, fileName, type) {
     if (forPrint) {
       // For print: show ON-FILE status, not the actual image
-      return '<span class="on-file-badge">&#10003; ON-FILE — ' + (fileName || 'FILE') + '</span>';
+      return '<span class="on-file-badge">&#10003; ON-FILE - ' + (fileName || 'FILE') + '</span>';
     }
     return '<div class="attach-card attach-card--wide">'+(type==='image'?'<img src="'+src+'" class="attach-preview-img" style="max-height:90px;border-radius:4px;border:1px solid var(--border)" onclick="openAttachment(\''+src+'\',\''+fileName+'\')" alt="'+fileName+'"/>':'<div class="attach-file-icon">&#128196;</div>')+'<div class="attach-name">'+fileName+'</div><div class="attach-actions">'+(type==='image'?'<button class="btn-attach-view" onclick="openAttachment(\''+src+'\',\''+fileName+'\')">&#128065; VIEW</button>':'')+'<button class="btn-attach-dl" onclick="downloadAttachment(\''+src+'\',\''+fileName+'\')">&#11015; DOWNLOAD</button></div></div>';
   }
@@ -2233,7 +2233,7 @@ function buildRecordDetailHtml(r, forPrint) {
   var validIdHtml = (r.validIds && r.validIds.length)
     ? (forPrint
         ? r.validIds.map(function(v, i) {
-            return '<span class="on-file-badge">&#10003; ON-FILE — ' + (v.fileName || ('VALID ID ' + (i+1))) + '</span>';
+            return '<span class="on-file-badge">&#10003; ON-FILE - ' + (v.fileName || ('VALID ID ' + (i+1))) + '</span>';
           }).join(' ')
         : r.validIds.map(function(v) {
             var src = v.url || v.dataUrl;
@@ -2261,7 +2261,7 @@ function buildRecordDetailHtml(r, forPrint) {
     '<div class="modal-field"><div class="modal-field-label">STATUS</div><div class="modal-field-value" style="'+(r.recordStatus?'font-weight:700;color:'+(statusColors[r.recordStatus]||'inherit'):'')+'">'+  (r.recordStatus||'-')+'</div></div>' +
     '<div class="modal-field"><div class="modal-field-label">RELIGION</div><div class="modal-field-value">'+(r.religion||'-')+'</div></div>' +
     '<div class="modal-field"><div class="modal-field-label">CONTACT</div><div class="modal-field-value">'+(r.contactNumber||'-')+'</div></div>' +
-    '<div class="modal-field"><div class="modal-field-label">MEDICAL</div><div class="modal-field-value">'+(r.medicalCondition||'-')+(r.medicalCondition==='YES'&&r.medicalConditionSpec?' — '+r.medicalConditionSpec:'')+'</div></div>' +
+    '<div class="modal-field"><div class="modal-field-label">MEDICAL</div><div class="modal-field-value">'+(r.medicalCondition||'-')+(r.medicalCondition==='YES'&&r.medicalConditionSpec?' - '+r.medicalConditionSpec:'')+'</div></div>' +
     '<div class="modal-field"><div class="modal-field-label">4Ps</div><div class="modal-field-value">'+(r.fourPs||'-')+'</div></div>' +
     '<div class="modal-field"><div class="modal-field-label">ADDRESS</div><div class="modal-field-value">'+(buildFullAddress(r.addressBarangay||r.address,r.addressMunicipality,r.addressProvince)||'-')+'</div></div>' +
     '<div class="modal-field"><div class="modal-field-label">SECTOR</div><div class="modal-field-value">'+sectorHtml+'</div></div>' +
@@ -2342,7 +2342,7 @@ function normalizeDateForImport(raw) {
   if (!s) return '';
   // Already ISO date
   if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
-  // ISO datetime — take date part only
+  // ISO datetime - take date part only
   if (/^\d{4}-\d{2}-\d{2}T/.test(s)) return s.slice(0, 10);
   // MM/DD/YYYY or DD/MM/YYYY or M/D/YYYY
   var slashParts = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
@@ -2396,7 +2396,7 @@ function normalizeSectorList(raw) {
     if (mapped) {
       mapped.forEach(function(m) { if (!seen[m]) { seen[m] = true; result.push(m); } });
     } else {
-      // OTHERS or free-text — keep uppercased
+      // OTHERS or free-text - keep uppercased
       if (!seen[up]) { seen[up] = true; result.push(up); }
     }
   });
@@ -2421,7 +2421,7 @@ function normalizeAsstList(raw) {
   }).filter(Boolean);
 }
 
-// Normalize referring unit — keep known units verbatim, uppercase everything else.
+// Normalize referring unit - keep known units verbatim, uppercase everything else.
 // Also maps known all-caps variants to the canonical mixed-case form.
 var REFERRING_UNIT_ALIASES = {
   // Correct spelling, all-caps
@@ -2514,7 +2514,7 @@ function importCSVFile(event) {
       var contactNumber  = (col('CONTACT NUMBER') || '').trim();
       var yearsInMovement = (col('YEARS IN MOVEMENT') || '1').trim();
 
-      // -- Enum fields — match against known values
+      // -- Enum fields - match against known values
       var sex            = matchEnum(col('SEX'), SEX_VALS);
       var civilStatus    = matchEnum(col('CIVIL STATUS'), CIVIL_VALS) || defaultCivilStatus(dob);
       var medicalCond    = matchEnum(col('MEDICAL CONDITION'), MEDICAL_VALS);
@@ -2542,14 +2542,14 @@ function importCSVFile(event) {
         religion = 'CHRISTIAN'; // default when column is empty
       }
 
-      // -- Tribal group — normalize via existing function (handles HANUNUO MANGYAN etc.)
+      // -- Tribal group - normalize via existing function (handles HANUNUO MANGYAN etc.)
       var tribalGroup = normalizeTribalGroup(ucField(col('TRIBAL GROUP')));
       // If normalizeTribalGroup returns '' for a non-empty input, store uppercased original
       if (!tribalGroup && col('TRIBAL GROUP').trim()) {
         tribalGroup = ucField(col('TRIBAL GROUP'));
       }
 
-      // -- Municipality — uppercase for free-text, keep known names as-is
+      // -- Municipality - uppercase for free-text, keep known names as-is
       var municipality = ucField(col('MUNICIPALITY'));
 
       // -- Date fields → YYYY-MM-DD
@@ -2648,7 +2648,7 @@ function importCSVFile(event) {
         MERGE_FIELDS.forEach(function(f) {
           if (src[f] && String(src[f]).trim() !== '') merged[f] = src[f];
         });
-        // Merge arrays — union without duplicates
+        // Merge arrays - union without duplicates
         if (src.sector && src.sector.length) {
           var secSet = {};
           (dest.sector || []).forEach(function(s) { secSet[s] = true; });
@@ -2712,12 +2712,12 @@ function importCSVFile(event) {
           var incomingHasMore = inCount > exCount;
 
           if (incomingIsNewer || incomingHasMore) {
-            // Merge incoming values into existing — keep existing ID
+            // Merge incoming values into existing - keep existing ID
             var merged = mergeRecord(existMatch, incoming);
             toUpdate.push(merged);
             mergedCount++;
           } else {
-            // Existing is same age or newer and has equal/more data — skip
+            // Existing is same age or newer and has equal/more data - skip
             skippedNew++;
           }
           return;
@@ -2740,7 +2740,7 @@ function importCSVFile(event) {
       var totalOps = toInsert.length + toUpdate.length;
       if (!totalOps) {
         hideImportOverlay();
-        showToast('ALL RECORDS ALREADY UP TO DATE — ' + skippedNew + ' SKIPPED', 'info');
+        showToast('ALL RECORDS ALREADY UP TO DATE - ' + skippedNew + ' SKIPPED', 'info');
         return;
       }
 
@@ -2751,14 +2751,13 @@ function importCSVFile(event) {
 
       var allOps = toInsert.concat(toUpdate).map(function(r) { return dbPut(r); });
       Promise.all(allOps).then(function() {
-      Promise.all(allOps).then(function() {
         hideImportOverlay();
         allRecordsCache = [];
         var parts = [];
         if (toInsert.length) parts.push(toInsert.length + ' NEW');
         if (toUpdate.length) parts.push(toUpdate.length + ' UPDATED');
         var msg = parts.join(', ') + ' RECORD' + (totalOps !== 1 ? 'S' : '') + ' IMPORTED';
-        if (skippedNew > 0) msg += ' — ' + skippedNew + ' SKIPPED (ALREADY UP TO DATE)';
+        if (skippedNew > 0) msg += ' - ' + skippedNew + ' SKIPPED (ALREADY UP TO DATE)';
         showToast(msg, 'success');
         showPage('records');
       }).catch(function(err) { hideImportOverlay(); showToast('IMPORT ERROR: ' + err.message, 'error'); });
@@ -2859,7 +2858,7 @@ function exportCSV() {
     var fileName  = 'FR_DATABASE' + unitLabel + '_' + new Date().toISOString().slice(0, 10) + '.xlsx';
     XLSX.writeFile(wb, fileName);
 
-    showToast('XLSX EXPORTED — ' + recs.length + ' RECORD' + (recs.length !== 1 ? 'S' : ''), 'success');
+    showToast('XLSX EXPORTED - ' + recs.length + ' RECORD' + (recs.length !== 1 ? 'S' : ''), 'success');
   }
 
   if (records) { doExport(records); return; }
@@ -2888,7 +2887,7 @@ function renderUsers() {
         '<div class="user-card-name">' + u.username +
           (isMe ? ' <span style="color:var(--accent);font-size:0.65rem">(YOU)</span>' : '') + '</div>' +
         '<div class="user-card-role ' + (isAdmin ? 'role-admin' : 'role-operator') + '">' + u.role + '</div>' +
-        '<div style="font-size:0.62rem;color:var(--text3);margin-top:2px">&#128231; ' + (u.email || '—') + '</div>' +
+        '<div style="font-size:0.62rem;color:var(--text3);margin-top:2px">&#128231; ' + (u.email || '-') + '</div>' +
         '</div><div class="user-card-actions" style="display:flex;gap:4px;flex-wrap:wrap">' + actions + '</div></div>';
     }).join('');
     var addBtn = document.querySelector('.users-form-panel .btn-primary');
@@ -2967,11 +2966,11 @@ function saveUser() {
       });
     }).then(function() {
       errEl.textContent = '';
-      showToast('OPERATOR ' + username + ' ADDED — LOGIN: ' + email, 'success');
+      showToast('OPERATOR ' + username + ' ADDED - LOGIN: ' + email, 'success');
       cancelUserEdit(); renderUsers();
     }).catch(function(err) {
       if (err.code === 'auth/email-already-in-use') {
-        // Auth account exists but Firestore doc was deleted — sign in to get UID and recreate doc
+        // Auth account exists but Firestore doc was deleted - sign in to get UID and recreate doc
         errEl.textContent = 'RECOVERING EXISTING AUTH ACCOUNT...';
         secondaryAuth.signInWithEmailAndPassword(email, password).then(function(cred) {
           var existingUid = cred.user.uid;
@@ -2985,7 +2984,7 @@ function saveUser() {
           });
         }).then(function() {
           errEl.textContent = '';
-          showToast('OPERATOR ' + username + ' RESTORED — LOGIN: ' + email, 'success');
+          showToast('OPERATOR ' + username + ' RESTORED - LOGIN: ' + email, 'success');
           cancelUserEdit(); renderUsers();
         }).catch(function(err2) {
           if (err2.code === 'auth/wrong-password' || err2.code === 'auth/invalid-credential') {
@@ -3010,14 +3009,14 @@ function runMigrationsManually() {
   // Give Firestore time to complete then show result
   setTimeout(function() {
     allRecordsCache = [];
-    showToast('MIGRATIONS COMPLETE — RECORDS UPDATED', 'success');
+    showToast('MIGRATIONS COMPLETE - RECORDS UPDATED', 'success');
   }, 4000);
 }
 
 // -- MIDDLE NAME UPDATE ----------------------------------------
 function runMiddleNameUpdate() {
   if (!currentUser || currentUser.role !== 'ADMIN') { 
-    showToast('ACCESS DENIED — ADMIN ONLY', 'error'); 
+    showToast('ACCESS DENIED - ADMIN ONLY', 'error'); 
     return; 
   }
 
@@ -3185,7 +3184,7 @@ function resetIdleTimer() {
   clearTimeout(idleTimer);
   idleTimer = setTimeout(function() {
     if (!currentUser) return;
-    showToast('SESSION EXPIRED — LOGGED OUT DUE TO INACTIVITY', 'error');
+    showToast('SESSION EXPIRED - LOGGED OUT DUE TO INACTIVITY', 'error');
     setTimeout(function() { doLogout(); }, 1500);
   }, IDLE_TIMEOUT_MS);
 }
@@ -3329,7 +3328,7 @@ function migrateCivilStatus() {
 auth.onAuthStateChanged(function(user) {
   if (user) {
     if (!currentUser) {
-      // Determine role by email — only admin@frdb.local is ADMIN
+      // Determine role by email - only admin@frdb.local is ADMIN
       var defaultRole = user.email === 'admin@frdb.local' ? 'ADMIN' : 'OPERATOR';
       currentUser = {
         uid:      user.uid,
