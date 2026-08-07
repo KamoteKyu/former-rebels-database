@@ -2666,9 +2666,9 @@ function importCSVFile(event) {
       // -- Enum fields - match against known values
       var sex            = matchEnum(col('SEX'), SEX_VALS);
       var civilStatus    = matchEnum(col('CIVIL STATUS'), CIVIL_VALS) || defaultCivilStatus(dob);
-      var medicalCond    = matchEnum(col('MEDICAL CONDITION'), MEDICAL_VALS);
+      var medicalCond    = matchEnum(col('MEDICAL CONDITION'), MEDICAL_VALS) || 'NO';
       var fourPs         = matchEnum(col('4Ps'), FOURPS_VALS) || 'NO';
-      var pendingCase    = matchEnum(col('PENDING CASE'), PENDING_VALS);
+      var pendingCase    = matchEnum(col('PENDING CASE'), PENDING_VALS) || 'NO';
       var membershipType = matchEnum(col('MEMBERSHIP TYPE'), MEMBERSHIP_VALS);
       var areaOfOp       = matchEnum(col('AREA OF OPERATION'), AOO_VALS);
       var recordStatus   = col('STATUS') ? matchEnum(col('STATUS'), STATUS_VALS) : '';
@@ -2680,10 +2680,14 @@ function importCSVFile(event) {
       if (rawReligion) {
         if (RELIGION_VALS.indexOf(rawReligion) !== -1) {
           religion = rawReligion;
-        } else if (rawReligion === 'INC') {
+        } else if (rawReligion === 'INC' || rawReligion.indexOf('IGLESIA') !== -1) {
           religion = 'IGLESIA NI CRISTO';
-        } else if (rawReligion === 'ROMAN CATHOLIC' || rawReligion === 'ROMANO KATOLIKO' || rawReligion === 'RC') {
+        } else if (rawReligion.indexOf('ROMAN CATHOLIC') !== -1 || rawReligion.indexOf('ROMANO KATOLIKO') !== -1 || rawReligion === 'RC') {
           religion = 'CATHOLIC';
+        } else if (rawReligion.indexOf('BORN AGAIN') !== -1) {
+          religion = 'BORN AGAIN CHRISTIAN';
+        } else if (rawReligion.indexOf('ADVENTIST') !== -1 || rawReligion.indexOf('SDA') !== -1) {
+          religion = 'SEVENTH DAY ADVENTIST';
         } else if (rawReligion.indexOf('OTHERS') === 0) {
           religion = rawReligion;
         } else {
