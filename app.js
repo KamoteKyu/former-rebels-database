@@ -2281,7 +2281,11 @@ function buildRecordDetailHtml(r, forPrint) {
   var tagsTribal=tribalDisplay?'<span class="tag tag-blue">'+tribalDisplay+'</span>':'';
   var statusColors={'CANNOT BE LOCATED':'#d29922','DECEASED':'#f85149','INCARCERATED':'#a371f7'};
   var tagsStatus=r.recordStatus?'<span class="tag" style="background:rgba(248,81,73,0.15);border-color:'+statusColors[r.recordStatus]+';color:'+statusColors[r.recordStatus]+';font-weight:700">&#9679; '+r.recordStatus+'</span>':'';
-  var asstHtml=(r.assistance&&r.assistance.length)?r.assistance.map(function(a){return'<span class="tag tag-green">'+a+'</span>';}).join(''):'-';
+  var asstRaw = r.assistance || [];
+  // Collapse bare 'OTHERS' if a specific 'OTHERS: <value>' already exists — avoids redundant tags
+  var hasSpecificOthers = asstRaw.some(function(a) { return a.length > 6 && a.indexOf('OTHERS:') === 0; });
+  var asstFiltered = hasSpecificOthers ? asstRaw.filter(function(a) { return a !== 'OTHERS'; }) : asstRaw;
+  var asstHtml = asstFiltered.length ? asstFiltered.map(function(a){return'<span class="tag tag-green">'+a+'</span>';}).join('') : '-';
   var sectorHtml=(r.sector&&r.sector.length)?r.sector.map(function(s){return'<span class="tag tag-blue">'+s+'</span>';}).join(''):'-';
   if(r.sector&&r.sector.indexOf('PWD')!==-1&&r.pwdDisability)sectorHtml+='<div class="pwd-disability-note">DISABILITY: '+r.pwdDisability+'</div>';
 
@@ -2567,6 +2571,9 @@ function normalizeAsstList(raw) {
       if (!seen[othersKey]) { seen[othersKey] = true; result.push(othersKey); }
     }
   });
+  // If any OTHERS: <value> entries exist, remove bare 'OTHERS' — it's redundant
+  var hasSpecificOthers = result.some(function(a) { return a.length > 6 && a.indexOf('OTHERS:') === 0; });
+  if (hasSpecificOthers) result = result.filter(function(a) { return a !== 'OTHERS'; });
   return result;
 }
 
