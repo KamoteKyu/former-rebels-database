@@ -661,13 +661,17 @@ function renderRecentImportsWidget() {
       if (allRecordsCache[i].id === e.id) { r = allRecordsCache[i]; break; }
     }
     var photo = r && r.idPhoto ? r.idPhoto : 'BHB.png';
+    // Always use live record name if available — never trust the stored string
+    var displayName = r
+      ? (r.lastName || '') + ', ' + (r.firstName || '') + (r.middleName ? ' ' + r.middleName : '')
+      : e.name;
     var typeColor = e.type === 'NEW' ? '#3fb950' : '#d29922';
     var typeLabel = e.type === 'NEW' ? 'NEW' : 'UPDATED';
     var ts = e.timestamp ? new Date(e.timestamp).toLocaleString('en-PH', { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' }) : '';
     return '<div class="no-eclip-item" onclick="viewRecord(\'' + e.id + '\')" title="CLICK TO VIEW PROFILE">' +
       '<img src="' + photo + '" alt=""/>' +
       '<div style="flex:1">' +
-        '<div class="no-eclip-item-name">' + e.name + '</div>' +
+        '<div class="no-eclip-item-name">' + displayName + '</div>' +
         '<div class="no-eclip-item-unit">' +
           '<span style="color:' + typeColor + ';font-weight:700;margin-right:6px">' + typeLabel + '</span>' + ts +
         '</div>' +
@@ -2633,6 +2637,15 @@ function importCSVFile(event) {
       // Skip rows with no name at all
       if (!lastName && !firstName) continue;
 
+      // Skip rows where lastName looks like raw field data (not a real name):
+      // - longer than 60 characters
+      // - contains digits mixed with parentheses/hyphens (e.g. "SRMA-4D (ISLACOM MINDORO)")
+      // - contains 3 or more commas (field dump)
+      var looksLikeData = (lastName.length > 60) ||
+        (/\d/.test(lastName) && /[()\/]/.test(lastName)) ||
+        ((lastName.match(/,/g) || []).length >= 3);
+      if (looksLikeData) continue;
+
       parsed.push({
         id:                  col('ID') || genId(),
         lastName:            lastName,
@@ -2822,12 +2835,12 @@ function importCSVFile(event) {
         try { existing = JSON.parse(localStorage.getItem(recentKey) || '[]'); } catch(e) { existing = []; }
         var now = new Date().toISOString();
         toInsert.forEach(function(r) {
-          existing.push({ id: r.id, name: (r.lastName||'') + ', ' + (r.firstName||'') + ' ' + (r.middleName||''), type: 'NEW', timestamp: now });
+          existing.push({ id: r.id, name: (r.lastName||'') + ', ' + (r.firstName||'') + (r.middleName ? ' ' + r.middleName : ''), type: 'NEW', timestamp: now });
         });
         toUpdate.forEach(function(r) {
           // Remove any prior entry for this record then re-add as UPDATED
           existing = existing.filter(function(e) { return e.id !== r.id; });
-          existing.push({ id: r.id, name: (r.lastName||'') + ', ' + (r.firstName||'') + ' ' + (r.middleName||''), type: 'UPDATED', timestamp: now });
+          existing.push({ id: r.id, name: (r.lastName||'') + ', ' + (r.firstName||'') + (r.middleName ? ' ' + r.middleName : ''), type: 'UPDATED', timestamp: now });
         });
         // Keep only the 50 most recent
         existing = existing.slice(-50);
