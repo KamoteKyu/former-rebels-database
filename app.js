@@ -2605,68 +2605,149 @@ function importCSVFile(event) {
     if (!parsed.length) { showToast('NO RECORDS FOUND IN CSV', 'error'); hideImportOverlay(); return; }
     showImportOverlay('CHECKING FOR DUPLICATES...');
     dbGetAll().then(function(existing) {
-      // Helper: does a record carry a Jr./Sr. suffix anywhere in their name fields?
-      function recHasSuffix(r) {
-        return /\b(JR\.?|SR\.?)\b/i.test([r.lastName, r.firstName, r.middleName, r.alias].join(' '));
+      // Returns the suffix token ("JR" / "SR") or empty string
+      function recGetSuffix(r) {
+        var m = [r.lastName, r.firstName, r.middleName, r.alias].join(' ').toUpperCase().match(/\b(JR\.?|SR\.?)\b/);
+        return m ? m[1].replace('.', '') : '';
       }
-      // Name-only key (no DOB) — used to detect duplicates by first+last name alone
       function nameKey(r) {
         return (r.lastName || '').toUpperCase() + '|' + (r.firstName || '').toUpperCase();
       }
+      // Count how many non-empty meaningful fields a record has
+      function fieldCount(r) {
+        var FIELDS = ['lastName','firstName','middleName','alias','dob','sex','civilStatus',
+          'tribalGroup','recordStatus','religion','contactNumber','medicalCondition',
+          'medicalConditionSpec','fourPs','pwdDisability','addressBarangay','addressMunicipality',
+          'addressProvince','unit','position','membershipType','areaOfOperation',
+          'yearsInMovement','dateSurrendered','pendingCase','referringUnit','remarks'];
+        var count = 0;
+        FIELDS.forEach(function(f) { if (r[f] && String(r[f]).trim() !== '') count++; });
+        if (r.sector && r.sector.length)    count += r.sector.length;
+        if (r.assistance && r.assistance.length) count += r.assistance.length;
+        return count;
+      }
+      // Merge: copy non-empty values from src into dest, return merged object
+      function mergeRecord(dest, src) {
+        var MERGE_FIELDS = ['middleName','alias','dob','sex','civilStatus','tribalGroup',
+          'recordStatus','religion','contactNumber','medicalCondition','medicalConditionSpec',
+          'fourPs','pwdDisability','addressBarangay','address','addressMunicipality',
+          'addressProvince','unit','position','membershipType','areaOfOperation',
+          'yearsInMovement','dateSurrendered','pendingCase','referringUnit','remarks'];
+        var merged = Object.assign({}, dest);
+        MERGE_FIELDS.forEach(function(f) {
+          if (src[f] && String(src[f]).trim() !== '') merged[f] = src[f];
+        });
+        // Merge arrays — union without duplicates
+        if (src.sector && src.sector.length) {
+          var secSet = {};
+          (dest.sector || []).forEach(function(s) { secSet[s] = true; });
+          src.sector.forEach(function(s) { secSet[s] = true; });
+          merged.sector = Object.keys(secSet);
+        }
+        if (src.assistance && src.assistance.length) {
+          var asstSet = {};
+          (dest.assistance || []).forEach(function(a) { asstSet[a] = true; });
+          src.assistance.forEach(function(a) { asstSet[a] = true; });
+          merged.assistance = Object.keys(asstSet);
+        }
+        merged.updatedAt = new Date().toISOString();
+        return merged;
+      }
 
-      // Build lookup: id-based + name-based
-      var existingIds      = {};
-      var existingNameKeys = {}; // "LASTNAME|FIRSTNAME" → array of existing records
+      // Build lookup maps
+      var existingById   = {};
+      var existingByName = {}; // nameKey → existing record
       existing.forEach(function(r) {
-        existingIds[r.id] = true;
+        existingById[r.id] = r;
         var k = nameKey(r);
-        if (!existingNameKeys[k]) existingNameKeys[k] = [];
-        existingNameKeys[k].push(r);
+        if (!existingByName[k]) existingByName[k] = [];
+        existingByName[k].push(r);
       });
 
-      // Also deduplicate within the CSV batch itself (keep first occurrence)
-      var batchIds      = {};
+      // Also deduplicate within the CSV batch itself (keep first occurrence per name)
       var batchNameKeys = {};
-      var skippedDupId   = 0;
-      var skippedDupName = 0;
+      var toInsert  = [];  // brand-new records
+      var toUpdate  = [];  // existing records to be overwritten with merged data
+      var skippedNew = 0;  // skipped because existing has same/more data
+      var mergedCount = 0;
 
-      var toImport = parsed.filter(function(r) {
-        // Skip if ID already exists in Firestore
-        if (existingIds[r.id]) { skippedDupId++; return false; }
-        // Check name-based duplicate against Firestore
-        var k = nameKey(r);
-        var existingMatches = existingNameKeys[k] || [];
-        for (var i = 0; i < existingMatches.length; i++) {
-          var ex = existingMatches[i];
-          // Both carry Jr./Sr. — different people, allow import
-          if (recHasSuffix(r) && recHasSuffix(ex)) continue;
-          // Same name, no suffix exemption → duplicate
-          skippedDupName++; return false;
+      parsed.forEach(function(incoming) {
+        var k = nameKey(incoming);
+        var inSuffix = recGetSuffix(incoming);
+
+        // Find matching existing record (by ID first, then by name)
+        var existMatch = null;
+        if (existingById[incoming.id]) {
+          existMatch = existingById[incoming.id];
+        } else {
+          var nameMatches = existingByName[k] || [];
+          for (var i = 0; i < nameMatches.length; i++) {
+            var exSuffix = recGetSuffix(nameMatches[i]);
+            // Different suffixes = different people
+            if (inSuffix && exSuffix && inSuffix !== exSuffix) continue;
+            existMatch = nameMatches[i];
+            break;
+          }
         }
-        // Check within the batch itself
+
+        if (existMatch) {
+          // Determine which is more recent by createdAt / dateSurrendered
+          var inDate  = incoming.createdAt  || incoming.dateSurrendered || '';
+          var exDate  = existMatch.createdAt || existMatch.dateSurrendered || '';
+          var inCount = fieldCount(incoming);
+          var exCount = fieldCount(existMatch);
+
+          var incomingIsNewer = inDate && exDate && inDate > exDate;
+          var incomingHasMore = inCount > exCount;
+
+          if (incomingIsNewer || incomingHasMore) {
+            // Merge incoming values into existing — keep existing ID
+            var merged = mergeRecord(existMatch, incoming);
+            toUpdate.push(merged);
+            mergedCount++;
+          } else {
+            // Existing is same age or newer and has equal/more data — skip
+            skippedNew++;
+          }
+          return;
+        }
+
+        // Check for duplicate within the batch itself
         var batchMatches = batchNameKeys[k] || [];
         for (var j = 0; j < batchMatches.length; j++) {
-          var bm = batchMatches[j];
-          if (recHasSuffix(r) && recHasSuffix(bm)) continue;
-          skippedDupName++; return false;
+          var bmSuffix = recGetSuffix(batchMatches[j]);
+          if (inSuffix && bmSuffix && inSuffix !== bmSuffix) continue;
+          skippedNew++; return; // exact same name in same batch
         }
-        // Mark as seen
-        existingIds[r.id] = true;
-        if (!existingNameKeys[k]) existingNameKeys[k] = [];
-        existingNameKeys[k].push(r);
+
+        // Truly new record
         if (!batchNameKeys[k]) batchNameKeys[k] = [];
-        batchNameKeys[k].push(r);
-        return true;
+        batchNameKeys[k].push(incoming);
+        toInsert.push(incoming);
       });
 
-      var skipped = skippedDupId + skippedDupName;
-      if (!toImport.length) { hideImportOverlay(); showToast('ALL RECORDS ALREADY EXIST — NOTHING IMPORTED', 'info'); return; }
-      showImportOverlay('IMPORTING ' + toImport.length + ' RECORD' + (toImport.length !== 1 ? 'S' : '') + '...');
-      Promise.all(toImport.map(function(r) { return dbPut(r); })).then(function() {
+      var totalOps = toInsert.length + toUpdate.length;
+      if (!totalOps) {
+        hideImportOverlay();
+        showToast('ALL RECORDS ALREADY UP TO DATE — ' + skippedNew + ' SKIPPED', 'info');
+        return;
+      }
+
+      showImportOverlay(
+        'SAVING ' + toInsert.length + ' NEW + ' + toUpdate.length + ' UPDATED RECORD' +
+        (totalOps !== 1 ? 'S' : '') + '...'
+      );
+
+      var allOps = toInsert.concat(toUpdate).map(function(r) { return dbPut(r); });
+      Promise.all(allOps).then(function() {
+      Promise.all(allOps).then(function() {
         hideImportOverlay();
         allRecordsCache = [];
-        var msg = toImport.length + ' RECORDS IMPORTED SUCCESSFULLY';
-        if (skipped > 0) msg += ' (' + skipped + ' DUPLICATE' + (skipped > 1 ? 'S' : '') + ' SKIPPED)';
+        var parts = [];
+        if (toInsert.length) parts.push(toInsert.length + ' NEW');
+        if (toUpdate.length) parts.push(toUpdate.length + ' UPDATED');
+        var msg = parts.join(', ') + ' RECORD' + (totalOps !== 1 ? 'S' : '') + ' IMPORTED';
+        if (skippedNew > 0) msg += ' — ' + skippedNew + ' SKIPPED (ALREADY UP TO DATE)';
         showToast(msg, 'success');
         showPage('records');
       }).catch(function(err) { hideImportOverlay(); showToast('IMPORT ERROR: ' + err.message, 'error'); });
