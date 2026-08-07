@@ -2639,11 +2639,16 @@ function importCSVFile(event) {
 
       // Skip rows where lastName looks like raw field data (not a real name):
       // - longer than 60 characters
-      // - contains digits mixed with parentheses/hyphens (e.g. "SRMA-4D (ISLACOM MINDORO)")
+      // - contains parentheses (unit descriptions, remarks)
+      // - contains 4 or more words (names are 1-3 words at most)
       // - contains 3 or more commas (field dump)
+      // - contains digits mixed with slashes or hyphens
+      var wordCount = lastName.trim().split(/\s+/).length;
       var looksLikeData = (lastName.length > 60) ||
-        (/\d/.test(lastName) && /[()\/]/.test(lastName)) ||
-        ((lastName.match(/,/g) || []).length >= 3);
+        /[()]/.test(lastName) ||
+        (wordCount >= 4) ||
+        ((lastName.match(/,/g) || []).length >= 3) ||
+        (/\d/.test(lastName) && /[\/\-]/.test(lastName));
       if (looksLikeData) continue;
 
       parsed.push({
