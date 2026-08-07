@@ -42,7 +42,6 @@ function createWindow() {
 
   win.loadFile('index.html');
   win.setMenu(null);
-  win.webContents.openDevTools(); // temporary — remove after debugging
 
   win.on('closed', () => { win = null; });
 
