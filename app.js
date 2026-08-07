@@ -2458,9 +2458,13 @@ function normalizeSectorList(raw) {
     var mapped = IMPORT_SECTOR_MAP[up];
     if (mapped) {
       mapped.forEach(function(m) { if (!seen[m]) { seen[m] = true; result.push(m); } });
-    } else {
-      // OTHERS or free-text - keep uppercased
+    } else if (up.indexOf('OTHERS') === 0) {
+      // Already prefixed with OTHERS — keep as-is
       if (!seen[up]) { seen[up] = true; result.push(up); }
+    } else {
+      // Unknown value — mark as OTHERS: <value>
+      var othersVal = 'OTHERS: ' + up;
+      if (!seen[othersVal]) { seen[othersVal] = true; result.push(othersVal); }
     }
   });
   return result;
@@ -2480,7 +2484,10 @@ function normalizeAsstList(raw) {
     for (var i = 0; i < IMPORT_ASST_CANONICAL.length; i++) {
       if (IMPORT_ASST_CANONICAL[i] === up) return IMPORT_ASST_CANONICAL[i];
     }
-    return up; // OTHERS or free-text
+    // Already prefixed with OTHERS — keep as-is
+    if (up.indexOf('OTHERS') === 0) return up;
+    // Unknown value — mark as OTHERS: <value>
+    return 'OTHERS: ' + up;
   }).filter(Boolean);
 }
 
