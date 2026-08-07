@@ -2630,6 +2630,9 @@ function importCSVFile(event) {
       // -- Social case report filename
       var scFile = col('SOCIAL CASE REPORT FILE') ? ucField(col('SOCIAL CASE REPORT FILE')) : '';
 
+      // Skip rows with no name at all
+      if (!lastName && !firstName) continue;
+
       parsed.push({
         id:                  col('ID') || genId(),
         lastName:            lastName,
