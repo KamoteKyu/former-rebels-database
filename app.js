@@ -2522,25 +2522,52 @@ var ASST_KEYWORD_MAP = [
 
 function normalizeAsstList(raw) {
   if (!raw) return [];
-  return raw.split(';').map(function(s) {
+  var result = [];
+  var seen = {};
+  raw.split(';').forEach(function(s) {
     var up = s.trim().toUpperCase();
-    if (!up) return null;
-    // Exact match first
+    if (!up) return;
+    // Exact match
     for (var i = 0; i < IMPORT_ASST_CANONICAL.length; i++) {
-      if (IMPORT_ASST_CANONICAL[i] === up) return IMPORT_ASST_CANONICAL[i];
+      if (IMPORT_ASST_CANONICAL[i] === up) {
+        if (!seen[IMPORT_ASST_CANONICAL[i]]) { seen[IMPORT_ASST_CANONICAL[i]] = true; result.push(IMPORT_ASST_CANONICAL[i]); }
+        return;
+      }
     }
     // Already prefixed with OTHERS — keep as-is
-    if (up.indexOf('OTHERS') === 0) return up;
-    // Fuzzy keyword match — find the first canonical whose keywords appear in the value
+    if (up.indexOf('OTHERS') === 0) {
+      if (!seen[up]) { seen[up] = true; result.push(up); }
+      return;
+    }
+    // Fuzzy keyword match
+    var matchedCanonical = null;
     for (var j = 0; j < ASST_KEYWORD_MAP.length; j++) {
       var entry = ASST_KEYWORD_MAP[j];
       for (var k = 0; k < entry.keywords.length; k++) {
-        if (up.indexOf(entry.keywords[k]) !== -1) return entry.canonical;
+        if (up.indexOf(entry.keywords[k]) !== -1) {
+          matchedCanonical = entry.canonical;
+          break;
+        }
       }
+      if (matchedCanonical) break;
     }
-    // No match — store as OTHERS: <value>
-    return 'OTHERS: ' + up;
-  }).filter(Boolean);
+    if (matchedCanonical) {
+      // Check if value has extra content beyond just the keyword
+      // (e.g. amounts, sources — indicates a descriptive note)
+      var isDescriptive = /\d/.test(up) || up.length > matchedCanonical.length + 15;
+      if (!seen[matchedCanonical]) { seen[matchedCanonical] = true; result.push(matchedCanonical); }
+      if (isDescriptive) {
+        // Also store the full raw value in OTHERS for the specify field
+        var othersVal = 'OTHERS: ' + up;
+        if (!seen[othersVal]) { seen[othersVal] = true; result.push(othersVal); }
+      }
+    } else {
+      // No match at all — store as OTHERS: <value>
+      var othersKey = 'OTHERS: ' + up;
+      if (!seen[othersKey]) { seen[othersKey] = true; result.push(othersKey); }
+    }
+  });
+  return result;
 }
 
 // Normalize referring unit - keep known units verbatim, uppercase everything else.
