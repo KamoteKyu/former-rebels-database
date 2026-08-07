@@ -2703,6 +2703,8 @@ function importCSVFile(event) {
       if (!tribalGroup && col('TRIBAL GROUP').trim()) {
         tribalGroup = ucField(col('TRIBAL GROUP'));
       }
+      // Default to NO TRIBAL GROUP if empty
+      if (!tribalGroup) tribalGroup = 'NO TRIBAL GROUP';
 
       // -- Municipality - uppercase for free-text, keep known names as-is
       var municipality = ucField(col('MUNICIPALITY'));
