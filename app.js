@@ -2449,20 +2449,49 @@ var IMPORT_SECTOR_MAP = {
   'INDIGENOUS PEOPLE': ['INDIGENOUS PEOPLE'], 'IP': ['INDIGENOUS PEOPLE'],
   'URBAN POOR': ['URBAN POOR']
 };
+// Keyword map for fuzzy sector matching
+var SECTOR_KEYWORD_MAP = [
+  { keywords: ['FARMER'],                         canonical: ['FARMER'] },
+  { keywords: ['FISHERFOLK','FISHER'],             canonical: ['FISHERFOLK'] },
+  { keywords: ['WOMEN','WOMAN','FEMALE'],          canonical: ['WOMEN'] },
+  { keywords: ['PWD','DISABILITY','DISABLED','PERSONS WITH DISABILITY'], canonical: ['PWD'] },
+  { keywords: ['YOUTH','CHILDREN','CHILD','MINOR'],canonical: ['CHILDREN AND YOUTH'] },
+  { keywords: ['SENIOR','ELDERLY','OLDER'],        canonical: ['SENIOR CITIZEN'] },
+  { keywords: ['SOLO PARENT','SINGLE PARENT'],     canonical: ['SOLO PARENT'] },
+  { keywords: ['INDIGENOUS','LUMAD','MANGYAN','TRIBAL','IP ','IPS'], canonical: ['INDIGENOUS PEOPLE'] },
+  { keywords: ['URBAN POOR','INFORMAL SETTLER'],   canonical: ['URBAN POOR'] }
+];
 function normalizeSectorList(raw) {
   if (!raw) return [];
   var seen = {}, result = [];
   raw.split(';').forEach(function(s) {
     var up = s.trim().toUpperCase();
     if (!up) return;
+    // Exact map match
     var mapped = IMPORT_SECTOR_MAP[up];
     if (mapped) {
       mapped.forEach(function(m) { if (!seen[m]) { seen[m] = true; result.push(m); } });
-    } else if (up.indexOf('OTHERS') === 0) {
-      // Already prefixed with OTHERS — keep as-is
+      return;
+    }
+    // Already OTHERS prefixed
+    if (up.indexOf('OTHERS') === 0) {
       if (!seen[up]) { seen[up] = true; result.push(up); }
-    } else {
-      // Unknown value — mark as OTHERS: <value>
+      return;
+    }
+    // Fuzzy keyword match
+    var matched = false;
+    for (var j = 0; j < SECTOR_KEYWORD_MAP.length; j++) {
+      var entry = SECTOR_KEYWORD_MAP[j];
+      for (var k = 0; k < entry.keywords.length; k++) {
+        if (up.indexOf(entry.keywords[k]) !== -1) {
+          entry.canonical.forEach(function(m) { if (!seen[m]) { seen[m] = true; result.push(m); } });
+          matched = true; break;
+        }
+      }
+      if (matched) break;
+    }
+    if (!matched) {
+      // Unknown — store as OTHERS: <value>
       var othersVal = 'OTHERS: ' + up;
       if (!seen[othersVal]) { seen[othersVal] = true; result.push(othersVal); }
     }
@@ -2476,17 +2505,40 @@ var IMPORT_ASST_CANONICAL = [
   'EDUCATIONAL','ISSUANCE OF CREDENTIALS','PHILHEALTH',
   'ISSUANCE OF SAFE CONDUCT PASS','APPLIED FOR AMNESTY'
 ];
+
+// Keyword map: if any keyword appears in the value, map to canonical
+var ASST_KEYWORD_MAP = [
+  { keywords: ['E-CLIP','ECLIP'],                               canonical: 'E-CLIP' },
+  { keywords: ['NOT QUALIFIED'],                                canonical: 'NOT QUALIFIED FOR E-CLIP' },
+  { keywords: ['FEA','REMUNERATION'],                           canonical: 'FEA REMUNERATION' },
+  { keywords: ['LIVELIHOOD'],                                   canonical: 'LIVELIHOOD' },
+  { keywords: ['MEDICAL','MEDICINE','HOSPITALIZATION','HEALTH'],canonical: 'MEDICAL' },
+  { keywords: ['EDUCATIONAL','EDUCATION','SCHOLARSHIP','TUITION'],canonical: 'EDUCATIONAL' },
+  { keywords: ['CREDENTIAL','DOCUMENT','NBI','BIRTH CERT'],     canonical: 'ISSUANCE OF CREDENTIALS' },
+  { keywords: ['PHILHEALTH'],                                   canonical: 'PHILHEALTH' },
+  { keywords: ['SAFE CONDUCT'],                                 canonical: 'ISSUANCE OF SAFE CONDUCT PASS' },
+  { keywords: ['AMNESTY'],                                      canonical: 'APPLIED FOR AMNESTY' }
+];
+
 function normalizeAsstList(raw) {
   if (!raw) return [];
   return raw.split(';').map(function(s) {
     var up = s.trim().toUpperCase();
     if (!up) return null;
+    // Exact match first
     for (var i = 0; i < IMPORT_ASST_CANONICAL.length; i++) {
       if (IMPORT_ASST_CANONICAL[i] === up) return IMPORT_ASST_CANONICAL[i];
     }
     // Already prefixed with OTHERS — keep as-is
     if (up.indexOf('OTHERS') === 0) return up;
-    // Unknown value — mark as OTHERS: <value>
+    // Fuzzy keyword match — find the first canonical whose keywords appear in the value
+    for (var j = 0; j < ASST_KEYWORD_MAP.length; j++) {
+      var entry = ASST_KEYWORD_MAP[j];
+      for (var k = 0; k < entry.keywords.length; k++) {
+        if (up.indexOf(entry.keywords[k]) !== -1) return entry.canonical;
+      }
+    }
+    // No match — store as OTHERS: <value>
     return 'OTHERS: ' + up;
   }).filter(Boolean);
 }
