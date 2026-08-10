@@ -1239,13 +1239,13 @@ function fuzzyNameMatch(a, b) {
   // Exact last + first name typo (dist ≤ 1, min 4 chars)
   if (lastA === lastB && firstA.length >= 4 && firstB.length >= 4 && firstDist <= 1) return true;
 
-  // Both last AND first are typos (dist ≤ 1 each, min 4 chars)
-  if (lastA.length >= 4 && lastB.length >= 4 && firstA.length >= 4 && firstB.length >= 4 &&
+  // Both last AND first are typos (dist <= 1 each, min 6 chars for last to avoid short name false positives)
+  if (lastA.length >= 6 && lastB.length >= 6 && firstA.length >= 4 && firstB.length >= 4 &&
       lastDist <= 1 && firstDist <= 1) return true;
 
-  // Both last AND first are typos with same middle name as anchor (dist ≤ 2 first, min 4 chars)
+  // Both last AND first are typos with same middle name as anchor (dist <= 2 first, min 6 chars last)
   if (midA.length >= 4 && midA === midB &&
-      lastA.length >= 4 && lastB.length >= 4 && lastDist <= 1 &&
+      lastA.length >= 6 && lastB.length >= 6 && lastDist <= 1 &&
       firstA.length >= 4 && firstB.length >= 4 && firstDist <= 2) return true;
 
   // Swapped last/first: a.lastName ≈ b.firstName AND a.firstName ≈ b.lastName (exact or dist ≤ 1)
