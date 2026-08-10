@@ -1194,6 +1194,56 @@ function showPossibleDuplicates() {
     .catch(function(err) { content.innerHTML = '<div style="color:#f85149;padding:16px">ERROR: ' + err.message + '</div>'; });
 }
 
+// -- FUZZY NAME MATCHING --------------------------------------
+// Normalizes a name string: strips periods, extra spaces, suffixes
+function normalizeName(s) {
+  return (s || '').toUpperCase()
+    .replace(/\./g, '')
+    .replace(/\b(JR|SR|II|III|IV)\b/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+// Returns sorted unique tokens from all name fields combined
+function nameTokens(r) {
+  var combined = [r.lastName, r.firstName, r.middleName]
+    .map(function(s) { return normalizeName(s || ''); })
+    .join(' ').trim();
+  var tokens = combined.split(/\s+/).filter(function(t) { return t.length > 1; });
+  tokens.sort();
+  // Deduplicate
+  return tokens.filter(function(t, i) { return tokens.indexOf(t) === i; });
+}
+function editDistance(a, b) {
+  var m = a.length, n = b.length, dp = [], i, j;
+  for (i = 0; i <= m; i++) {
+    dp[i] = [i];
+    for (j = 1; j <= n; j++) {
+      dp[i][j] = i === 0 ? j :
+        a[i-1] === b[j-1] ? dp[i-1][j-1] :
+        1 + Math.min(dp[i-1][j], dp[i][j-1], dp[i-1][j-1]);
+    }
+  }
+  return dp[m][n];
+}
+function fuzzyNameMatch(a, b) {
+  var tokA = nameTokens(a);
+  var tokB = nameTokens(b);
+  if (!tokA.length || !tokB.length) return false;
+  // Exact token set (handles swapped last/first/middle)
+  if (tokA.join('|') === tokB.join('|')) return true;
+  // All tokens of shorter name appear in longer (subset match, min 2 tokens)
+  var shorter = tokA.length <= tokB.length ? tokA : tokB;
+  var longer  = tokA.length <= tokB.length ? tokB : tokA;
+  var hits = shorter.filter(function(t) { return longer.indexOf(t) !== -1; });
+  if (hits.length === shorter.length && shorter.length >= 2) return true;
+  // Same last name + first names are typo variants (edit distance ≤ 1, min 4 chars)
+  var lastA = normalizeName(a.lastName), lastB = normalizeName(b.lastName);
+  var firstA = normalizeName(a.firstName), firstB = normalizeName(b.firstName);
+  if (lastA === lastB && firstA.length >= 4 && firstB.length >= 4 &&
+      editDistance(firstA, firstB) <= 1) return true;
+  return false;
+}
+
 // -- FIND DUPLICATE GROUPS ------------------------------------
 // Returns array of groups, each group is an array of records with the same
 // last+first name (excluding Jr./Sr. pairs which are different people)
@@ -1203,36 +1253,30 @@ function findDuplicateGroups(records) {
     var m = combined.match(/\b(JR\.?|SR\.?)\b/);
     return m ? m[1].replace('.', '') : '';
   }
-  // Group by LASTNAME|FIRSTNAME
-  var groups = {};
+  // Build groups using fuzzy matching — O(n²) but fine for <1000 records
+  var grouped = []; // array of arrays
+  var assigned = {}; // id → group index
+
   records.forEach(function(r) {
-    var k = (r.lastName || '').toUpperCase() + '|' + (r.firstName || '').toUpperCase();
-    if (!groups[k]) groups[k] = [];
-    groups[k].push(r);
-  });
-  // Keep only groups with 2+ members, but remove Jr./Sr. pair exemptions
-  var duplicates = [];
-  Object.keys(groups).forEach(function(k) {
-    var grp = groups[k];
-    if (grp.length < 2) return;
-    // Filter out cases where members have DIFFERENT suffixes (JR vs SR = different people)
-    // A group is a real duplicate if at least two members have the SAME suffix (or no suffix)
-    var realDups = [];
-    for (var i = 0; i < grp.length; i++) {
-      for (var j = i + 1; j < grp.length; j++) {
-        var sufA = recGetSuffix(grp[i]);
-        var sufB = recGetSuffix(grp[j]);
-        // If both have suffixes AND they're different, skip this pair
-        if (sufA && sufB && sufA !== sufB) continue;
-        // Otherwise, they're duplicates - include entire group
-        realDups = grp;
-        break;
+    if (assigned[r.id] !== undefined) return;
+    var grpIdx = grouped.length;
+    grouped.push([r]);
+    assigned[r.id] = grpIdx;
+
+    records.forEach(function(other) {
+      if (other.id === r.id || assigned[other.id] !== undefined) return;
+      var sufR = recGetSuffix(r), sufO = recGetSuffix(other);
+      // Different JR/SR = different people
+      if (sufR && sufO && sufR !== sufO) return;
+      if (fuzzyNameMatch(r, other)) {
+        grouped[grpIdx].push(other);
+        assigned[other.id] = grpIdx;
       }
-      if (realDups.length) break;
-    }
-    if (realDups.length) duplicates.push(realDups);
+    });
   });
-  // Sort groups alphabetically by last name
+
+  // Keep only groups with 2+ members
+  var duplicates = grouped.filter(function(g) { return g.length >= 2; });
   duplicates.sort(function(a, b) { return (a[0].lastName||'').localeCompare(b[0].lastName||''); });
   return duplicates;
 }
@@ -2113,6 +2157,29 @@ function saveRecord(event) {
   }
 
   showToast('CHECKING FOR DUPLICATES...', 'info');
+  // Fuzzy check against full cache — handles swapped names and typos
+  var duplicate = null;
+  if (allRecordsCache.length) {
+    for (var ci = 0; ci < allRecordsCache.length; ci++) {
+      var cand = allRecordsCache[ci];
+      if (cand.id === record.id) continue; // skip self
+      var newSuffix = getSuffix(record);
+      var exSuffix  = getSuffix(cand);
+      if (newSuffix && exSuffix && newSuffix !== exSuffix) continue;
+      if (fuzzyNameMatch(record, cand)) { duplicate = cand; break; }
+    }
+  }
+  if (duplicate) {
+    showToast(
+      'DUPLICATE ENTRY - ' + duplicate.lastName + ', ' + duplicate.firstName +
+      (duplicate.middleName ? ' ' + duplicate.middleName : '') +
+      ' ALREADY EXISTS. ADD JR. OR SR. IF THIS IS A DIFFERENT PERSON.',
+      'error'
+    );
+    unlockSave();
+    return;
+  }
+  // No fuzzy match in cache — also do Firestore exact query as fallback
   db.collection('records')
     .where('lastName',  '==', record.lastName)
     .where('firstName', '==', record.firstName)
@@ -2905,18 +2972,26 @@ function importCSVFile(event) {
         if (existingById[incoming.id]) {
           existMatch = existingById[incoming.id];
         } else {
+          // First try exact name key lookup, then fuzzy match across all existing
           var nameMatches = existingByName[k] || [];
           for (var i = 0; i < nameMatches.length; i++) {
             var exSuffix = recGetSuffix(nameMatches[i]);
-            // Different suffixes = different people
             if (inSuffix && exSuffix && inSuffix !== exSuffix) continue;
             existMatch = nameMatches[i];
             break;
           }
+          // Fuzzy fallback — catches swapped names and typo variants
+          if (!existMatch) {
+            for (var fi = 0; fi < existing.length; fi++) {
+              var cand = existing[fi];
+              var candSuffix = recGetSuffix(cand);
+              if (inSuffix && candSuffix && inSuffix !== candSuffix) continue;
+              if (fuzzyNameMatch(incoming, cand)) { existMatch = cand; break; }
+            }
+          }
         }
 
-        if (existMatch) {
-          // Determine which is more recent by createdAt / dateSurrendered
+        if (existMatch) {          // Determine which is more recent by createdAt / dateSurrendered
           var inDate  = incoming.createdAt  || incoming.dateSurrendered || '';
           var exDate  = existMatch.createdAt || existMatch.dateSurrendered || '';
           var inCount = fieldCount(incoming);
