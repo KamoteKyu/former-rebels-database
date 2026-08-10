@@ -1238,11 +1238,27 @@ function fuzzyNameMatch(a, b) {
   var longer  = tokA.length <= tokB.length ? tokB : tokA;
   var hits = shorter.filter(function(t) { return longer.indexOf(t) !== -1; });
   if (hits.length === shorter.length && shorter.length >= 2) return true;
+  // Fuzzy token overlap: most tokens match (allows 1 typo token out of 3+)
+  if (shorter.length >= 3) {
+    var fuzzyHits = shorter.filter(function(t) {
+      return longer.some(function(u) {
+        return t === u || (t.length >= 4 && u.length >= 4 && editDistance(t, u) <= 1);
+      });
+    });
+    if (fuzzyHits.length >= shorter.length - 1) return true;
+  }
   // Same last name + first names are typo variants (edit distance ≤ 1, min 4 chars)
   var lastA = normalizeName(a.lastName), lastB = normalizeName(b.lastName);
   var firstA = normalizeName(a.firstName), firstB = normalizeName(b.firstName);
   if (lastA === lastB && firstA.length >= 4 && firstB.length >= 4 &&
       editDistance(firstA, firstB) <= 1) return true;
+  // Swapped name check: a.lastName ≈ b.firstName AND a.firstName ≈ b.lastName (fuzzy)
+  if (lastA.length >= 3 && firstB.length >= 3 &&
+      editDistance(lastA, normalizeName(b.firstName)) <= 1 &&
+      editDistance(firstA, normalizeName(b.lastName)) <= 1) return true;
+  if (normalizeName(a.firstName).length >= 3 && lastB.length >= 3 &&
+      editDistance(normalizeName(a.firstName), lastB) <= 1 &&
+      editDistance(lastA, normalizeName(b.firstName)) <= 1) return true;
   return false;
 }
 
