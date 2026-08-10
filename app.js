@@ -2706,7 +2706,23 @@ var REFERRING_UNIT_ALIASES = {
   'PIU OCCIDENTAL MINDORO':                        'PIU',
   'PIU-OCCIDENTAL MINDORO':                        'PIU',
   'PROVINCIAL INTELLIGENCE UNIT':                  'PIU',
-  'PROVINCIAL INTELLIGENCE UNIT, OCCIDENTAL MINDORO': 'PIU'
+  'PROVINCIAL INTELLIGENCE UNIT, OCCIDENTAL MINDORO': 'PIU',
+  // Short abbreviations
+  '4IB':                                           '4th Infantry "Scorpion" Battalion',
+  '4TH IB':                                        '4th Infantry "Scorpion" Battalion',
+  '4TH INFANTRY BATTALION':                        '4th Infantry "Scorpion" Battalion',
+  '4TH INF BN':                                    '4th Infantry "Scorpion" Battalion',
+  '4TH INF BATTALION':                             '4th Infantry "Scorpion" Battalion',
+  '68IB':                                          '68th Infantry "Kaagapay" Battalion',
+  '68TH IB':                                       '68th Infantry "Kaagapay" Battalion',
+  '68TH INFANTRY BATTALION':                       '68th Infantry "Kaagapay" Battalion',
+  '68TH INF BN':                                   '68th Infantry "Kaagapay" Battalion',
+  '68TH INF BATTALION':                            '68th Infantry "Kaagapay" Battalion',
+  '76IB':                                          '76th Infantry "Victrix" Battalion',
+  '76TH IB':                                       '76th Infantry "Victrix" Battalion',
+  '76TH INFANTRY BATTALION':                       '76th Infantry "Victrix" Battalion',
+  '76TH INF BN':                                   '76th Infantry "Victrix" Battalion',
+  '76TH INF BATTALION':                            '76th Infantry "Victrix" Battalion'
 };
 var IMPORT_KNOWN_UNITS = [
   '102nd SAC','1st Infantry "Always First" Battalion','1st OMPMFC',
