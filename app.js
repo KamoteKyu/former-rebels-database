@@ -1224,8 +1224,14 @@ function fuzzyNameMatch(a, b) {
 
   if (!lastA || !firstA || !lastB || !firstB) return false;
 
-  var lastDist  = editDistance(lastA,  lastB);
+  // If first names are completely different, skip — avoids false positives
   var firstDist = editDistance(firstA, firstB);
+  var maxFirstLen = Math.max(firstA.length, firstB.length);
+  // Allow at most 2 edits OR 25% of the longer name (whichever is smaller)
+  var firstThreshold = Math.min(2, Math.floor(maxFirstLen * 0.25));
+  if (firstDist > firstThreshold) return false;
+
+  var lastDist  = editDistance(lastA, lastB);
 
   // Exact last + exact first
   if (lastA === lastB && firstA === firstB) return true;
