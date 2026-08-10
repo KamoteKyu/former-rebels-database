@@ -1321,14 +1321,14 @@ function printPhilhealthList(hasPhilhealth) {
 
     var tableRows = list.map(function(r, i) {
       var philStatus = (r.assistance||[]).indexOf('PHILHEALTH') !== -1;
+      var address = [r.addressBarangay||r.address, r.addressMunicipality, r.addressProvince].filter(Boolean).join(', ');
       return '<tr>' +
         '<td style="text-align:center">' + (i+1) + '</td>' +
         '<td><strong>' + (r.lastName||'') + ', ' + (r.firstName||'') + '</strong>' + (r.middleName ? ' ' + r.middleName : '') + '</td>' +
         '<td>' + (r.alias||'-') + '</td>' +
         '<td style="text-align:center">' + (r.sex||'-') + '</td>' +
         '<td style="text-align:center">' + calcAgeFromDob(r.dob) + '</td>' +
-        '<td>' + (r.referringUnit||'-') + '</td>' +
-        '<td style="text-align:center">' + formatDate(r.dateSurrendered) + '</td>' +
+        '<td>' + (address||'-') + '</td>' +
         '<td style="text-align:center;color:' + (philStatus?'#3fb950':'#f85149') + ';font-weight:700">' + (philStatus?'YES':'NO') + '</td>' +
         '</tr>';
     }).join('');
@@ -1345,12 +1345,11 @@ function printPhilhealthList(hasPhilhealth) {
           '<th>FULL NAME</th><th>ALIAS</th>' +
           '<th style="text-align:center">SEX</th>' +
           '<th style="text-align:center">AGE</th>' +
-          '<th>REFERRING UNIT</th>' +
-          '<th style="text-align:center">DATE SURRENDERED</th>' +
+          '<th>ADDRESS</th>' +
           '<th style="text-align:center">PHILHEALTH</th>' +
         '</tr></thead>' +
         '<tbody>' + tableRows + '</tbody>' +
-        '<tfoot><tr><td colspan="8" style="text-align:right;font-size:9px;padding-top:6px;border-top:2px solid #333">' +
+        '<tfoot><tr><td colspan="7" style="text-align:right;font-size:9px;padding-top:6px;border-top:2px solid #333">' +
           'TOTAL: ' + list.length + ' RECORD' + (list.length!==1?'S':'') +
         '</td></tr></tfoot>' +
       '</table>';
@@ -1385,8 +1384,7 @@ function printNon4PsList() {
         '<td>' + (r.alias||'-') + '</td>' +
         '<td style="text-align:center">' + (r.sex||'-') + '</td>' +
         '<td style="text-align:center">' + calcAgeFromDob(r.dob) + '</td>' +
-        '<td>' + (r.referringUnit||'-') + '</td>' +
-        '<td style="text-align:center">' + formatDate(r.dateSurrendered) + '</td>' +
+        '<td>' + ([r.addressBarangay||r.address, r.addressMunicipality, r.addressProvince].filter(Boolean).join(', ')||'-') + '</td>' +
         '<td style="text-align:center;color:' + (r.fourPs==='YES'?'#3fb950':'#f85149') + ';font-weight:700">' + (r.fourPs||'NO') + '</td>' +
         '</tr>';
     }).join('');
@@ -1403,12 +1401,11 @@ function printNon4PsList() {
           '<th>FULL NAME</th><th>ALIAS</th>' +
           '<th style="text-align:center">SEX</th>' +
           '<th style="text-align:center">AGE</th>' +
-          '<th>REFERRING UNIT</th>' +
-          '<th style="text-align:center">DATE SURRENDERED</th>' +
+          '<th>ADDRESS</th>' +
           '<th style="text-align:center">4Ps STATUS</th>' +
         '</tr></thead>' +
         '<tbody>' + tableRows + '</tbody>' +
-        '<tfoot><tr><td colspan="8" style="text-align:right;font-size:9px;padding-top:6px;border-top:2px solid #333">' +
+        '<tfoot><tr><td colspan="7" style="text-align:right;font-size:9px;padding-top:6px;border-top:2px solid #333">' +
           'TOTAL: ' + list.length + ' RECORD' + (list.length!==1?'S':'') +
         '</td></tr></tfoot>' +
       '</table>';
@@ -1614,11 +1611,11 @@ function downloadReportCSV(type) {
           return 0;
         });
       var headers = ['#','LAST NAME','FIRST NAME','MIDDLE NAME','ALIAS',
-        'SEX','AGE','DATE SURRENDERED','REFERRING UNIT','4Ps STATUS'];
+        'SEX','AGE','ADDRESS','4Ps STATUS'];
       var rows = list.map(function(r, i) {
+        var addr = [r.addressBarangay||r.address, r.addressMunicipality, r.addressProvince].filter(Boolean).join(', ');
         return [i+1, r.lastName||'', r.firstName||'', r.middleName||'', r.alias||'',
-          r.sex||'', calcAgeFromDob(r.dob), r.dateSurrendered||'',
-          r.referringUnit||'', r.fourPs||'NO'].map(q);
+          r.sex||'', calcAgeFromDob(r.dob), addr, r.fourPs||'NO'].map(q);
       });
       count    = list.length;
       filename = 'FR_NON_4PS_MEMBERS_' + dateStr + '.csv';
@@ -1630,10 +1627,11 @@ function downloadReportCSV(type) {
         var has = (r.assistance||[]).indexOf('PHILHEALTH') !== -1;
         return wantPhil ? has : !has;
       }).slice().sort(function(a,b){var la=(a.lastName||'').toUpperCase(),lb=(b.lastName||'').toUpperCase(),fa=(a.firstName||'').toUpperCase(),fb=(b.firstName||'').toUpperCase();if(la<lb)return -1;if(la>lb)return 1;if(fa<fb)return -1;if(fa>fb)return 1;return 0;});
-      var headers = ['#','LAST NAME','FIRST NAME','MIDDLE NAME','ALIAS','SEX','AGE','DATE SURRENDERED','REFERRING UNIT','PHILHEALTH'];
+      var headers = ['#','LAST NAME','FIRST NAME','MIDDLE NAME','ALIAS','SEX','AGE','ADDRESS','PHILHEALTH'];
       var rows = list.map(function(r,i){
         var has=(r.assistance||[]).indexOf('PHILHEALTH')!==-1;
-        return [i+1,r.lastName||'',r.firstName||'',r.middleName||'',r.alias||'',r.sex||'',calcAgeFromDob(r.dob),r.dateSurrendered||'',r.referringUnit||'',has?'YES':'NO'].map(q);
+        var addr=[r.addressBarangay||r.address,r.addressMunicipality,r.addressProvince].filter(Boolean).join(', ');
+        return [i+1,r.lastName||'',r.firstName||'',r.middleName||'',r.alias||'',r.sex||'',calcAgeFromDob(r.dob),addr,has?'YES':'NO'].map(q);
       });
       count    = list.length;
       filename = 'FR_' + (wantPhil?'WITH':'WITHOUT') + '_PHILHEALTH_' + dateStr + '.csv';
