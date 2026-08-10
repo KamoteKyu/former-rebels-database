@@ -1191,8 +1191,8 @@ function showPossibleDuplicates() {
     content.innerHTML = html;
   }
 
-  if (allRecordsCache.length) run(allRecordsCache);
-  else dbGetAll().then(function(records) { allRecordsCache = records; run(records); })
+  // Always fetch fresh from server to ensure latest data
+  dbGetAll().then(function(records) { allRecordsCache = records; run(records); })
     .catch(function(err) { content.innerHTML = '<div style="color:#f85149;padding:16px">ERROR: ' + err.message + '</div>'; });
 }
 
@@ -1255,6 +1255,11 @@ function fuzzyNameMatch(a, b) {
   // Both last AND first names are typo variants (edit distance ≤ 1 each, min 4 chars)
   if (lastA.length >= 4 && lastB.length >= 4 && firstA.length >= 4 && firstB.length >= 4 &&
       editDistance(lastA, lastB) <= 1 && editDistance(firstA, firstB) <= 1) return true;
+  // Same middle name + last names within edit distance 1 + first names within edit distance 2
+  var midA = normalizeName(a.middleName), midB = normalizeName(b.middleName);
+  if (midA.length >= 4 && midA === midB &&
+      lastA.length >= 4 && lastB.length >= 4 && editDistance(lastA, lastB) <= 1 &&
+      firstA.length >= 4 && firstB.length >= 4 && editDistance(firstA, firstB) <= 2) return true;
   // Swapped name check: a.lastName ≈ b.firstName AND a.firstName ≈ b.lastName (fuzzy)
   if (lastA.length >= 3 && firstB.length >= 3 &&
       editDistance(lastA, normalizeName(b.firstName)) <= 1 &&
