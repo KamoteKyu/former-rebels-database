@@ -462,6 +462,7 @@ function showPage(page) {
   if (page === 'records') {
     document.getElementById('recordsTableBody').innerHTML =
       '<tr><td colspan="10" style="text-align:center;padding:20px;color:var(--text3)">LOADING...</td></tr>';
+    updateUndoImportBtn();
     dbGetAll().then(function(records) { allRecordsCache = records; renderRecords(records); })
       .catch(function(err) {
         console.error('[FRDB] dbGetAll error:', err.code, err.message);
@@ -2951,6 +2952,19 @@ function importCSVFile(event) {
         hideImportOverlay();
         allRecordsCache = [];
 
+        // -- Save undo snapshot to localStorage
+        var snapshot = {
+          timestamp: new Date().toISOString(),
+          inserted:  toInsert.map(function(r) { return r.id; }),
+          restored:  toUpdate.map(function(r) {
+            // Find the pre-merge state from existingById
+            var pre = existingById[r.id];
+            return pre ? Object.assign({}, pre) : null;
+          }).filter(Boolean)
+        };
+        try { localStorage.setItem('frdb-lastImportSnapshot', JSON.stringify(snapshot)); } catch(e) {}
+        updateUndoImportBtn();
+
         // -- Save recently imported/updated to localStorage for dashboard widget
         var recentKey = 'frdb-recentImports';
         var existing  = [];
@@ -2982,6 +2996,75 @@ function importCSVFile(event) {
   };
   reader.readAsText(file);
   event.target.value = '';
+}
+
+// -- UNDO LAST IMPORT -----------------------------------------
+function updateUndoImportBtn() {
+  var btn = document.getElementById('undoImportBtn');
+  if (!btn) return;
+  var snapshot = null;
+  try { snapshot = JSON.parse(localStorage.getItem('frdb-lastImportSnapshot') || 'null'); } catch(e) {}
+  if (snapshot) {
+    var ts = new Date(snapshot.timestamp).toLocaleString('en-PH', { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' });
+    var count = (snapshot.inserted || []).length + (snapshot.restored || []).length;
+    btn.style.display = 'inline-flex';
+    btn.title = 'Undo import from ' + ts + ' (' + count + ' record' + (count !== 1 ? 's' : '') + ')';
+  } else {
+    btn.style.display = 'none';
+  }
+}
+
+function undoLastImport() {
+  var snapshot = null;
+  try { snapshot = JSON.parse(localStorage.getItem('frdb-lastImportSnapshot') || 'null'); } catch(e) {}
+  if (!snapshot) { showToast('NO IMPORT TO UNDO', 'info'); return; }
+
+  var inserted = snapshot.inserted || [];
+  var restored = snapshot.restored || [];
+  var total    = inserted.length + restored.length;
+
+  if (!confirm(
+    'UNDO LAST IMPORT?\n\n' +
+    '• ' + inserted.length + ' new record(s) will be DELETED\n' +
+    '• ' + restored.length + ' updated record(s) will be RESTORED to their previous state\n\n' +
+    'This cannot be undone again.'
+  )) return;
+
+  showImportOverlay('UNDOING IMPORT...');
+
+  var ops = [];
+
+  // Delete newly inserted records
+  inserted.forEach(function(id) {
+    ops.push(dbDelete(id));
+  });
+
+  // Restore pre-merge snapshots of updated records
+  restored.forEach(function(r) {
+    ops.push(dbPut(r));
+  });
+
+  Promise.all(ops).then(function() {
+    // Clear snapshot and recent imports for these records
+    try { localStorage.removeItem('frdb-lastImportSnapshot'); } catch(e) {}
+    try {
+      var recentKey = 'frdb-recentImports';
+      var entries = JSON.parse(localStorage.getItem(recentKey) || '[]');
+      var removedIds = inserted.concat(restored.map(function(r) { return r.id; }));
+      entries = entries.filter(function(e) { return removedIds.indexOf(e.id) === -1; });
+      localStorage.setItem(recentKey, JSON.stringify(entries));
+    } catch(e) {}
+
+    hideImportOverlay();
+    allRecordsCache = [];
+    updateUndoImportBtn();
+    renderRecentImportsWidget();
+    showToast('IMPORT UNDONE - ' + total + ' RECORD' + (total !== 1 ? 'S' : '') + ' REVERTED', 'success');
+    showPage('records');
+  }).catch(function(err) {
+    hideImportOverlay();
+    showToast('UNDO FAILED: ' + err.message, 'error');
+  });
 }
 
 // -- EXPORT XLSX -----------------------------------------------

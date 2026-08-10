@@ -557,6 +557,7 @@
         <button class="btn-secondary" id="printFilteredBtn" onclick="printFilteredRecords()" style="display:none">🖨 PRINT LIST</button>
         <button class="btn-secondary" onclick="exportCSV()">⬇ EXPORT XLSX</button>
         <button class="btn-secondary" onclick="document.getElementById('csvImportInput').click()">⬆ IMPORT CSV</button>
+        <button class="btn-danger" id="undoImportBtn" onclick="undoLastImport()" style="display:none">↩ UNDO LAST IMPORT</button>
         <input type="file" id="csvImportInput" accept=".csv" style="display:none" onchange="importCSVFile(event)"/>
       </div>
       <div class="table-wrapper">
