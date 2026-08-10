@@ -1565,7 +1565,11 @@ function buildDashboardReportHtml(records) {
   var tribalCounts = {}; TRIBAL_GROUP_TYPES.forEach(function(t){tribalCounts[t]=0;});
   records.forEach(function(r){var k=normalizeTribalGroup(r.tribalGroup);if(k&&tribalCounts[k]!==undefined)tribalCounts[k]++;});
   var withTribal = TRIBAL_GROUP_TYPES.reduce(function(s,t){return s+tribalCounts[t];},0);
-  var tribalRows = TRIBAL_GROUP_TYPES.map(function(t){var c=tribalCounts[t];return[t,c,total>0?((c/total)*100).toFixed(1)+'%':'0.0%'];});
+  var ipCount    = TRIBAL_GROUP_TYPES.filter(function(t){return t!=='NO TRIBAL GROUP';}).reduce(function(s,t){return s+tribalCounts[t];},0);
+  var nonIpCount = tribalCounts['NO TRIBAL GROUP'];
+  var tribalRows = [['IP (INDIGENOUS PEOPLE)', ipCount, total>0?((ipCount/total)*100).toFixed(1)+'%':'0.0%'],
+                    ['NON-IP (NO TRIBAL GROUP)', nonIpCount, total>0?((nonIpCount/total)*100).toFixed(1)+'%':'0.0%']];
+  tribalRows = tribalRows.concat(TRIBAL_GROUP_TYPES.map(function(t){var c=tribalCounts[t];return['\u00A0\u00A0'+t,c,total>0?((c/total)*100).toFixed(1)+'%':'0.0%'];}));
   tribalRows.push(['NOT SPECIFIED',total-withTribal,total>0?(((total-withTribal)/total)*100).toFixed(1)+'%':'0.0%']);
 
   // AGE BRACKET
@@ -1699,7 +1703,21 @@ function renderTribalReport(records) {
   var counts={}; TYPES.forEach(function(t){counts[t]=0;});
   records.forEach(function(r){var k=normalizeTribalGroup(r.tribalGroup);if(k&&counts[k]!==undefined)counts[k]++;});
   var total=records.length, withType=TYPES.reduce(function(s,t){return s+counts[t];},0);
-  document.getElementById('tribalTotalBadge').textContent=withType+' WITH TRIBAL GROUP';
+
+  // IP vs Non-IP counts
+  var ipCount    = TYPES.filter(function(t){return t!=='NO TRIBAL GROUP';}).reduce(function(s,t){return s+counts[t];},0);
+  var nonIpCount = counts['NO TRIBAL GROUP'];
+  var noDataCount = total - withType;
+
+  document.getElementById('tribalTotalBadge').textContent = ipCount + ' IP / ' + nonIpCount + ' NON-IP';
+
+  // IP vs Non-IP stat badges
+  var ipBadge = document.getElementById('statIP');
+  var nonIpBadge = document.getElementById('statNonIP');
+  if (ipBadge) ipBadge.textContent = ipCount;
+  if (nonIpBadge) nonIpBadge.textContent = nonIpCount;
+
+  // Main tribal donut
   var canvas=document.getElementById('tribalDonut'),ctx=canvas.getContext('2d');
   ctx.clearRect(0,0,160,160);
   var cx=80,cy=80,r=60,inner=36,total2=withType||1,startAngle=-Math.PI/2;
@@ -1707,10 +1725,43 @@ function renderTribalReport(records) {
   ctx.beginPath();ctx.arc(cx,cy,inner,0,2*Math.PI);ctx.fillStyle='#161b22';ctx.fill();
   ctx.fillStyle='#e6edf3';ctx.font='bold 18px Segoe UI,sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(withType,cx,cy);
   document.getElementById('tribalLegend').innerHTML=TYPES.map(function(t){return '<div class="donut-legend-item"><span class="donut-dot" style="background:'+COLORS[t]+'"></span><span>'+t+'</span><strong>'+counts[t]+'</strong></div>';}).join('');
+
+  // IP vs Non-IP pie chart
+  var ipCanvas = document.getElementById('ipPieChart');
+  if (ipCanvas) {
+    var ipCtx = ipCanvas.getContext('2d');
+    ipCtx.clearRect(0,0,160,160);
+    var ipSlices = [
+      { label:'IP',      count:ipCount,    color:'#3fb950' },
+      { label:'NON-IP',  count:nonIpCount, color:'#6e7681' },
+      { label:'NO DATA', count:noDataCount,color:'#30363d' }
+    ];
+    var ipTotal = ipSlices.reduce(function(s,sl){return s+sl.count;},0) || 1;
+    var sa = -Math.PI/2;
+    ipSlices.forEach(function(sl){
+      if(!sl.count) return;
+      var slice=(sl.count/ipTotal)*2*Math.PI;
+      ipCtx.beginPath();ipCtx.moveTo(80,80);ipCtx.arc(80,80,60,sa,sa+slice);ipCtx.closePath();
+      ipCtx.fillStyle=sl.color;ipCtx.fill();
+      sa+=slice;
+    });
+    ipCtx.beginPath();ipCtx.arc(80,80,36,0,2*Math.PI);ipCtx.fillStyle='#161b22';ipCtx.fill();
+    ipCtx.fillStyle='#e6edf3';ipCtx.font='bold 14px Segoe UI,sans-serif';ipCtx.textAlign='center';ipCtx.textBaseline='middle';
+    ipCtx.fillText(total,80,80);
+    var ipLegend = document.getElementById('ipPieLegend');
+    if (ipLegend) {
+      ipLegend.innerHTML = ipSlices.map(function(sl){
+        var pct = total > 0 ? ((sl.count/total)*100).toFixed(1) : '0.0';
+        return '<div class="donut-legend-item"><span class="donut-dot" style="background:'+sl.color+'"></span>' +
+          '<span>'+sl.label+'</span><strong>'+sl.count+' <span style="font-weight:400;color:var(--text3);font-size:0.7rem">('+pct+'%)</span></strong></div>';
+      }).join('');
+    }
+  }
+
   document.getElementById('tribalTableBody').innerHTML=TYPES.map(function(type){
     var count=counts[type],pct=total>0?((count/total)*100).toFixed(1):'0.0',barW=total>0?Math.round((count/total)*100):0;
     return '<tr><td><span class="donut-dot" style="background:'+COLORS[type]+';display:inline-block;margin-right:6px"></span>'+type+'</td><td style="text-align:center;font-weight:700;color:'+COLORS[type]+'">'+count+'</td><td style="text-align:center">'+pct+'%</td><td><div class="asst-mini-bar-wrap"><div class="asst-mini-bar" style="width:'+barW+'%;background:'+COLORS[type]+'"></div></div></td></tr>';
-  }).join('')+'<tr style="border-top:2px solid var(--border);background:var(--bg3)"><td style="font-weight:700">NOT SPECIFIED</td><td style="text-align:center;font-weight:700;color:var(--text2)">'+(total-withType)+'</td><td style="text-align:center">'+(total>0?(((total-withType)/total)*100).toFixed(1):'0.0')+'%</td><td></td></tr>';
+  }).join('')+'<tr style="border-top:2px solid var(--border);background:var(--bg3)"><td style="font-weight:700">NOT SPECIFIED</td><td style="text-align:center;font-weight:700;color:var(--text2)">'+noDataCount+'</td><td style="text-align:center">'+(total>0?((noDataCount/total)*100).toFixed(1):'0.0')+'%</td><td></td></tr>';
 }
 
 // -- AGE REPORT -----------------------------------------------

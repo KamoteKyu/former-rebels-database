@@ -385,6 +385,21 @@
             <h3>🏔️ TRIBAL GROUP — BREAKDOWN</h3>
             <span id="tribalTotalBadge" class="asst-total-badge">0 WITH TRIBAL GROUP</span>
           </div>
+          <!-- IP vs Non-IP summary -->
+          <div style="display:flex;gap:16px;margin-bottom:16px;flex-wrap:wrap">
+            <div style="flex:1;min-width:120px;background:rgba(63,185,80,0.1);border:1px solid rgba(63,185,80,0.3);border-radius:8px;padding:12px;text-align:center">
+              <div style="font-size:0.65rem;color:var(--text3);letter-spacing:1px;margin-bottom:4px">INDIGENOUS PEOPLE (IP)</div>
+              <div id="statIP" style="font-size:1.8rem;font-weight:700;color:#3fb950">0</div>
+            </div>
+            <div style="flex:1;min-width:120px;background:rgba(110,118,129,0.1);border:1px solid rgba(110,118,129,0.3);border-radius:8px;padding:12px;text-align:center">
+              <div style="font-size:0.65rem;color:var(--text3);letter-spacing:1px;margin-bottom:4px">NON-IP (NO TRIBAL GROUP)</div>
+              <div id="statNonIP" style="font-size:1.8rem;font-weight:700;color:#6e7681">0</div>
+            </div>
+            <div style="flex:1;min-width:160px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:12px;display:flex;align-items:center;gap:12px">
+              <canvas id="ipPieChart" width="120" height="120" style="flex-shrink:0"></canvas>
+              <div id="ipPieLegend" style="flex:1;font-size:0.7rem"></div>
+            </div>
+          </div>
           <div class="membership-report-grid">
             <div class="membership-donut-wrap">
               <canvas id="tribalDonut" width="160" height="160"></canvas>
