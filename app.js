@@ -1814,6 +1814,7 @@ function renderRecords(records, filter, unitFilter, membershipFilter) {
         (r.alias||'').toLowerCase().indexOf(q)!==-1 ||
         (r.unit||'').toLowerCase().indexOf(q)!==-1 ||
         (r.referringUnit||'').toLowerCase().indexOf(q)!==-1 ||
+        (r.tribalGroup||'').toLowerCase().indexOf(q)!==-1 ||
         eclipStatus.indexOf(q) !== -1;
     });
   }
