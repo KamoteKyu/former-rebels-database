@@ -1254,6 +1254,11 @@ function fuzzyNameMatch(a, b) {
   if (lastA.length >= 4 && firstB.length >= 4 && firstA.length >= 4 && lastB.length >= 4 &&
       swapLastDist <= 1 && swapFirstDist <= 1) return true;
 
+  // Swapped last/middle: a.lastName = b.middleName AND a.middleName = b.lastName (same first name)
+  if (firstA === firstB && midA.length >= 4 && midB.length >= 4 &&
+      lastA.length >= 4 && lastB.length >= 4 &&
+      editDistance(lastA, midB) <= 1 && editDistance(midA, lastB) <= 1) return true;
+
   return false;
 }
 
