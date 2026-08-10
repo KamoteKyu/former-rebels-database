@@ -1299,6 +1299,64 @@ function findDuplicateGroups(records) {
   return duplicates;
 }
 
+// -- PRINT NON-4Ps LIST ---------------------------------------
+function printNon4PsList() {
+  function run(records) {
+    var list = records.filter(function(r) { return r.fourPs !== 'YES'; })
+      .slice().sort(function(a, b) {
+        var la=(a.lastName||'').toUpperCase(), lb=(b.lastName||'').toUpperCase();
+        var fa=(a.firstName||'').toUpperCase(), fb=(b.firstName||'').toUpperCase();
+        if (la<lb) return -1; if (la>lb) return 1;
+        if (fa<fb) return -1; if (fa>fb) return 1;
+        return 0;
+      });
+    if (!list.length) { showToast('NO NON-4Ps RECORDS FOUND', 'info'); return; }
+
+    var printed   = new Date().toLocaleString('en-PH');
+    var printedBy = currentUser ? currentUser.username + ' (' + currentUser.role + ')' : 'UNKNOWN';
+
+    var tableRows = list.map(function(r, i) {
+      return '<tr>' +
+        '<td style="text-align:center">' + (i+1) + '</td>' +
+        '<td><strong>' + (r.lastName||'') + ', ' + (r.firstName||'') + '</strong>' + (r.middleName ? ' ' + r.middleName : '') + '</td>' +
+        '<td>' + (r.alias||'-') + '</td>' +
+        '<td style="text-align:center">' + (r.sex||'-') + '</td>' +
+        '<td style="text-align:center">' + calcAgeFromDob(r.dob) + '</td>' +
+        '<td>' + (r.referringUnit||'-') + '</td>' +
+        '<td style="text-align:center">' + formatDate(r.dateSurrendered) + '</td>' +
+        '<td style="text-align:center;color:' + (r.fourPs==='YES'?'#3fb950':'#f85149') + ';font-weight:700">' + (r.fourPs||'NO') + '</td>' +
+        '</tr>';
+    }).join('');
+
+    var body =
+      '<div class="print-header">' +
+        '<h1>FORMER REBELS DATABASE MANAGEMENT SYSTEM</h1>' +
+        '<p>NON-4Ps MEMBERS LIST</p>' +
+        '<p>Printed: ' + printed + ' &nbsp;|&nbsp; Printed by: ' + printedBy + '</p>' +
+      '</div>' +
+      '<table class="report-table" style="width:100%;font-size:10px">' +
+        '<thead><tr>' +
+          '<th style="text-align:center;width:30px">#</th>' +
+          '<th>FULL NAME</th><th>ALIAS</th>' +
+          '<th style="text-align:center">SEX</th>' +
+          '<th style="text-align:center">AGE</th>' +
+          '<th>REFERRING UNIT</th>' +
+          '<th style="text-align:center">DATE SURRENDERED</th>' +
+          '<th style="text-align:center">4Ps STATUS</th>' +
+        '</tr></thead>' +
+        '<tbody>' + tableRows + '</tbody>' +
+        '<tfoot><tr><td colspan="8" style="text-align:right;font-size:9px;padding-top:6px;border-top:2px solid #333">' +
+          'TOTAL: ' + list.length + ' RECORD' + (list.length!==1?'S':'') +
+        '</td></tr></tfoot>' +
+      '</table>';
+
+    openPrintDocument('FR Non-4Ps Members', body, REPORT_PRINT_STYLES);
+    showToast('PRINT PREVIEW OPENED', 'success');
+  }
+  if (allRecordsCache.length) run(allRecordsCache);
+  else dbGetAll().then(function(recs) { allRecordsCache = recs; run(recs); });
+}
+
 // -- PRINT DUPLICATES LIST ------------------------------------
 function printDuplicatesList() {
   function run(records) {
@@ -1481,6 +1539,26 @@ function downloadReportCSV(type) {
       });
       count    = list.length;
       filename = 'FR_FULL_LIST_' + dateStr + '.csv';
+      csv = [headers.map(q).join(',')].concat(rows.map(function(r) { return r.join(','); })).join('\n');
+
+    } else if (type === 'non4ps') {
+      var list = records.filter(function(r) { return r.fourPs !== 'YES'; })
+        .slice().sort(function(a, b) {
+          var la = (a.lastName  || '').toUpperCase(), lb = (b.lastName  || '').toUpperCase();
+          var fa = (a.firstName || '').toUpperCase(), fb = (b.firstName || '').toUpperCase();
+          if (la < lb) return -1; if (la > lb) return 1;
+          if (fa < fb) return -1; if (fa > fb) return 1;
+          return 0;
+        });
+      var headers = ['#','LAST NAME','FIRST NAME','MIDDLE NAME','ALIAS',
+        'SEX','AGE','DATE SURRENDERED','REFERRING UNIT','4Ps STATUS'];
+      var rows = list.map(function(r, i) {
+        return [i+1, r.lastName||'', r.firstName||'', r.middleName||'', r.alias||'',
+          r.sex||'', calcAgeFromDob(r.dob), r.dateSurrendered||'',
+          r.referringUnit||'', r.fourPs||'NO'].map(q);
+      });
+      count    = list.length;
+      filename = 'FR_NON_4PS_MEMBERS_' + dateStr + '.csv';
       csv = [headers.map(q).join(',')].concat(rows.map(function(r) { return r.join(','); })).join('\n');
 
     } else if (type === 'duplicates') {

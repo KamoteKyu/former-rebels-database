@@ -211,6 +211,14 @@
             <button class="report-dropdown-item" onclick="downloadReportCSV('fulllist');closeReportDropdown()">
               <span>⬇</span><span>DOWNLOAD CSV</span>
             </button>
+            <div class="report-dropdown-divider"></div>
+            <div class="report-dropdown-label">NON-4Ps MEMBERS</div>
+            <button class="report-dropdown-item" onclick="printNon4PsList();closeReportDropdown()">
+              <span>🖨</span><span>PRINT / VIEW PDF</span>
+            </button>
+            <button class="report-dropdown-item" onclick="downloadReportCSV('non4ps');closeReportDropdown()">
+              <span>⬇</span><span>DOWNLOAD CSV</span>
+            </button>
           </div>
         </div>
       </div>
@@ -450,6 +458,7 @@
           <div class="dash-card-header">
             <h3>🏠 4Ps BENEFICIARIES — BREAKDOWN</h3>
             <span id="fourPsTotalBadge" class="asst-total-badge">0 4Ps BENEFICIARIES</span>
+            <button class="btn-secondary" style="font-size:0.65rem;padding:4px 10px" onclick="printNon4PsList()">🖨 NON-4Ps LIST</button>
           </div>
           <div class="asst-chart-wrap">
             <div id="fourPsBars" class="asst-bars"></div>
