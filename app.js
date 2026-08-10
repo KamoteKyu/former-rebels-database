@@ -2395,8 +2395,22 @@ function confirmDelete() {
 
 // -- IMPORT CSV -----------------------------------------------
 function parseCSVLine(line) {
-  var result=[],cur='',inQuote=false;
-  for(var i=0;i<line.length;i++){var ch=line[i];if(inQuote){if(ch==='"'&&line[i+1]==='"'){cur+='"';i++;}else if(ch==='"'){inQuote=false;}else{cur+=ch;}}else{if(ch==='"'){inQuote=true;}else if(ch===','){result.push(cur);cur='';}else{cur+=ch;}}}
+  var result = [], cur = '', inQuote = false;
+  for (var i = 0; i < line.length; i++) {
+    var ch = line[i];
+    if (inQuote) {
+      if (ch === '"' && line[i + 1] === '"') { cur += '"'; i++; }       // escaped quote
+      else if (ch === '"') { inQuote = false; }                          // end quote
+      else { cur += ch; }
+    } else {
+      if (ch === '"') { inQuote = true; }                                // start quote
+      else if (ch === ',') { result.push(cur.trim()); cur = ''; }        // delimiter
+      else { cur += ch; }
+    }
+  }
+  result.push(cur.trim()); // last field
+  return result;
+}
   result.push(cur); return result;
 }
 
@@ -2652,6 +2666,8 @@ function importCSVFile(event) {
     showImportOverlay('PARSING ' + (lines.length - 1) + ' RECORDS...');
     var headers = parseCSVLine(lines[0]), idx = {};
     headers.forEach(function(h, i) { idx[h.trim()] = i; });
+    var headerCount = headers.length;
+    var skippedMisaligned = 0;
 
     var SEX_VALS       = ['MALE', 'FEMALE'];
     var CIVIL_VALS     = ['SINGLE','MARRIED','WIDOW/WIDOWER','SEPARATED','COMMON-LAW'];
@@ -2667,6 +2683,8 @@ function importCSVFile(event) {
     var parsed = [];
     for (var r = 1; r < lines.length; r++) {
       var cols = parseCSVLine(lines[r]);
+      // Skip rows with significantly more columns than the header — unquoted comma in a field
+      if (cols.length > headerCount + 3) { skippedMisaligned++; continue; }
       var col  = function(name) { return (cols[idx[name]] || '').trim(); };
 
       // -- Text fields → UPPERCASE
@@ -2989,6 +3007,7 @@ function importCSVFile(event) {
         if (toUpdate.length) parts.push(toUpdate.length + ' UPDATED');
         var msg = parts.join(', ') + ' RECORD' + (totalOps !== 1 ? 'S' : '') + ' IMPORTED';
         if (skippedNew > 0) msg += ' - ' + skippedNew + ' SKIPPED (ALREADY UP TO DATE)';
+        if (skippedMisaligned > 0) msg += ' - ' + skippedMisaligned + ' ROW' + (skippedMisaligned !== 1 ? 'S' : '') + ' SKIPPED (COLUMN MISMATCH — CHECK CSV FOR UNQUOTED COMMAS)';
         showToast(msg, 'success');
         showPage('records');
       }).catch(function(err) { hideImportOverlay(); showToast('IMPORT ERROR: ' + err.message, 'error'); });
