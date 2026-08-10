@@ -1541,7 +1541,7 @@ function buildDashboardReportHtml(records) {
   secRows.push(['NO SECTOR SPECIFIED',total-withSec,total>0?(((total-withSec)/total)*100).toFixed(1)+'%':'0.0%']);
 
   // REFERRING UNIT
-  var UNITS=['102nd SAC','1st Infantry "Always First" Battalion','1st OMPMFC','203rd Infantry "Bantay Kapayapaan" Brigade','23MICO','2CMO Battalion','2nd OMPMFC','402nd B MC RMFB 4B','405th B MC RMFB 4B','4th Infantry "Scorpion" Battalion','68th Infantry "Kaagapay" Battalion','76th Infantry "Victrix" Battalion','ISAFP','PIT Occidental Mindoro RIU 4B','OTHERS'];
+  var UNITS=['102nd SAC','1st Infantry "Always First" Battalion','1st OMPMFC','203rd Infantry "Bantay Kapayapaan" Brigade','23MICO','2CMO Battalion','2nd OMPMFC','402nd B MC RMFB 4B','405th B MC RMFB 4B','4th Infantry "Scorpion" Battalion','68th Infantry "Kaagapay" Battalion','76th Infantry "Victrix" Battalion','ISAFP','PIU','PIT Occidental Mindoro RIU 4B','OTHERS'];
   var unitCounts={}; UNITS.forEach(function(u){unitCounts[u]=0;}); var noUnit=0;
   records.forEach(function(r){var u=r.referringUnit||'';if(!u){noUnit++;return;}var k=u.indexOf('OTHERS')===0?'OTHERS':u;if(unitCounts[k]!==undefined)unitCounts[k]++;else noUnit++;});
   var unitRows=UNITS.map(function(u){var c=unitCounts[u];return[u,c,total>0?((c/total)*100).toFixed(1)+'%':'0.0%'];});
@@ -1720,8 +1720,8 @@ function renderSectorReport(records) {
 }
 
 function renderReferringUnitReport(records) {
-  var UNITS=['102nd SAC','1st Infantry "Always First" Battalion','1st OMPMFC','203rd Infantry "Bantay Kapayapaan" Brigade','23MICO','2CMO Battalion','2nd OMPMFC','402nd B MC RMFB 4B','405th B MC RMFB 4B','4th Infantry "Scorpion" Battalion','68th Infantry "Kaagapay" Battalion','76th Infantry "Victrix" Battalion','ISAFP','PIT Occidental Mindoro RIU 4B','OTHERS'];
-  var COLORS=['#388bfd','#3fb950','#d29922','#f85149','#a371f7','#39d353','#58a6ff','#79c0ff','#ffa657','#ff7b72','#56d364','#e3b341','#2ea043','#1f6feb','#6e7681'];
+  var UNITS=['102nd SAC','1st Infantry "Always First" Battalion','1st OMPMFC','203rd Infantry "Bantay Kapayapaan" Brigade','23MICO','2CMO Battalion','2nd OMPMFC','402nd B MC RMFB 4B','405th B MC RMFB 4B','4th Infantry "Scorpion" Battalion','68th Infantry "Kaagapay" Battalion','76th Infantry "Victrix" Battalion','ISAFP','PIU','PIT Occidental Mindoro RIU 4B','OTHERS'];
+  var COLORS=['#388bfd','#3fb950','#d29922','#f85149','#a371f7','#39d353','#58a6ff','#79c0ff','#ffa657','#ff7b72','#56d364','#e3b341','#2ea043','#db6d28','#1f6feb','#6e7681'];
   var total=records.length, counts={}; UNITS.forEach(function(u){counts[u]=0;}); var noUnit=0;
   records.forEach(function(r){var u=r.referringUnit||'';if(!u){noUnit++;return;}var key=u.indexOf('OTHERS')===0?'OTHERS':u;if(counts[key]!==undefined)counts[key]++;else noUnit++;});
   var withUnit=total-noUnit, maxCount=Math.max.apply(null,UNITS.map(function(u){return counts[u];}).concat([1]));
@@ -2246,7 +2246,7 @@ function editRecord(id) {
   document.getElementById('areaOfOperation').value=r.areaOfOperation||''; document.getElementById('yearsInMovement').value=r.yearsInMovement||'';
   document.getElementById('dateSurrendered').value=r.dateSurrendered||''; document.getElementById('pendingCase').value=r.pendingCase||'';
   document.getElementById('remarks').value=r.remarks||'';
-  var KNOWN_UNITS=['102nd SAC','1st Infantry "Always First" Battalion','1st OMPMFC','203rd Infantry "Bantay Kapayapaan" Brigade','23MICO','2CMO Battalion','2nd OMPMFC','402nd B MC RMFB 4B','405th B MC RMFB 4B','4th Infantry "Scorpion" Battalion','68th Infantry "Kaagapay" Battalion','76th Infantry "Victrix" Battalion','ISAFP','PIT Occidental Mindoro RIU 4B','OTHERS'];
+  var KNOWN_UNITS=['102nd SAC','1st Infantry "Always First" Battalion','1st OMPMFC','203rd Infantry "Bantay Kapayapaan" Brigade','23MICO','2CMO Battalion','2nd OMPMFC','402nd B MC RMFB 4B','405th B MC RMFB 4B','4th Infantry "Scorpion" Battalion','68th Infantry "Kaagapay" Battalion','76th Infantry "Victrix" Battalion','ISAFP','PIU','PIT Occidental Mindoro RIU 4B','OTHERS'];
   var savedUnit=r.referringUnit||'';
   // Normalize saved unit to canonical form before matching dropdown
   var savedUnit = normalizeReferringUnit(savedUnit) || savedUnit;
@@ -2603,7 +2603,7 @@ var IMPORT_KNOWN_UNITS = [
   '203rd Infantry "Bantay Kapayapaan" Brigade','23MICO','2CMO Battalion',
   '2nd OMPMFC','402nd B MC RMFB 4B','405th B MC RMFB 4B',
   '4th Infantry "Scorpion" Battalion','68th Infantry "Kaagapay" Battalion',
-  '76th Infantry "Victrix" Battalion','ISAFP','PIT Occidental Mindoro RIU 4B'
+  '76th Infantry "Victrix" Battalion','ISAFP','PIU','PIT Occidental Mindoro RIU 4B'
 ];
 function normalizeReferringUnit(raw) {
   if (!raw) return '';
@@ -2727,6 +2727,10 @@ function importCSVFile(event) {
       // -- Auto-tick INDIGENOUS PEOPLE if a tribal group is present
       if (tribalGroup && tribalGroup !== 'NO TRIBAL GROUP' && sectorList.indexOf('INDIGENOUS PEOPLE') === -1) {
         sectorList.push('INDIGENOUS PEOPLE');
+      }
+      // -- Auto-tick WOMEN if sex is FEMALE
+      if (sex === 'FEMALE' && sectorList.indexOf('WOMEN') === -1) {
+        sectorList.push('WOMEN');
       }
 
       // -- Referring unit
