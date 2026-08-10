@@ -408,6 +408,8 @@ function onLoginSuccess() {
 
 function doLogout() {
   clearTimeout(idleTimer);
+  clearTimeout(_undoExpireTimer);
+  try { localStorage.removeItem('frdb-lastImportSnapshot'); } catch(e) {}
   auth.signOut().then(function() {
     currentUser = null;
     allRecordsCache = [];
@@ -3091,18 +3093,41 @@ function importCSVFile(event) {
 }
 
 // -- UNDO LAST IMPORT -----------------------------------------
+var _undoExpireTimer = null;
+
 function updateUndoImportBtn() {
   var btn = document.getElementById('undoImportBtn');
   if (!btn) return;
   var snapshot = null;
   try { snapshot = JSON.parse(localStorage.getItem('frdb-lastImportSnapshot') || 'null'); } catch(e) {}
+
+  // Expire if older than 5 minutes
+  if (snapshot) {
+    var age = Date.now() - new Date(snapshot.timestamp).getTime();
+    if (age > 5 * 60 * 1000) {
+      try { localStorage.removeItem('frdb-lastImportSnapshot'); } catch(e) {}
+      snapshot = null;
+    }
+  }
+
   if (snapshot) {
     var ts = new Date(snapshot.timestamp).toLocaleString('en-PH', { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' });
     var count = (snapshot.inserted || []).length + (snapshot.restored || []).length;
+    var remaining = Math.max(0, Math.ceil((5 * 60 * 1000 - (Date.now() - new Date(snapshot.timestamp).getTime())) / 1000));
+    var mins = Math.floor(remaining / 60);
+    var secs = remaining % 60;
+    var timeStr = mins + ':' + (secs < 10 ? '0' : '') + secs;
     btn.style.display = 'inline-flex';
+    btn.textContent = '\u21A9 UNDO LAST IMPORT (' + timeStr + ')';
     btn.title = 'Undo import from ' + ts + ' (' + count + ' record' + (count !== 1 ? 's' : '') + ')';
+
+    // Refresh countdown every second
+    clearTimeout(_undoExpireTimer);
+    _undoExpireTimer = setTimeout(function() { updateUndoImportBtn(); }, 1000);
   } else {
+    clearTimeout(_undoExpireTimer);
     btn.style.display = 'none';
+    btn.textContent = '\u21A9 UNDO LAST IMPORT';
   }
 }
 
