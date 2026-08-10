@@ -2411,8 +2411,6 @@ function parseCSVLine(line) {
   result.push(cur.trim()); // last field
   return result;
 }
-  result.push(cur); return result;
-}
 
 // -- IMPORT HELPERS -------------------------------------------
 // Convert any recognisable date string to YYYY-MM-DD (the database canonical form).
