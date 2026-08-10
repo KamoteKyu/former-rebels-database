@@ -219,6 +219,22 @@
             <button class="report-dropdown-item" onclick="downloadReportCSV('non4ps');closeReportDropdown()">
               <span>⬇</span><span>DOWNLOAD CSV</span>
             </button>
+            <div class="report-dropdown-divider"></div>
+            <div class="report-dropdown-label">PROFILES WITH PHILHEALTH</div>
+            <button class="report-dropdown-item" onclick="printPhilhealthList(true);closeReportDropdown()">
+              <span>🖨</span><span>PRINT / VIEW PDF</span>
+            </button>
+            <button class="report-dropdown-item" onclick="downloadReportCSV('philhealth');closeReportDropdown()">
+              <span>⬇</span><span>DOWNLOAD CSV</span>
+            </button>
+            <div class="report-dropdown-divider"></div>
+            <div class="report-dropdown-label">PROFILES WITHOUT PHILHEALTH</div>
+            <button class="report-dropdown-item" onclick="printPhilhealthList(false);closeReportDropdown()">
+              <span>🖨</span><span>PRINT / VIEW PDF</span>
+            </button>
+            <button class="report-dropdown-item" onclick="downloadReportCSV('nophilhealth');closeReportDropdown()">
+              <span>⬇</span><span>DOWNLOAD CSV</span>
+            </button>
           </div>
         </div>
       </div>
@@ -344,6 +360,8 @@
           <div class="dash-card-header">
             <h3>📊 ASSISTANCE PROVIDED — REPORT</h3>
             <span id="asstTotalBadge" class="asst-total-badge">0 TOTAL BENEFICIARIES</span>
+            <button class="btn-secondary" style="font-size:0.65rem;padding:4px 10px" onclick="printPhilhealthList(true)">🖨 WITH PHILHEALTH</button>
+            <button class="btn-secondary" style="font-size:0.65rem;padding:4px 10px" onclick="printPhilhealthList(false)">🖨 WITHOUT PHILHEALTH</button>
           </div>
           <div class="asst-chart-wrap">
             <div id="asstBars" class="asst-bars"></div>

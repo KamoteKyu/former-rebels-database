@@ -1299,6 +1299,69 @@ function findDuplicateGroups(records) {
   return duplicates;
 }
 
+// -- PRINT PHILHEALTH LIST ------------------------------------
+function printPhilhealthList(hasPhilhealth) {
+  function run(records) {
+    var list = records.filter(function(r) {
+      var asst = r.assistance || [];
+      var has = asst.indexOf('PHILHEALTH') !== -1;
+      return hasPhilhealth ? has : !has;
+    }).slice().sort(function(a, b) {
+      var la=(a.lastName||'').toUpperCase(), lb=(b.lastName||'').toUpperCase();
+      var fa=(a.firstName||'').toUpperCase(), fb=(b.firstName||'').toUpperCase();
+      if (la<lb) return -1; if (la>lb) return 1;
+      if (fa<fb) return -1; if (fa>fb) return 1;
+      return 0;
+    });
+    if (!list.length) { showToast('NO RECORDS FOUND', 'info'); return; }
+
+    var title    = hasPhilhealth ? 'PROFILES WITH PHILHEALTH' : 'PROFILES WITHOUT PHILHEALTH';
+    var printed  = new Date().toLocaleString('en-PH');
+    var printedBy = currentUser ? currentUser.username + ' (' + currentUser.role + ')' : 'UNKNOWN';
+
+    var tableRows = list.map(function(r, i) {
+      var philStatus = (r.assistance||[]).indexOf('PHILHEALTH') !== -1;
+      return '<tr>' +
+        '<td style="text-align:center">' + (i+1) + '</td>' +
+        '<td><strong>' + (r.lastName||'') + ', ' + (r.firstName||'') + '</strong>' + (r.middleName ? ' ' + r.middleName : '') + '</td>' +
+        '<td>' + (r.alias||'-') + '</td>' +
+        '<td style="text-align:center">' + (r.sex||'-') + '</td>' +
+        '<td style="text-align:center">' + calcAgeFromDob(r.dob) + '</td>' +
+        '<td>' + (r.referringUnit||'-') + '</td>' +
+        '<td style="text-align:center">' + formatDate(r.dateSurrendered) + '</td>' +
+        '<td style="text-align:center;color:' + (philStatus?'#3fb950':'#f85149') + ';font-weight:700">' + (philStatus?'YES':'NO') + '</td>' +
+        '</tr>';
+    }).join('');
+
+    var body =
+      '<div class="print-header">' +
+        '<h1>FORMER REBELS DATABASE MANAGEMENT SYSTEM</h1>' +
+        '<p>' + title + '</p>' +
+        '<p>Printed: ' + printed + ' &nbsp;|&nbsp; Printed by: ' + printedBy + '</p>' +
+      '</div>' +
+      '<table class="report-table" style="width:100%;font-size:10px">' +
+        '<thead><tr>' +
+          '<th style="text-align:center;width:30px">#</th>' +
+          '<th>FULL NAME</th><th>ALIAS</th>' +
+          '<th style="text-align:center">SEX</th>' +
+          '<th style="text-align:center">AGE</th>' +
+          '<th>REFERRING UNIT</th>' +
+          '<th style="text-align:center">DATE SURRENDERED</th>' +
+          '<th style="text-align:center">PHILHEALTH</th>' +
+        '</tr></thead>' +
+        '<tbody>' + tableRows + '</tbody>' +
+        '<tfoot><tr><td colspan="8" style="text-align:right;font-size:9px;padding-top:6px;border-top:2px solid #333">' +
+          'TOTAL: ' + list.length + ' RECORD' + (list.length!==1?'S':'') +
+        '</td></tr></tfoot>' +
+      '</table>';
+
+    openPrintDocument('FR ' + title, body, REPORT_PRINT_STYLES);
+    showToast('PRINT PREVIEW OPENED', 'success');
+  }
+  if (allRecordsCache.length) run(allRecordsCache);
+  else dbGetAll().then(function(recs) { allRecordsCache = recs; run(recs); });
+}
+
 // -- PRINT NON-4Ps LIST ---------------------------------------
 function printNon4PsList() {
   function run(records) {
@@ -1560,6 +1623,21 @@ function downloadReportCSV(type) {
       count    = list.length;
       filename = 'FR_NON_4PS_MEMBERS_' + dateStr + '.csv';
       csv = [headers.map(q).join(',')].concat(rows.map(function(r) { return r.join(','); })).join('\n');
+
+    } else if (type === 'philhealth' || type === 'nophilhealth') {
+      var wantPhil = type === 'philhealth';
+      var list = records.filter(function(r) {
+        var has = (r.assistance||[]).indexOf('PHILHEALTH') !== -1;
+        return wantPhil ? has : !has;
+      }).slice().sort(function(a,b){var la=(a.lastName||'').toUpperCase(),lb=(b.lastName||'').toUpperCase(),fa=(a.firstName||'').toUpperCase(),fb=(b.firstName||'').toUpperCase();if(la<lb)return -1;if(la>lb)return 1;if(fa<fb)return -1;if(fa>fb)return 1;return 0;});
+      var headers = ['#','LAST NAME','FIRST NAME','MIDDLE NAME','ALIAS','SEX','AGE','DATE SURRENDERED','REFERRING UNIT','PHILHEALTH'];
+      var rows = list.map(function(r,i){
+        var has=(r.assistance||[]).indexOf('PHILHEALTH')!==-1;
+        return [i+1,r.lastName||'',r.firstName||'',r.middleName||'',r.alias||'',r.sex||'',calcAgeFromDob(r.dob),r.dateSurrendered||'',r.referringUnit||'',has?'YES':'NO'].map(q);
+      });
+      count    = list.length;
+      filename = 'FR_' + (wantPhil?'WITH':'WITHOUT') + '_PHILHEALTH_' + dateStr + '.csv';
+      csv = [headers.map(q).join(',')].concat(rows.map(function(r){return r.join(',');})).join('\n');
 
     } else if (type === 'duplicates') {
       var groups = findDuplicateGroups(records);
