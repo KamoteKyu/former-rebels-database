@@ -1205,16 +1205,6 @@ function normalizeName(s) {
     .replace(/\s+/g, ' ')
     .trim();
 }
-// Returns sorted unique tokens from all name fields combined
-function nameTokens(r) {
-  var combined = [r.lastName, r.firstName, r.middleName]
-    .map(function(s) { return normalizeName(s || ''); })
-    .join(' ').trim();
-  var tokens = combined.split(/\s+/).filter(function(t) { return t.length > 1; });
-  tokens.sort();
-  // Deduplicate
-  return tokens.filter(function(t, i) { return tokens.indexOf(t) === i; });
-}
 function editDistance(a, b) {
   var m = a.length, n = b.length, dp = [], i, j;
   for (i = 0; i <= m; i++) {
@@ -1228,45 +1218,36 @@ function editDistance(a, b) {
   return dp[m][n];
 }
 function fuzzyNameMatch(a, b) {
-  var tokA = nameTokens(a);
-  var tokB = nameTokens(b);
-  if (!tokA.length || !tokB.length) return false;
-  // Exact token set (handles swapped last/first/middle)
-  if (tokA.join('|') === tokB.join('|')) return true;
-  // All tokens of shorter name appear in longer (subset match, min 2 tokens)
-  var shorter = tokA.length <= tokB.length ? tokA : tokB;
-  var longer  = tokA.length <= tokB.length ? tokB : tokA;
-  var hits = shorter.filter(function(t) { return longer.indexOf(t) !== -1; });
-  if (hits.length === shorter.length && shorter.length >= 2) return true;
-  // Fuzzy token overlap: most tokens match (allows 1 typo token out of 3+)
-  if (shorter.length >= 3) {
-    var fuzzyHits = shorter.filter(function(t) {
-      return longer.some(function(u) {
-        return t === u || (t.length >= 4 && u.length >= 4 && editDistance(t, u) <= 1);
-      });
-    });
-    if (fuzzyHits.length >= shorter.length - 1) return true;
-  }
-  // Same last name + first names are typo variants (edit distance ≤ 1, min 4 chars)
-  var lastA = normalizeName(a.lastName), lastB = normalizeName(b.lastName);
+  var lastA  = normalizeName(a.lastName),  lastB  = normalizeName(b.lastName);
   var firstA = normalizeName(a.firstName), firstB = normalizeName(b.firstName);
-  if (lastA === lastB && firstA.length >= 4 && firstB.length >= 4 &&
-      editDistance(firstA, firstB) <= 1) return true;
-  // Both last AND first names are typo variants (edit distance ≤ 1 each, min 4 chars)
+  var midA   = normalizeName(a.middleName),midB   = normalizeName(b.middleName);
+
+  if (!lastA || !firstA || !lastB || !firstB) return false;
+
+  var lastDist  = editDistance(lastA,  lastB);
+  var firstDist = editDistance(firstA, firstB);
+
+  // Exact last + exact first
+  if (lastA === lastB && firstA === firstB) return true;
+
+  // Exact last + first name typo (dist ≤ 1, min 4 chars)
+  if (lastA === lastB && firstA.length >= 4 && firstB.length >= 4 && firstDist <= 1) return true;
+
+  // Both last AND first are typos (dist ≤ 1 each, min 4 chars)
   if (lastA.length >= 4 && lastB.length >= 4 && firstA.length >= 4 && firstB.length >= 4 &&
-      editDistance(lastA, lastB) <= 1 && editDistance(firstA, firstB) <= 1) return true;
-  // Same middle name + last names within edit distance 1 + first names within edit distance 2
-  var midA = normalizeName(a.middleName), midB = normalizeName(b.middleName);
+      lastDist <= 1 && firstDist <= 1) return true;
+
+  // Both last AND first are typos with same middle name as anchor (dist ≤ 2 first, min 4 chars)
   if (midA.length >= 4 && midA === midB &&
-      lastA.length >= 4 && lastB.length >= 4 && editDistance(lastA, lastB) <= 1 &&
-      firstA.length >= 4 && firstB.length >= 4 && editDistance(firstA, firstB) <= 2) return true;
-  // Swapped name check: a.lastName ≈ b.firstName AND a.firstName ≈ b.lastName (fuzzy)
-  if (lastA.length >= 3 && firstB.length >= 3 &&
-      editDistance(lastA, normalizeName(b.firstName)) <= 1 &&
-      editDistance(firstA, normalizeName(b.lastName)) <= 1) return true;
-  if (normalizeName(a.firstName).length >= 3 && lastB.length >= 3 &&
-      editDistance(normalizeName(a.firstName), lastB) <= 1 &&
-      editDistance(lastA, normalizeName(b.firstName)) <= 1) return true;
+      lastA.length >= 4 && lastB.length >= 4 && lastDist <= 1 &&
+      firstA.length >= 4 && firstB.length >= 4 && firstDist <= 2) return true;
+
+  // Swapped last/first: a.lastName ≈ b.firstName AND a.firstName ≈ b.lastName (exact or dist ≤ 1)
+  var swapLastDist  = editDistance(lastA,  firstB);
+  var swapFirstDist = editDistance(firstA, lastB);
+  if (lastA.length >= 4 && firstB.length >= 4 && firstA.length >= 4 && lastB.length >= 4 &&
+      swapLastDist <= 1 && swapFirstDist <= 1) return true;
+
   return false;
 }
 
