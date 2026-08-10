@@ -3569,6 +3569,52 @@ function runMiddleNameUpdate() {
   });
 }
 
+// -- NAIBUAN TRIBAL FIX (one-time migration) ------------------
+function runNaibuanTribalFix() {
+  if (!currentUser || currentUser.role !== 'ADMIN') { showToast('ACCESS DENIED - ADMIN ONLY', 'error'); return; }
+  var statusSpan = document.getElementById('naibuanFixStatus');
+  if (statusSpan) statusSpan.textContent = 'Checking records...';
+  showToast('SCANNING FOR NAIBUAN RECORDS...', 'info');
+
+  waitForAuth().then(function() {
+    return db.collection('records').get({ source: 'server' });
+  }).then(function(snapshot) {
+    var toFix = [];
+    snapshot.forEach(function(doc) {
+      var r = doc.data();
+      var addr = ((r.addressBarangay || '') + ' ' + (r.address || '')).toUpperCase();
+      if (addr.indexOf('NAIBUAN') !== -1 && r.tribalGroup !== 'HANUNUO') {
+        toFix.push({ ref: doc.ref });
+      }
+    });
+
+    if (!toFix.length) {
+      showToast('NO NAIBUAN RECORDS NEED UPDATING', 'success');
+      if (statusSpan) statusSpan.textContent = 'Nothing to update.';
+      return;
+    }
+
+    if (!confirm('Set tribalGroup = "HANUNUO" on ' + toFix.length + ' record(s) with NAIBUAN address?\n\nThis cannot be undone.')) {
+      if (statusSpan) statusSpan.textContent = '';
+      return;
+    }
+
+    if (statusSpan) statusSpan.textContent = 'Updating ' + toFix.length + ' record(s)...';
+    var batch = db.batch();
+    toFix.forEach(function(item) {
+      batch.update(item.ref, { tribalGroup: 'HANUNUO', updatedAt: new Date().toISOString() });
+    });
+    return batch.commit().then(function() {
+      showToast('UPDATED ' + toFix.length + ' RECORD(S) TO HANUNUO', 'success');
+      if (statusSpan) statusSpan.textContent = '✓ Updated ' + toFix.length + ' record(s).';
+      allRecordsCache = [];
+    });
+  }).catch(function(err) {
+    showToast('ERROR: ' + err.message, 'error');
+    if (statusSpan) statusSpan.textContent = '✗ Error.';
+  });
+}
+
 // -- PURGE ALL OPERATORS --------------------------------------
 function purgeAllOperators() {
   if (!currentUser || currentUser.role !== 'ADMIN') { showToast('ACCESS DENIED', 'error'); return; }
