@@ -1252,6 +1252,9 @@ function fuzzyNameMatch(a, b) {
   var firstA = normalizeName(a.firstName), firstB = normalizeName(b.firstName);
   if (lastA === lastB && firstA.length >= 4 && firstB.length >= 4 &&
       editDistance(firstA, firstB) <= 1) return true;
+  // Both last AND first names are typo variants (edit distance ≤ 1 each, min 4 chars)
+  if (lastA.length >= 4 && lastB.length >= 4 && firstA.length >= 4 && firstB.length >= 4 &&
+      editDistance(lastA, lastB) <= 1 && editDistance(firstA, firstB) <= 1) return true;
   // Swapped name check: a.lastName ≈ b.firstName AND a.firstName ≈ b.lastName (fuzzy)
   if (lastA.length >= 3 && firstB.length >= 3 &&
       editDistance(lastA, normalizeName(b.firstName)) <= 1 &&
