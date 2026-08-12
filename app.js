@@ -33,24 +33,72 @@ function waitForAuth() {
   });
 }
 
+// Convert a Firestore REST API field value to a plain JS value
+function fsValueToJs(val) {
+  if (!val) return null;
+  if (val.stringValue  !== undefined) return val.stringValue;
+  if (val.integerValue !== undefined) return parseInt(val.integerValue, 10);
+  if (val.doubleValue  !== undefined) return parseFloat(val.doubleValue);
+  if (val.booleanValue !== undefined) return val.booleanValue;
+  if (val.nullValue    !== undefined) return null;
+  if (val.timestampValue !== undefined) return val.timestampValue;
+  if (val.arrayValue   !== undefined) {
+    return (val.arrayValue.values || []).map(fsValueToJs);
+  }
+  if (val.mapValue !== undefined) {
+    var obj = {};
+    var fields = val.mapValue.fields || {};
+    Object.keys(fields).forEach(function(k) { obj[k] = fsValueToJs(fields[k]); });
+    return obj;
+  }
+  return null;
+}
+
+function sortDocs(docs) {
+  docs.sort(function(a, b) {
+    var la = (a.lastName  || '').toUpperCase();
+    var lb = (b.lastName  || '').toUpperCase();
+    var fa = (a.firstName || '').toUpperCase();
+    var fb = (b.firstName || '').toUpperCase();
+    if (la < lb) return -1; if (la > lb) return 1;
+    if (fa < fb) return -1; if (fa > fb) return 1;
+    return 0;
+  });
+  return docs;
+}
+
+// Use Firestore REST API instead of the JS SDK WebChannel
+// (WebChannel is broken in Electron 31 / Chromium 126+)
 function dbGetAll() {
   return waitForAuth().then(function() {
-    return db.collection('records')
-      .get({ source: 'server' })
-      .then(function(snap) {
-        var docs = snap.docs.map(function(d) { return Object.assign({ id: d.id }, d.data()); });
-        // Always sort alphabetically by lastName then firstName
-        docs.sort(function(a, b) {
-          var la = (a.lastName  || '').toUpperCase();
-          var lb = (b.lastName  || '').toUpperCase();
-          var fa = (a.firstName || '').toUpperCase();
-          var fb = (b.firstName || '').toUpperCase();
-          if (la < lb) return -1; if (la > lb) return 1;
-          if (fa < fb) return -1; if (fa > fb) return 1;
-          return 0;
-        });
-        return docs;
-      });
+    return firebase.auth().currentUser.getIdToken().then(function(token) {
+      var base = 'https://firestore.googleapis.com/v1/projects/' +
+                 firebaseConfig.projectId + '/databases/(default)/documents/records';
+
+      function fetchPage(url, collected) {
+        return fetch(url, { headers: { 'Authorization': 'Bearer ' + token } })
+          .then(function(r) {
+            if (!r.ok) return r.text().then(function(t) { throw new Error('HTTP ' + r.status + ': ' + t); });
+            return r.json();
+          })
+          .then(function(data) {
+            var docs = (data.documents || []).map(function(d) {
+              var id = d.name.split('/').pop();
+              var rec = { id: id };
+              Object.keys(d.fields || {}).forEach(function(k) {
+                rec[k] = fsValueToJs(d.fields[k]);
+              });
+              return rec;
+            });
+            collected = collected.concat(docs);
+            if (data.nextPageToken) {
+              return fetchPage(base + '?pageSize=300&pageToken=' + encodeURIComponent(data.nextPageToken), collected);
+            }
+            return sortDocs(collected);
+          });
+      }
+      return fetchPage(base + '?pageSize=300', []);
+    });
   });
 }
 
@@ -248,7 +296,7 @@ var TRIBAL_GROUP_TYPES = [
 var SECTOR_IDS = ['sec_farmer','sec_fisherfolk','sec_women','sec_pwd','sec_youth','sec_senior','sec_solo_parent','sec_ip','sec_urban_poor','sec_others'];
 
 // Returns the default civil status based on age
-// 30+ → COMMON-LAW, under 30 → SINGLE
+// 30+ ? COMMON-LAW, under 30 ? SINGLE
 function defaultCivilStatus(dob) {
   if (!dob) return 'SINGLE'; // no DOB - default to SINGLE
   var age = parseInt(calcAgeFromDob(dob), 10);
@@ -262,7 +310,7 @@ function normalizeTribalGroup(val) {
   // Exact known aliases
   if (v === 'MANGYAN') return 'OTHERS';
   if (v === 'TAU-BUHID') return 'TAU-BUID';
-  // Strip trailing " MANGYAN" suffix - e.g. "HANUNUO MANGYAN" → "HANUNUO"
+  // Strip trailing " MANGYAN" suffix - e.g. "HANUNUO MANGYAN" ? "HANUNUO"
   // This covers IRAYA MANGYAN, ALANGAN MANGYAN, TADYAWAN MANGYAN, etc.
   var withoutMangyan = v.replace(/\s+MANGYAN$/, '').trim();
   if (withoutMangyan !== v && TRIBAL_GROUP_TYPES.indexOf(withoutMangyan) !== -1) {
@@ -286,7 +334,7 @@ function showToast(msg, type) {
 function playChime() {
   try {
     var ctx = new (window.AudioContext || window.webkitAudioContext)();
-    // Three ascending notes: C5 → E5 → G5
+    // Three ascending notes: C5 ? E5 ? G5
     var notes = [523.25, 659.25, 783.99];
     notes.forEach(function(freq, i) {
       var osc   = ctx.createOscillator();
@@ -456,6 +504,8 @@ function showPage(page) {
           showToast('FIRESTORE RULES BLOCKING READ - SET: allow read, write: if true', 'error');
         } else if (err.message === 'Not authenticated') {
           showToast('NOT LOGGED IN', 'error');
+        } else if (err.code === 'unavailable' || (err.message && err.message.indexOf('10 seconds') !== -1)) {
+          showToast('NO INTERNET CONNECTION � CHECK YOUR NETWORK AND RETRY', 'error');
         } else {
           showToast('ERROR LOADING DATA: ' + err.message, 'error');
         }
@@ -468,11 +518,20 @@ function showPage(page) {
     dbGetAll().then(function(records) { allRecordsCache = records; renderRecords(records); })
       .catch(function(err) {
         console.error('[FRDB] dbGetAll error:', err.code, err.message);
-        if (err.code === 'permission-denied') {
-          showToast('FIRESTORE RULES BLOCKING READ - SET: allow read, write: if true', 'error');
-        } else {
-          showToast('ERROR LOADING DATA: ' + err.message, 'error');
-        }
+        var isOffline = err.code === 'unavailable' || (err.message && err.message.indexOf('10 seconds') !== -1);
+        var msg = err.code === 'permission-denied'
+          ? 'FIRESTORE RULES BLOCKING READ'
+          : isOffline
+            ? 'NO INTERNET CONNECTION'
+            : ('ERROR: ' + err.message);
+        document.getElementById('recordsTableBody').innerHTML =
+          '<tr><td colspan="10" style="text-align:center;padding:32px">' +
+            '<div style="color:#f85149;font-weight:700;margin-bottom:12px">? ' + msg + '</div>' +
+            (isOffline ? '<div style="color:var(--text3);font-size:0.78rem;margin-bottom:16px">Check your internet connection, then try again.</div>' : '') +
+            '<button class="btn-primary" onclick="showPage(\'records\')">? RETRY</button>' +
+          '</td></tr>';
+        if (isOffline) showToast('NO INTERNET � CHECK YOUR NETWORK AND RETRY', 'error');
+        else showToast(msg, 'error');
       });
   }
   if (page === 'addRecord' && !editingRecordId) { resetForm(); document.getElementById('formTitle').textContent = 'ADD NEW RECORD'; }
@@ -664,7 +723,7 @@ function renderRecentImportsWidget() {
       if (allRecordsCache[i].id === e.id) { r = allRecordsCache[i]; break; }
     }
     var photo = r && r.idPhoto ? r.idPhoto : 'BHB.png';
-    // Always use live record name if available — never trust the stored string
+    // Always use live record name if available � never trust the stored string
     var displayName = r
       ? (r.lastName || '') + ', ' + (r.firstName || '') + (r.middleName ? ' ' + r.middleName : '')
       : e.name;
@@ -1073,7 +1132,7 @@ function printFullList() {
         '<td style="font-size:9px">' + (r.referringUnit || '-') + '</td>' +
         '<td style="text-align:center">' + (r.sex || '-') + '</td>' +
         '<td style="text-align:center">' + age + '</td>' +
-        '<td style="text-align:center">' + formatDate(r.dateSurrendered) + '</td>' +
+        '<td style="text-align:center">' + formatDate(r.dob) + '</td>' +
         '<td style="font-size:9px;' + statusStyle + '">' + asstText + '</td>' +
         '</tr>';
     }).join('');
@@ -1094,7 +1153,7 @@ function printFullList() {
           '<th>REFERRING UNIT</th>' +
           '<th style="text-align:center">SEX</th>' +
           '<th style="text-align:center">AGE</th>' +
-          '<th style="text-align:center">DATE SURRENDERED</th>' +
+          '<th style="text-align:center">DATE OF BIRTH</th>' +
           '<th>CURRENT ASSISTANCE</th>' +
         '</tr></thead>' +
         '<tbody>' + rows + '</tbody>' +
@@ -1105,6 +1164,105 @@ function printFullList() {
 
     openPrintDocument('FR Full List', body, REPORT_PRINT_STYLES);
     showToast('FULL LIST GENERATED - ' + list.length + ' RECORD(S)', 'success');
+  }
+  if (allRecordsCache.length) run(allRecordsCache);
+  else dbGetAll().then(function(records) { allRecordsCache = records; run(records); })
+    .catch(function(err) { showToast('ERROR: ' + err.message, 'error'); });
+}
+
+// -- PRINT ASSISTANCE LIST ------------------------------------
+function printAssistanceList() {
+  function run(records) {
+    if (!records.length) { showToast('NO RECORDS TO PRINT', 'info'); return; }
+
+    var ASST_TYPES = [
+      'E-CLIP','NOT QUALIFIED FOR E-CLIP','FEA REMUNERATION','LIVELIHOOD',
+      'MEDICAL','EDUCATIONAL','ISSUANCE OF CREDENTIALS','PHILHEALTH',
+      'ISSUANCE OF SAFE CONDUCT PASS','APPLIED FOR AMNESTY','OTHERS'
+    ];
+
+    var list = records.slice().sort(function(a, b) {
+      var la = (a.lastName  || '').toUpperCase(), lb = (b.lastName  || '').toUpperCase();
+      var fa = (a.firstName || '').toUpperCase(), fb = (b.firstName || '').toUpperCase();
+      if (la < lb) return -1; if (la > lb) return 1;
+      if (fa < fb) return -1; if (fa > fb) return 1;
+      return 0;
+    });
+
+    var printed   = new Date().toLocaleString('en-PH');
+    var printedBy = currentUser ? currentUser.username + ' (' + currentUser.role + ')' : 'UNKNOWN';
+
+    // Summary counts per assistance type
+    var counts = {};
+    ASST_TYPES.forEach(function(t) { counts[t] = 0; });
+    records.forEach(function(r) {
+      (r.assistance || []).forEach(function(a) {
+        var key = a.indexOf('OTHERS') === 0 ? 'OTHERS' : a;
+        if (counts[key] !== undefined) counts[key]++;
+      });
+    });
+
+    var summaryRows = ASST_TYPES.map(function(t) {
+      return '<tr><td>' + t + '</td><td style="text-align:center;font-weight:700">' + counts[t] + '</td></tr>';
+    }).join('');
+
+    var summaryTable =
+      '<div style="margin-bottom:16px;page-break-inside:avoid">' +
+        '<h2 style="font-size:11px;letter-spacing:1.5px;margin:0 0 6px;border-bottom:1px solid #999;padding-bottom:4px">ASSISTANCE SUMMARY</h2>' +
+        '<table class="report-table" style="width:40%;font-size:10px">' +
+          '<thead><tr><th>ASSISTANCE TYPE</th><th style="text-align:center">COUNT</th></tr></thead>' +
+          '<tbody>' + summaryRows + '</tbody>' +
+        '</table>' +
+      '</div>';
+
+    var detailRows = list.map(function(r, i) {
+      var asst = (r.assistance && r.assistance.length) ? r.assistance.join(', ') : '-';
+      var statusStyle = '';
+      if (r.recordStatus === 'DECEASED')          statusStyle = 'color:#cf222e;font-weight:700';
+      if (r.recordStatus === 'CANNOT BE LOCATED') statusStyle = 'color:#9a6700;font-weight:700';
+      if (r.recordStatus === 'INCARCERATED')      statusStyle = 'color:#7a43b6;font-weight:700';
+      return '<tr>' +
+        '<td style="text-align:center">' + (i + 1) + '</td>' +
+        '<td><strong>' + (r.lastName || '') + ', ' + (r.firstName || '') + '</strong>' + (r.middleName ? ' ' + r.middleName : '') + '</td>' +
+        '<td>' + (r.alias || '-') + '</td>' +
+        '<td style="text-align:center">' + (r.sex || '-') + '</td>' +
+        '<td style="text-align:center">' + calcAgeFromDob(r.dob) + '</td>' +
+        '<td style="font-size:9px">' + (r.referringUnit || '-') + '</td>' +
+        '<td style="font-size:9px;' + statusStyle + '">' + asst + '</td>' +
+      '</tr>';
+    }).join('');
+
+    var detailTable =
+      '<div style="page-break-inside:avoid">' +
+        '<h2 style="font-size:11px;letter-spacing:1.5px;margin:0 0 6px;border-bottom:1px solid #999;padding-bottom:4px">ASSISTANCE PER FORMER REBEL</h2>' +
+        '<table class="report-table" style="width:100%;font-size:10px">' +
+          '<thead><tr>' +
+            '<th style="text-align:center;width:26px">#</th>' +
+            '<th>FULL NAME</th>' +
+            '<th>ALIAS</th>' +
+            '<th style="text-align:center">SEX</th>' +
+            '<th style="text-align:center">AGE</th>' +
+            '<th>REFERRING UNIT</th>' +
+            '<th>ASSISTANCE PROVIDED</th>' +
+          '</tr></thead>' +
+          '<tbody>' + detailRows + '</tbody>' +
+          '<tfoot><tr><td colspan="7" style="text-align:right;font-size:9px;padding-top:6px;border-top:2px solid #333">' +
+            'TOTAL: ' + list.length + ' RECORD' + (list.length !== 1 ? 'S' : '') +
+          '</td></tr></tfoot>' +
+        '</table>' +
+      '</div>';
+
+    var body =
+      '<div class="print-header">' +
+        '<h1>FORMER REBELS DATABASE MANAGEMENT SYSTEM</h1>' +
+        '<p>ASSISTANCE PROVIDED � FORMER REBELS</p>' +
+        '<p>Generated: ' + printed + ' &nbsp;|&nbsp; By: ' + printedBy + '</p>' +
+      '</div>' +
+      summaryTable +
+      detailTable;
+
+    openPrintDocument('FR Assistance Report', body, REPORT_PRINT_STYLES);
+    showToast('ASSISTANCE REPORT GENERATED - ' + list.length + ' RECORD(S)', 'success');
   }
   if (allRecordsCache.length) run(allRecordsCache);
   else dbGetAll().then(function(records) { allRecordsCache = records; run(records); })
@@ -1142,7 +1300,7 @@ function showPossibleDuplicates() {
     var groups = findDuplicateGroups(records);
 
     if (!groups.length) {
-      content.innerHTML = '<div style="text-align:center;padding:32px;color:var(--accent2)">✓ NO POSSIBLE DUPLICATES FOUND IN ' + records.length + ' RECORDS</div>';
+      content.innerHTML = '<div style="text-align:center;padding:32px;color:var(--accent2)">? NO POSSIBLE DUPLICATES FOUND IN ' + records.length + ' RECORDS</div>';
       return;
     }
 
@@ -1178,9 +1336,9 @@ function showPossibleDuplicates() {
           '<td style="padding:8px 10px;font-size:0.68rem">' + (r.referringUnit||'-') + '</td>' +
           '<td style="padding:8px 10px;text-align:center">' + (r.dateSurrendered ? formatDate(r.dateSurrendered) : '-') + '</td>' +
           '<td style="padding:8px 10px;text-align:center">' +
-            '<button class="btn-view" style="margin:2px" onclick="closeDuplicatesModal();viewRecord(\'' + r.id + '\')">👁 VIEW</button>' +
-            '<button class="btn-edit" style="margin:2px" onclick="closeDuplicatesModal();editRecord(\'' + r.id + '\')">✏ EDIT</button>' +
-            '<button class="btn-del" style="margin:2px" onclick="deleteDuplicateRecord(\'' + r.id + '\')">🗑 DEL</button>' +
+            '<button class="btn-view" style="margin:2px" onclick="closeDuplicatesModal();viewRecord(\'' + r.id + '\')">?? VIEW</button>' +
+            '<button class="btn-edit" style="margin:2px" onclick="closeDuplicatesModal();editRecord(\'' + r.id + '\')">? EDIT</button>' +
+            '<button class="btn-del" style="margin:2px" onclick="deleteDuplicateRecord(\'' + r.id + '\')">?? DEL</button>' +
           '</td>' +
         '</tr>';
       });
@@ -1224,7 +1382,7 @@ function fuzzyNameMatch(a, b) {
 
   if (!lastA || !firstA || !lastB || !firstB) return false;
 
-  // If first names are completely different, skip — avoids false positives
+  // If first names are completely different, skip � avoids false positives
   var firstDist = editDistance(firstA, firstB);
   var maxFirstLen = Math.max(firstA.length, firstB.length);
   // Allow at most 2 edits OR 25% of the longer name (whichever is smaller)
@@ -1236,7 +1394,7 @@ function fuzzyNameMatch(a, b) {
   // Exact last + exact first
   if (lastA === lastB && firstA === firstB) return true;
 
-  // Exact last + first name typo (dist ≤ 1, min 4 chars)
+  // Exact last + first name typo (dist = 1, min 4 chars)
   if (lastA === lastB && firstA.length >= 4 && firstB.length >= 4 && firstDist <= 1) return true;
 
   // Both last AND first are typos (dist <= 1 each, min 6 chars for last to avoid short name false positives)
@@ -1248,7 +1406,7 @@ function fuzzyNameMatch(a, b) {
       lastA.length >= 6 && lastB.length >= 6 && lastDist <= 1 &&
       firstA.length >= 4 && firstB.length >= 4 && firstDist <= 2) return true;
 
-  // Swapped last/first: a.lastName ≈ b.firstName AND a.firstName ≈ b.lastName (exact or dist ≤ 1)
+  // Swapped last/first: a.lastName � b.firstName AND a.firstName � b.lastName (exact or dist = 1)
   var swapLastDist  = editDistance(lastA,  firstB);
   var swapFirstDist = editDistance(firstA, lastB);
   if (lastA.length >= 4 && firstB.length >= 4 && firstA.length >= 4 && lastB.length >= 4 &&
@@ -1271,9 +1429,9 @@ function findDuplicateGroups(records) {
     var m = combined.match(/\b(JR\.?|SR\.?)\b/);
     return m ? m[1].replace('.', '') : '';
   }
-  // Build groups using fuzzy matching — O(n²) but fine for <1000 records
+  // Build groups using fuzzy matching � O(n�) but fine for <1000 records
   var grouped = []; // array of arrays
-  var assigned = {}; // id → group index
+  var assigned = {}; // id ? group index
 
   records.forEach(function(r) {
     if (assigned[r.id] !== undefined) return;
@@ -1328,6 +1486,7 @@ function printPhilhealthList(hasPhilhealth) {
         '<td>' + (r.alias||'-') + '</td>' +
         '<td style="text-align:center">' + (r.sex||'-') + '</td>' +
         '<td style="text-align:center">' + calcAgeFromDob(r.dob) + '</td>' +
+        '<td style="text-align:center">' + formatDate(r.dob) + '</td>' +
         '<td>' + (address||'-') + '</td>' +
         '<td style="text-align:center;color:' + (philStatus?'#3fb950':'#f85149') + ';font-weight:700">' + (philStatus?'YES':'NO') + '</td>' +
         '</tr>';
@@ -1345,11 +1504,12 @@ function printPhilhealthList(hasPhilhealth) {
           '<th>FULL NAME</th><th>ALIAS</th>' +
           '<th style="text-align:center">SEX</th>' +
           '<th style="text-align:center">AGE</th>' +
+          '<th style="text-align:center">DATE OF BIRTH</th>' +
           '<th>ADDRESS</th>' +
           '<th style="text-align:center">PHILHEALTH</th>' +
         '</tr></thead>' +
         '<tbody>' + tableRows + '</tbody>' +
-        '<tfoot><tr><td colspan="7" style="text-align:right;font-size:9px;padding-top:6px;border-top:2px solid #333">' +
+        '<tfoot><tr><td colspan="8" style="text-align:right;font-size:9px;padding-top:6px;border-top:2px solid #333">' +
           'TOTAL: ' + list.length + ' RECORD' + (list.length!==1?'S':'') +
         '</td></tr></tfoot>' +
       '</table>';
@@ -1582,7 +1742,7 @@ function downloadReportCSV(type) {
         return 0;
       });
       var headers = ['#','LAST NAME','FIRST NAME','MIDDLE NAME','ALIAS',
-        'REFERRING UNIT','SEX','AGE','DATE SURRENDERED','CURRENT ASSISTANCE'];
+        'REFERRING UNIT','SEX','AGE','DATE OF BIRTH','CURRENT ASSISTANCE'];
       var rows = list.map(function(r, i) {
         return [
           i + 1,
@@ -1593,7 +1753,7 @@ function downloadReportCSV(type) {
           r.referringUnit || '',
           r.sex        || '',
           calcAgeFromDob(r.dob),
-          r.dateSurrendered || '',
+          r.dob || '',
           (r.assistance || []).join('; ')
         ].map(q);
       });
@@ -1627,11 +1787,11 @@ function downloadReportCSV(type) {
         var has = (r.assistance||[]).indexOf('PHILHEALTH') !== -1;
         return wantPhil ? has : !has;
       }).slice().sort(function(a,b){var la=(a.lastName||'').toUpperCase(),lb=(b.lastName||'').toUpperCase(),fa=(a.firstName||'').toUpperCase(),fb=(b.firstName||'').toUpperCase();if(la<lb)return -1;if(la>lb)return 1;if(fa<fb)return -1;if(fa>fb)return 1;return 0;});
-      var headers = ['#','LAST NAME','FIRST NAME','MIDDLE NAME','ALIAS','SEX','AGE','ADDRESS','PHILHEALTH'];
+      var headers = ['#','LAST NAME','FIRST NAME','MIDDLE NAME','ALIAS','SEX','AGE','DATE OF BIRTH','ADDRESS','PHILHEALTH'];
       var rows = list.map(function(r,i){
         var has=(r.assistance||[]).indexOf('PHILHEALTH')!==-1;
         var addr=[r.addressBarangay||r.address,r.addressMunicipality,r.addressProvince].filter(Boolean).join(', ');
-        return [i+1,r.lastName||'',r.firstName||'',r.middleName||'',r.alias||'',r.sex||'',calcAgeFromDob(r.dob),addr,has?'YES':'NO'].map(q);
+        return [i+1,r.lastName||'',r.firstName||'',r.middleName||'',r.alias||'',r.sex||'',calcAgeFromDob(r.dob),r.dob||'',addr,has?'YES':'NO'].map(q);
       });
       count    = list.length;
       filename = 'FR_' + (wantPhil?'WITH':'WITHOUT') + '_PHILHEALTH_' + dateStr + '.csv';
@@ -1653,6 +1813,31 @@ function downloadReportCSV(type) {
       });
       count = groups.reduce(function(s, g) { return s + g.length; }, 0);
       filename = 'FR_POSSIBLE_DUPLICATES_' + dateStr + '.csv';
+      csv = [headers.map(q).join(',')].concat(rows.map(function(r){return r.join(',');})).join('\n');
+
+    } else if (type === 'assistance') {
+      var list = records.slice().sort(function(a,b){
+        var la=(a.lastName||'').toUpperCase(),lb=(b.lastName||'').toUpperCase();
+        var fa=(a.firstName||'').toUpperCase(),fb=(b.firstName||'').toUpperCase();
+        if(la<lb)return -1;if(la>lb)return 1;if(fa<fb)return -1;if(fa>fb)return 1;return 0;
+      });
+      var headers = ['#','LAST NAME','FIRST NAME','MIDDLE NAME','ALIAS','SEX','AGE','DATE OF BIRTH','REFERRING UNIT','ASSISTANCE PROVIDED'];
+      var rows = list.map(function(r,i){
+        return [
+          i+1,
+          r.lastName||'',
+          r.firstName||'',
+          r.middleName||'',
+          r.alias||'',
+          r.sex||'',
+          calcAgeFromDob(r.dob),
+          r.dob||'',
+          r.referringUnit||'',
+          (r.assistance||[]).join('; ')
+        ].map(q);
+      });
+      count    = list.length;
+      filename = 'FR_ASSISTANCE_REPORT_' + dateStr + '.csv';
       csv = [headers.map(q).join(',')].concat(rows.map(function(r){return r.join(',');})).join('\n');
     }
 
@@ -1798,7 +1983,7 @@ function buildDashboardReportHtml(records) {
     '<div class="report-section"><h2>STATUS - CANNOT BE LOCATED / DECEASED</h2>' + buildReportTable(['STATUS','COUNT','% OF TOTAL'], statusRows) + '</div>' +
     '<div class="report-section"><h2>ASSISTANCE PROVIDED</h2>' + buildReportTable(['TYPE OF ASSISTANCE','COUNT','% OF TOTAL'], asstRows) + '</div>' +
     '<div class="report-section"><h2>JAPIC CERTIFICATE STATUS</h2>' + buildReportTable(['JAPIC STATUS','COUNT','% OF TOTAL'], japicRows) + '</div>' +
-    '<div class="report-section"><h2>SURRENDER BY YEAR ('+START_YEAR+'–'+curYear+')</h2>' + buildReportTable(['YEAR','COUNT','% OF TOTAL'], yrRows) + '</div>' +
+    '<div class="report-section"><h2>SURRENDER BY YEAR ('+START_YEAR+'�'+curYear+')</h2>' + buildReportTable(['YEAR','COUNT','% OF TOTAL'], yrRows) + '</div>' +
     '<div class="report-section"><h2>MEMBERSHIP TYPE</h2>' + buildReportTable(['TYPE','COUNT','% OF TOTAL'], memRows) + '</div>' +
     '<div class="report-section"><h2>TRIBAL GROUP</h2>' + buildReportTable(['TRIBAL GROUP','COUNT','% OF TOTAL'], tribalRows) + '</div>' +
     '<div class="report-section"><h2>AGE BRACKET</h2>' + buildReportTable(['AGE BRACKET','COUNT','% OF TOTAL'], ageRows) + '</div>' +
@@ -2289,11 +2474,11 @@ function saveRecord(event) {
   isSaving = true; // lock immediately - before any async work
 
   var saveBtn = document.querySelector('#recordForm button[type="submit"]');
-  if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = '⏳ SAVING...'; }
+  if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = '? SAVING...'; }
 
   function unlockSave() {
     isSaving = false;
-    if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = '💾 SAVE RECORD'; }
+    if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = '?? SAVE RECORD'; }
   }
   var sectorChecked = SECTOR_IDS.some(function(id){return document.getElementById(id).checked;});
   var sectorErr = document.getElementById('sectorError');
@@ -2381,7 +2566,7 @@ function saveRecord(event) {
   }
 
   showToast('CHECKING FOR DUPLICATES...', 'info');
-  // Fuzzy check against full cache — handles swapped names and typos
+  // Fuzzy check against full cache � handles swapped names and typos
   var duplicate = null;
   if (allRecordsCache.length) {
     for (var ci = 0; ci < allRecordsCache.length; ci++) {
@@ -2403,11 +2588,11 @@ function saveRecord(event) {
     unlockSave();
     return;
   }
-  // No fuzzy match in cache — also do Firestore exact query as fallback
+  // No fuzzy match in cache � also do Firestore exact query as fallback
   db.collection('records')
     .where('lastName',  '==', record.lastName)
     .where('firstName', '==', record.firstName)
-    .get({ source: 'server' })
+    .get()
     .then(function(snap) {
       var duplicate = null;
       snap.docs.forEach(function(d) {
@@ -2418,7 +2603,7 @@ function saveRecord(event) {
         // Only skip if the suffixes are DIFFERENT (e.g. one is JR, other is SR)
         // Two records both carrying SR (or both JR) are still duplicates
         if (newSuffix && exSuffix && newSuffix !== exSuffix) return;
-        // Same last + first name → flag as duplicate
+        // Same last + first name ? flag as duplicate
         duplicate = existing;
       });
       if (duplicate) {
@@ -2439,7 +2624,7 @@ function saveRecord(event) {
         unlockSave();
         playChime();
         showToast(isEdit ? 'RECORD UPDATED SUCCESSFULLY' : 'RECORD SAVED SUCCESSFULLY', 'success');
-        // Manual save — remove this record from the recent imports widget
+        // Manual save � remove this record from the recent imports widget
         try { var _ri = JSON.parse(localStorage.getItem('frdb-recentImports')||'[]'); localStorage.setItem('frdb-recentImports', JSON.stringify(_ri.filter(function(e){return e.id!==recordId;}))); } catch(ex) {}
         editingRecordId = null;
         allRecordsCache = [];
@@ -2574,7 +2759,7 @@ function buildRecordDetailHtml(r, forPrint) {
   var statusColors={'CANNOT BE LOCATED':'#d29922','DECEASED':'#f85149','INCARCERATED':'#a371f7'};
   var tagsStatus=r.recordStatus?'<span class="tag" style="background:rgba(248,81,73,0.15);border-color:'+statusColors[r.recordStatus]+';color:'+statusColors[r.recordStatus]+';font-weight:700">&#9679; '+r.recordStatus+'</span>':'';
   var asstRaw = r.assistance || [];
-  // Collapse bare 'OTHERS' if a specific 'OTHERS: <value>' already exists — avoids redundant tags
+  // Collapse bare 'OTHERS' if a specific 'OTHERS: <value>' already exists � avoids redundant tags
   var hasSpecificOthers = asstRaw.some(function(a) { return a.length > 6 && a.indexOf('OTHERS:') === 0; });
   var asstFiltered = hasSpecificOthers ? asstRaw.filter(function(a) { return a !== 'OTHERS'; }) : asstRaw;
   var asstHtml = asstFiltered.length ? asstFiltered.map(function(a){return'<span class="tag tag-green">'+a+'</span>';}).join('') : '-';
@@ -2799,7 +2984,7 @@ function normalizeSectorList(raw) {
       if (matched) break;
     }
     if (!matched) {
-      // Unknown — store as OTHERS: <value>
+      // Unknown � store as OTHERS: <value>
       var othersVal = 'OTHERS: ' + up;
       if (!seen[othersVal]) { seen[othersVal] = true; result.push(othersVal); }
     }
@@ -2842,7 +3027,7 @@ function normalizeAsstList(raw) {
         return;
       }
     }
-    // Already prefixed with OTHERS — keep as-is
+    // Already prefixed with OTHERS � keep as-is
     if (up.indexOf('OTHERS') === 0) {
       if (!seen[up]) { seen[up] = true; result.push(up); }
       return;
@@ -2861,7 +3046,7 @@ function normalizeAsstList(raw) {
     }
     if (matchedCanonical) {
       // Check if value has extra content beyond just the keyword
-      // (e.g. amounts, sources — indicates a descriptive note)
+      // (e.g. amounts, sources � indicates a descriptive note)
       var isDescriptive = /\d/.test(up) || up.length > matchedCanonical.length + 15;
       if (!seen[matchedCanonical]) { seen[matchedCanonical] = true; result.push(matchedCanonical); }
       if (isDescriptive) {
@@ -2870,12 +3055,12 @@ function normalizeAsstList(raw) {
         if (!seen[othersVal]) { seen[othersVal] = true; result.push(othersVal); }
       }
     } else {
-      // No match at all — store as OTHERS: <value>
+      // No match at all � store as OTHERS: <value>
       var othersKey = 'OTHERS: ' + up;
       if (!seen[othersKey]) { seen[othersKey] = true; result.push(othersKey); }
     }
   });
-  // If any OTHERS: <value> entries exist, remove bare 'OTHERS' — it's redundant
+  // If any OTHERS: <value> entries exist, remove bare 'OTHERS' � it's redundant
   var hasSpecificOthers = result.some(function(a) { return a.length > 6 && a.indexOf('OTHERS:') === 0; });
   if (hasSpecificOthers) result = result.filter(function(a) { return a !== 'OTHERS'; });
   return result;
@@ -2988,11 +3173,11 @@ function importCSVFile(event) {
     var parsed = [];
     for (var r = 1; r < lines.length; r++) {
       var cols = parseCSVLine(lines[r]);
-      // Skip rows with significantly more columns than the header — unquoted comma in a field
+      // Skip rows with significantly more columns than the header � unquoted comma in a field
       if (cols.length > headerCount + 3) { skippedMisaligned++; continue; }
       var col  = function(name) { return (cols[idx[name]] || '').trim(); };
 
-      // -- Text fields → UPPERCASE
+      // -- Text fields ? UPPERCASE
       var lastName       = ucField(col('LAST NAME'));
       var firstName      = ucField(col('FIRST NAME'));
       var middleName     = ucField(col('MIDDLE NAME'));
@@ -3013,6 +3198,16 @@ function importCSVFile(event) {
       var fourPs         = matchEnum(col('4Ps'), FOURPS_VALS) || 'NO';
       var pendingCase    = matchEnum(col('PENDING CASE'), PENDING_VALS) || 'NO';
       var membershipType = matchEnum(col('MEMBERSHIP TYPE'), MEMBERSHIP_VALS);
+      if (!membershipType) {
+        var rawMem = ucField(col('MEMBERSHIP TYPE'));
+        if (rawMem === 'NPA' || rawMem === 'REGULAR' || rawMem === 'REG NPA' || rawMem === 'REG. NPA') {
+          membershipType = 'REGULAR NPA';
+        } else if (rawMem === 'MB' || rawMem === 'MILISYA' || rawMem === 'MILISYANG' ||
+                   rawMem === 'MILISYA NG BAYAN' || rawMem === 'MILISYANG BAYAN' ||
+                   rawMem.indexOf('MILISYA') === 0) {
+          membershipType = 'MILISYANG BAYAN';
+        }
+      }
       var areaOfOp       = matchEnum(col('AREA OF OPERATION'), AOO_VALS);
       var recordStatus   = col('STATUS') ? matchEnum(col('STATUS'), STATUS_VALS) : '';
       var province       = col('PROVINCE') ? matchEnum(col('PROVINCE'), PROVINCE_VALS) : 'OCCIDENTAL MINDORO';
@@ -3052,7 +3247,7 @@ function importCSVFile(event) {
       // -- Municipality - uppercase for free-text, keep known names as-is
       var municipality = ucField(col('MUNICIPALITY'));
 
-      // -- Date fields → YYYY-MM-DD
+      // -- Date fields ? YYYY-MM-DD
       var dob            = normalizeDateForImport(col('DATE OF BIRTH'));
       var dateSurrendered = normalizeDateForImport(col('DATE SURRENDERED'));
 
@@ -3188,7 +3383,7 @@ function importCSVFile(event) {
 
       // Build lookup maps
       var existingById   = {};
-      var existingByName = {}; // nameKey → existing record
+      var existingByName = {}; // nameKey ? existing record
       existing.forEach(function(r) {
         existingById[r.id] = r;
         var k = nameKey(r);
@@ -3220,7 +3415,7 @@ function importCSVFile(event) {
             existMatch = nameMatches[i];
             break;
           }
-          // Fuzzy fallback — catches swapped names and typo variants
+          // Fuzzy fallback � catches swapped names and typo variants
           if (!existMatch) {
             for (var fi = 0; fi < existing.length; fi++) {
               var cand = existing[fi];
@@ -3320,7 +3515,7 @@ function importCSVFile(event) {
         if (toUpdate.length) parts.push(toUpdate.length + ' UPDATED');
         var msg = parts.join(', ') + ' RECORD' + (totalOps !== 1 ? 'S' : '') + ' IMPORTED';
         if (skippedNew > 0) msg += ' - ' + skippedNew + ' SKIPPED (ALREADY UP TO DATE)';
-        if (skippedMisaligned > 0) msg += ' - ' + skippedMisaligned + ' ROW' + (skippedMisaligned !== 1 ? 'S' : '') + ' SKIPPED (COLUMN MISMATCH — CHECK CSV FOR UNQUOTED COMMAS)';
+        if (skippedMisaligned > 0) msg += ' - ' + skippedMisaligned + ' ROW' + (skippedMisaligned !== 1 ? 'S' : '') + ' SKIPPED (COLUMN MISMATCH � CHECK CSV FOR UNQUOTED COMMAS)';
         showToast(msg, 'success');
         showPage('records');
       }).catch(function(err) { hideImportOverlay(); showToast('IMPORT ERROR: ' + err.message, 'error'); });
@@ -3380,8 +3575,8 @@ function undoLastImport() {
 
   if (!confirm(
     'UNDO LAST IMPORT?\n\n' +
-    '• ' + inserted.length + ' new record(s) will be DELETED\n' +
-    '• ' + restored.length + ' updated record(s) will be RESTORED to their previous state\n\n' +
+    '� ' + inserted.length + ' new record(s) will be DELETED\n' +
+    '� ' + restored.length + ' updated record(s) will be RESTORED to their previous state\n\n' +
     'This cannot be undone again.'
   )) return;
 
@@ -3506,6 +3701,29 @@ function exportCSV() {
     rowHeights[0] = { hpt: 22 }; // slightly taller header row
     ws['!rows'] = rowHeights;
 
+    // Apply borders to every cell
+    var borderStyle = {
+      top:    { style: 'thin', color: { rgb: '000000' } },
+      bottom: { style: 'thin', color: { rgb: '000000' } },
+      left:   { style: 'thin', color: { rgb: '000000' } },
+      right:  { style: 'thin', color: { rgb: '000000' } }
+    };
+    var range = XLSX.utils.decode_range(ws['!ref']);
+    for (var R = range.s.r; R <= range.e.r; R++) {
+      for (var C = range.s.c; C <= range.e.c; C++) {
+        var cellAddr = XLSX.utils.encode_cell({ r: R, c: C });
+        if (!ws[cellAddr]) ws[cellAddr] = { v: '', t: 's' };
+        if (!ws[cellAddr].s) ws[cellAddr].s = {};
+        ws[cellAddr].s.border = borderStyle;
+        // Bold + background for header row
+        if (R === 0) {
+          ws[cellAddr].s.font = { bold: true };
+          ws[cellAddr].s.fill = { fgColor: { rgb: 'D9E1F2' }, patternType: 'solid' };
+          ws[cellAddr].s.alignment = { horizontal: 'center', vertical: 'center', wrapText: true };
+        }
+      }
+    }
+
     var wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'FR DATABASE');
 
@@ -3525,7 +3743,7 @@ var editingUserId = null;
 
 function renderUsers() {
   waitForAuth().then(function() {
-    return db.collection('users').get({ source: 'server' });
+    return db.collection('users').get();
   }).then(function(snap) {
     var users = snap.docs.map(function(d) { return Object.assign({ id: d.id }, d.data()); });
     var operators = users.filter(function(u) { return u.role === 'OPERATOR'; });
@@ -3676,12 +3894,12 @@ function runMiddleNameUpdate() {
   }
 
   var statusSpan = document.getElementById('middleNameUpdateStatus');
-  if (statusSpan) statusSpan.textContent = '⏳ Checking records...';
+  if (statusSpan) statusSpan.textContent = '? Checking records...';
   
   showToast('CHECKING RECORDS WITH MISSING MIDDLE NAMES...', 'info');
 
   waitForAuth().then(function() {
-    return db.collection('records').get({ source: 'server' });
+    return db.collection('records').get();
   }).then(function(snapshot) {
     var needsUpdate = [];
     var alreadySet = 0;
@@ -3707,13 +3925,13 @@ function runMiddleNameUpdate() {
     }
 
     if (needsUpdate.length === 0) {
-      showToast('✓ ALL RECORDS ALREADY HAVE MIDDLE NAMES SET', 'success');
-      if (statusSpan) statusSpan.textContent = '✓ All records have middle names';
+      showToast('? ALL RECORDS ALREADY HAVE MIDDLE NAMES SET', 'success');
+      if (statusSpan) statusSpan.textContent = '? All records have middle names';
       return;
     }
 
     // Build confirmation message with record list
-    var recordsList = needsUpdate.slice(0, 10).map(function(r) { return '  • ' + r.name; }).join('\n');
+    var recordsList = needsUpdate.slice(0, 10).map(function(r) { return '  � ' + r.name; }).join('\n');
     if (needsUpdate.length > 10) {
       recordsList += '\n  ... and ' + (needsUpdate.length - 10) + ' more';
     }
@@ -3730,7 +3948,7 @@ function runMiddleNameUpdate() {
     }
 
     // Update records
-    if (statusSpan) statusSpan.textContent = '⏳ Updating ' + needsUpdate.length + ' record(s)...';
+    if (statusSpan) statusSpan.textContent = '? Updating ' + needsUpdate.length + ' record(s)...';
     showToast('UPDATING RECORDS...', 'info');
 
     var completed = 0;
@@ -3747,7 +3965,7 @@ function runMiddleNameUpdate() {
     });
 
     return Promise.all(promises).then(function() {
-      var msg = '✓ UPDATED ' + completed + ' RECORD(S)';
+      var msg = '? UPDATED ' + completed + ' RECORD(S)';
       if (failed > 0) {
         msg += ' (' + failed + ' FAILED)';
         showToast(msg, 'error');
@@ -3756,7 +3974,7 @@ function runMiddleNameUpdate() {
       }
       
       if (statusSpan) {
-        statusSpan.textContent = '✓ Updated ' + completed + ' record(s)';
+        statusSpan.textContent = '? Updated ' + completed + ' record(s)';
       }
 
       // Refresh cache and current page
@@ -3769,7 +3987,7 @@ function runMiddleNameUpdate() {
   }).catch(function(error) {
     var errorMsg = 'ERROR: ' + error.message;
     showToast(errorMsg, 'error');
-    if (statusSpan) statusSpan.textContent = '✗ Error';
+    if (statusSpan) statusSpan.textContent = '? Error';
     console.error('Middle name update error:', error);
   });
 }
@@ -3782,7 +4000,7 @@ function runNaibuanTribalFix() {
   showToast('SCANNING FOR NAIBUAN RECORDS...', 'info');
 
   waitForAuth().then(function() {
-    return db.collection('records').get({ source: 'server' });
+    return db.collection('records').get();
   }).then(function(snapshot) {
     var toFix = [];
     snapshot.forEach(function(doc) {
@@ -3811,12 +4029,12 @@ function runNaibuanTribalFix() {
     });
     return batch.commit().then(function() {
       showToast('UPDATED ' + toFix.length + ' RECORD(S) TO HANUNUO', 'success');
-      if (statusSpan) statusSpan.textContent = '✓ Updated ' + toFix.length + ' record(s).';
+      if (statusSpan) statusSpan.textContent = '? Updated ' + toFix.length + ' record(s).';
       allRecordsCache = [];
     });
   }).catch(function(err) {
     showToast('ERROR: ' + err.message, 'error');
-    if (statusSpan) statusSpan.textContent = '✗ Error.';
+    if (statusSpan) statusSpan.textContent = '? Error.';
   });
 }
 
@@ -3826,7 +4044,7 @@ function purgeAllOperators() {
   if (!confirm('DELETE ALL OPERATOR PROFILES FROM FIRESTORE?\n\nThis removes all operator documents.\nYou must also delete their accounts manually in the Firebase Console.\n\nTHIS CANNOT BE UNDONE.')) return;
 
   waitForAuth().then(function() {
-    return db.collection('users').where('role', '==', 'OPERATOR').get({ source: 'server' });
+    return db.collection('users').where('role', '==', 'OPERATOR').get();
   }).then(function(snap) {
     if (!snap.size) { showToast('NO OPERATORS TO DELETE', 'info'); return; }
     var batch = db.batch();
@@ -3910,7 +4128,7 @@ function resetIdleTimer() {
     updateMaxBtn(isMax);
   });
 
-  // Keep in sync when the window is maximized/restored externally (e.g. Win+↑)
+  // Keep in sync when the window is maximized/restored externally (e.g. Win+?)
   window.electronAPI.onMaximized(function(isMax) {
     updateMaxBtn(isMax);
   });
@@ -3918,7 +4136,7 @@ function resetIdleTimer() {
   function updateMaxBtn(isMax) {
     var btn = document.getElementById('tbMaxBtn');
     if (!btn) return;
-    // ❐ = restore, ☐ = maximize
+    // ? = restore, ? = maximize
     btn.innerHTML   = isMax ? '&#10697;' : '&#9744;';
     btn.title       = isMax ? 'Restore'  : 'Maximize';
   }
@@ -3935,10 +4153,10 @@ function applyTheme(theme) {
   var icon  = document.getElementById('themeToggleIcon');
   var label = document.getElementById('themeToggleLabel');
   if (theme === 'light') {
-    if (icon)  icon.textContent  = '🌙';
+    if (icon)  icon.textContent  = '??';
     if (label) label.textContent = 'DARK';
   } else {
-    if (icon)  icon.textContent  = '☀️';
+    if (icon)  icon.textContent  = '??';
     if (label) label.textContent = 'LIGHT';
   }
   localStorage.setItem('frdb-theme', theme);
@@ -3959,7 +4177,7 @@ function toggleTheme() {
 // Fills in missing position, yearsInMovement, civilStatus on existing records
 function migrateDefaults() {
   waitForAuth().then(function() {
-    return db.collection('records').get({ source: 'server' });
+    return db.collection('records').get();
   }).then(function(snap) {
     var toFix = [];
     snap.docs.forEach(function(d) {
@@ -3969,12 +4187,12 @@ function migrateDefaults() {
       if (!r.yearsInMovement && r.yearsInMovement !== 0)
                               updates.yearsInMovement = '1';
       if (!r.civilStatus)     updates.civilStatus     = defaultCivilStatus(r.dob);
-      // Fix referring unit variants (e.g. all-caps "SCORPION" → canonical form)
+      // Fix referring unit variants (e.g. all-caps "SCORPION" ? canonical form)
       if (r.referringUnit) {
         var normalized = normalizeReferringUnit(r.referringUnit);
         if (normalized && normalized !== r.referringUnit) updates.referringUnit = normalized;
       }
-      // MILISYANG BAYAN with no unit → default unit to "MB"
+      // MILISYANG BAYAN with no unit ? default unit to "MB"
       if (r.membershipType === 'MILISYANG BAYAN' && !r.unit) {
         updates.unit = 'MB';
       }
@@ -4003,7 +4221,7 @@ function migrateDefaults() {
 }
 
 // -- CIVIL STATUS MIGRATION -----------------------------------
-// Rewrites legacy values: "LIVE-IN" and "COMMON-LAW PARTNER" → "COMMON-LAW"
+// Rewrites legacy values: "LIVE-IN" and "COMMON-LAW PARTNER" ? "COMMON-LAW"
 function migrateCivilStatus() {
   var OLD_VALUES = ['LIVE-IN', 'COMMON-LAW PARTNER'];
   var NEW_VALUE  = 'COMMON-LAW';
@@ -4018,7 +4236,7 @@ function migrateCivilStatus() {
       batch.update(ref, { civilStatus: NEW_VALUE, updatedAt: new Date().toISOString() });
     });
     batch.commit().then(function() {
-      console.log('[FRDB] Migrated ' + toFix.length + ' record(s): civil status → COMMON-LAW');
+      console.log('[FRDB] Migrated ' + toFix.length + ' record(s): civil status ? COMMON-LAW');
     }).catch(function(err) {
       console.warn('[FRDB] Civil status migration failed:', err.message);
     });

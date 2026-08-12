@@ -10,6 +10,8 @@
     "electron": "^31.7.7"
   },
   "allowScripts": {
-    "electron@31.7.7": true
+    "electron@31.7.7": true,
+    "@firebase/util@1.15.2": true,
+    "protobufjs@7.6.5": true
   }
 }

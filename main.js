@@ -21,23 +21,20 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      webSecurity: false   // allow file:// page to reach Firebase APIs
+      webSecurity: false,
+      allowRunningInsecureContent: true
     }
   });
 
-  // Allow Firebase auth/firestore/storage network requests
+  // Remove CSP restrictions entirely — app runs locally, Firebase handles its own auth
   session.defaultSession.webRequest.onHeadersReceived(function(details, callback) {
-    callback({
-      responseHeaders: Object.assign({}, details.responseHeaders, {
-        'Content-Security-Policy': [
-          "default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: " +
-          "https://*.googleapis.com https://*.google.com https://*.firebaseio.com " +
-          "https://*.firebaseapp.com https://*.googleapis.com wss://*.firebaseio.com " +
-          "https://firebasestorage.googleapis.com https://identitytoolkit.googleapis.com " +
-          "https://securetoken.googleapis.com https://www.googleapis.com"
-        ]
-      })
-    });
+    var headers = Object.assign({}, details.responseHeaders);
+    // Remove any CSP headers that could block Firebase connections
+    delete headers['content-security-policy'];
+    delete headers['Content-Security-Policy'];
+    delete headers['x-frame-options'];
+    delete headers['X-Frame-Options'];
+    callback({ responseHeaders: headers });
   });
 
   win.loadFile('index.html');
