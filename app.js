@@ -69,7 +69,11 @@ function sortDocs(docs) {
 
 // Use Firestore REST API instead of the JS SDK WebChannel
 // (WebChannel is broken in Electron 31 / Chromium 126+)
-function dbGetAll() {
+// Serves from allRecordsCache when available to avoid redundant reads.
+function dbGetAll(forceRefresh) {
+  if (!forceRefresh && allRecordsCache && allRecordsCache.length > 0) {
+    return Promise.resolve(allRecordsCache.slice());
+  }
   return waitForAuth().then(function() {
     return firebase.auth().currentUser.getIdToken().then(function(token) {
       var base = 'https://firestore.googleapis.com/v1/projects/' +
@@ -94,7 +98,9 @@ function dbGetAll() {
             if (data.nextPageToken) {
               return fetchPage(base + '?pageSize=300&pageToken=' + encodeURIComponent(data.nextPageToken), collected);
             }
-            return sortDocs(collected);
+            var sorted = sortDocs(collected);
+            allRecordsCache = sorted;
+            return sorted.slice();
           });
       }
       return fetchPage(base + '?pageSize=300', []);
@@ -500,12 +506,15 @@ function showPage(page) {
     dbGetAll().then(function(records) { allRecordsCache = records; renderDashboard(records); })
       .catch(function(err) {
         console.error('[FRDB] dbGetAll error:', err.code, err.message);
-        if (err.code === 'permission-denied') {
-          showToast('FIRESTORE RULES BLOCKING READ - SET: allow read, write: if true', 'error');
+        var isQuota = err.message && err.message.indexOf('429') !== -1;
+        if (isQuota) {
+          showToast('FIREBASE DAILY QUOTA EXCEEDED - TRY AGAIN AFTER MIDNIGHT (PACIFIC TIME)', 'error');
+        } else if (err.code === 'permission-denied') {
+          showToast('FIRESTORE RULES BLOCKING READ', 'error');
         } else if (err.message === 'Not authenticated') {
           showToast('NOT LOGGED IN', 'error');
         } else if (err.code === 'unavailable' || (err.message && err.message.indexOf('10 seconds') !== -1)) {
-          showToast('NO INTERNET CONNECTION � CHECK YOUR NETWORK AND RETRY', 'error');
+          showToast('NO INTERNET CONNECTION - CHECK YOUR NETWORK AND RETRY', 'error');
         } else {
           showToast('ERROR LOADING DATA: ' + err.message, 'error');
         }
@@ -518,19 +527,46 @@ function showPage(page) {
     dbGetAll().then(function(records) { allRecordsCache = records; renderRecords(records); })
       .catch(function(err) {
         console.error('[FRDB] dbGetAll error:', err.code, err.message);
+        var isQuota   = err.message && err.message.indexOf('429') !== -1;
         var isOffline = err.code === 'unavailable' || (err.message && err.message.indexOf('10 seconds') !== -1);
-        var msg = err.code === 'permission-denied'
-          ? 'FIRESTORE RULES BLOCKING READ'
-          : isOffline
-            ? 'NO INTERNET CONNECTION'
-            : ('ERROR: ' + err.message);
+        var msg, detail, retryCooldown;
+        if (isQuota) {
+          msg = 'FIREBASE DAILY QUOTA EXCEEDED';
+          detail = 'The free daily read limit has been reached. The app will recover automatically after midnight Pacific Time (UTC-8). Do not keep retrying — each attempt uses more quota.';
+          retryCooldown = 60;
+        } else if (isOffline) {
+          msg = 'NO INTERNET CONNECTION';
+          detail = 'Check your network connection, then retry.';
+          retryCooldown = 0;
+        } else if (err.code === 'permission-denied') {
+          msg = 'ACCESS DENIED - FIRESTORE RULES BLOCKING READ';
+          detail = '';
+          retryCooldown = 0;
+        } else {
+          msg = 'ERROR LOADING RECORDS';
+          detail = err.message;
+          retryCooldown = 0;
+        }
         document.getElementById('recordsTableBody').innerHTML =
           '<tr><td colspan="10" style="text-align:center;padding:32px">' +
-            '<div style="color:#f85149;font-weight:700;margin-bottom:12px">? ' + msg + '</div>' +
-            (isOffline ? '<div style="color:var(--text3);font-size:0.78rem;margin-bottom:16px">Check your internet connection, then try again.</div>' : '') +
-            '<button class="btn-primary" onclick="showPage(\'records\')">? RETRY</button>' +
+            '<div style="color:#f85149;font-weight:700;margin-bottom:10px;font-size:1rem">' + msg + '</div>' +
+            (detail ? '<div style="color:var(--text3);font-size:0.78rem;margin-bottom:16px;max-width:480px;margin-left:auto;margin-right:auto;line-height:1.5">' + detail + '</div>' : '') +
+            '<button id="recordsRetryBtn" class="btn-primary" onclick="recordsRetryClick()">' + (retryCooldown > 0 ? 'RETRY (WAIT ' + retryCooldown + 's)' : 'RETRY') + '</button>' +
           '</td></tr>';
-        if (isOffline) showToast('NO INTERNET � CHECK YOUR NETWORK AND RETRY', 'error');
+        var retryBtn = document.getElementById('recordsRetryBtn');
+        if (retryCooldown > 0 && retryBtn) {
+          retryBtn.disabled = true; retryBtn.style.opacity = '0.5'; retryBtn.style.cursor = 'not-allowed';
+          var _cd = retryCooldown;
+          var _iv = setInterval(function() {
+            _cd--;
+            var b = document.getElementById('recordsRetryBtn');
+            if (!b) { clearInterval(_iv); return; }
+            if (_cd > 0) { b.textContent = 'RETRY (WAIT ' + _cd + 's)'; }
+            else { clearInterval(_iv); b.disabled = false; b.style.opacity = ''; b.style.cursor = ''; b.textContent = 'RETRY'; }
+          }, 1000);
+        }
+        if (isQuota) showToast('QUOTA EXCEEDED - WAIT UNTIL MIDNIGHT PACIFIC TIME', 'error');
+        else if (isOffline) showToast('NO INTERNET - CHECK YOUR NETWORK AND RETRY', 'error');
         else showToast(msg, 'error');
       });
   }
@@ -547,6 +583,13 @@ function showPage(page) {
 }
 
 function toggleSidebar() { document.getElementById('sidebar').classList.toggle('open'); }
+
+// Retry for records page - only allowed if button is not in cooldown
+function recordsRetryClick() {
+  var btn = document.getElementById('recordsRetryBtn');
+  if (btn && btn.disabled) return;
+  showPage('records');
+}
 
 // -- REPORT DROPDOWN ------------------------------------------
 function toggleReportDropdown() {
@@ -596,6 +639,8 @@ function getMissingFieldsGlobal(r) {
   if (!r.religion)                                         missing.push('RELIGION');
   if (!r.medicalCondition)                                 missing.push('MEDICAL CONDITION');
   if (!r.fourPs)                                           missing.push('4Ps');
+  if (!r.addressBarangay && !r.address && !r.addressMunicipality && !r.addressProvince)
+                                                           missing.push('ADDRESS');
   if (r.addressProvince !== 'OUTSIDE MINDORO') {
     if (r.addressProvince !== 'ORIENTAL MINDORO') {
       if (!r.addressBarangay && !r.address)                missing.push('BARANGAY');
@@ -1170,6 +1215,95 @@ function printFullList() {
     .catch(function(err) { showToast('ERROR: ' + err.message, 'error'); });
 }
 
+// -- PRINT UNIT SUMMARY REPORT --------------------------------
+function printUnitSummaryReport() {
+  function run(records) {
+    if (!records.length) { showToast('NO RECORDS TO PRINT', 'info'); return; }
+
+    var printed   = new Date().toLocaleString('en-PH');
+    var printedBy = currentUser ? currentUser.username + ' (' + currentUser.role + ')' : 'UNKNOWN';
+
+    // Build unit map: { unitName: { total, regularNpa, milisyang, noType } }
+    var unitMap = {};
+    records.forEach(function(r) {
+      var unit = (r.referringUnit || 'NOT SPECIFIED').trim().toUpperCase();
+      if (!unitMap[unit]) unitMap[unit] = { total: 0, regularNpa: 0, milisyang: 0, noType: 0 };
+      unitMap[unit].total++;
+      if (r.membershipType === 'REGULAR NPA')    unitMap[unit].regularNpa++;
+      else if (r.membershipType === 'MILISYANG BAYAN') unitMap[unit].milisyang++;
+      else                                        unitMap[unit].noType++;
+    });
+
+    // Sort units alphabetically, but keep NOT SPECIFIED last
+    var units = Object.keys(unitMap).sort(function(a, b) {
+      if (a === 'NOT SPECIFIED') return 1;
+      if (b === 'NOT SPECIFIED') return -1;
+      return a.localeCompare(b);
+    });
+
+    var grandTotal = records.length;
+    var grandNpa   = 0, grandMb = 0, grandNo = 0;
+
+    var rows = units.map(function(unit, i) {
+      var d = unitMap[unit];
+      grandNpa += d.regularNpa;
+      grandMb  += d.milisyang;
+      grandNo  += d.noType;
+      var npaCell = d.regularNpa > 0
+        ? '<span style="color:#c42b1c;font-weight:700">' + d.regularNpa + '</span>'
+        : '<span style="color:#aaa">0</span>';
+      var mbCell  = d.milisyang  > 0
+        ? '<span style="color:#9a6700;font-weight:700">' + d.milisyang  + '</span>'
+        : '<span style="color:#aaa">0</span>';
+      var noCell  = d.noType     > 0
+        ? '<span style="color:#888">' + d.noType + '</span>'
+        : '<span style="color:#aaa">0</span>';
+      return '<tr>' +
+        '<td style="text-align:center">' + (i + 1) + '</td>' +
+        '<td style="font-weight:600">' + unit + '</td>' +
+        '<td style="text-align:center;font-size:13px;font-weight:700">' + d.total + '</td>' +
+        '<td style="text-align:center">' + npaCell + '</td>' +
+        '<td style="text-align:center">' + mbCell  + '</td>' +
+        '<td style="text-align:center">' + noCell  + '</td>' +
+        '</tr>';
+    }).join('');
+
+    var tfoot =
+      '<tr style="border-top:2px solid #333;font-weight:700;background:#f0f0f0">' +
+        '<td colspan="2" style="text-align:right;font-size:10px;letter-spacing:1px">GRAND TOTAL</td>' +
+        '<td style="text-align:center;font-size:13px">' + grandTotal + '</td>' +
+        '<td style="text-align:center;color:#c42b1c">' + grandNpa + '</td>' +
+        '<td style="text-align:center;color:#9a6700">' + grandMb  + '</td>' +
+        '<td style="text-align:center;color:#888">'   + grandNo  + '</td>' +
+      '</tr>';
+
+    var body =
+      '<div class="print-header">' +
+        '<h1>FORMER REBELS DATABASE MANAGEMENT SYSTEM</h1>' +
+        '<p>NUMBER OF FRs PER REFERRING UNIT</p>' +
+        '<p>Generated: ' + printed + ' &nbsp;|&nbsp; By: ' + printedBy + '</p>' +
+      '</div>' +
+      '<table class="report-table" style="width:100%;font-size:11px">' +
+        '<thead><tr>' +
+          '<th style="text-align:center;width:28px">#</th>' +
+          '<th>REFERRING UNIT</th>' +
+          '<th style="text-align:center;width:60px">TOTAL FRs</th>' +
+          '<th style="text-align:center;width:80px">REGULAR NPA</th>' +
+          '<th style="text-align:center;width:80px">MILISYANG BAYAN</th>' +
+          '<th style="text-align:center;width:80px">NOT SPECIFIED</th>' +
+        '</tr></thead>' +
+        '<tbody>' + rows + '</tbody>' +
+        '<tfoot>' + tfoot + '</tfoot>' +
+      '</table>';
+
+    openPrintDocument('FR Per Unit Summary', body, REPORT_PRINT_STYLES);
+    showToast('UNIT SUMMARY REPORT GENERATED - ' + units.length + ' UNIT(S)', 'success');
+  }
+  if (allRecordsCache.length) run(allRecordsCache);
+  else dbGetAll().then(function(records) { allRecordsCache = records; run(records); })
+    .catch(function(err) { showToast('ERROR: ' + err.message, 'error'); });
+}
+
 // -- PRINT ASSISTANCE LIST ------------------------------------
 function printAssistanceList() {
   function run(records) {
@@ -1336,9 +1470,9 @@ function showPossibleDuplicates() {
           '<td style="padding:8px 10px;font-size:0.68rem">' + (r.referringUnit||'-') + '</td>' +
           '<td style="padding:8px 10px;text-align:center">' + (r.dateSurrendered ? formatDate(r.dateSurrendered) : '-') + '</td>' +
           '<td style="padding:8px 10px;text-align:center">' +
-            '<button class="btn-view" style="margin:2px" onclick="closeDuplicatesModal();viewRecord(\'' + r.id + '\')">?? VIEW</button>' +
-            '<button class="btn-edit" style="margin:2px" onclick="closeDuplicatesModal();editRecord(\'' + r.id + '\')">? EDIT</button>' +
-            '<button class="btn-del" style="margin:2px" onclick="deleteDuplicateRecord(\'' + r.id + '\')">?? DEL</button>' +
+            '<button class="btn-view" style="margin:2px" onclick="closeDuplicatesModal();viewRecord(\'' + r.id + '\')">\uD83D\uDC41 VIEW</button>' +
+            '<button class="btn-edit" style="margin:2px" onclick="closeDuplicatesModal();editRecord(\'' + r.id + '\')">\u270F EDIT</button>' +
+            '<button class="btn-del" style="margin:2px" onclick="deleteDuplicateRecord(\'' + r.id + '\')">\uD83D\uDDD1 DEL</button>' +
           '</td>' +
         '</tr>';
       });
@@ -1814,6 +1948,34 @@ function downloadReportCSV(type) {
       count = groups.reduce(function(s, g) { return s + g.length; }, 0);
       filename = 'FR_POSSIBLE_DUPLICATES_' + dateStr + '.csv';
       csv = [headers.map(q).join(',')].concat(rows.map(function(r){return r.join(',');})).join('\n');
+
+    } else if (type === 'unitsummary') {
+      var unitMap = {};
+      records.forEach(function(r) {
+        var unit = (r.referringUnit || 'NOT SPECIFIED').trim().toUpperCase();
+        if (!unitMap[unit]) unitMap[unit] = { total: 0, regularNpa: 0, milisyang: 0, noType: 0 };
+        unitMap[unit].total++;
+        if (r.membershipType === 'REGULAR NPA')       unitMap[unit].regularNpa++;
+        else if (r.membershipType === 'MILISYANG BAYAN') unitMap[unit].milisyang++;
+        else                                           unitMap[unit].noType++;
+      });
+      var units = Object.keys(unitMap).sort(function(a, b) {
+        if (a === 'NOT SPECIFIED') return 1;
+        if (b === 'NOT SPECIFIED') return -1;
+        return a.localeCompare(b);
+      });
+      var headers = ['#', 'REFERRING UNIT', 'TOTAL FRs', 'REGULAR NPA', 'MILISYANG BAYAN', 'NOT SPECIFIED'];
+      var rows = units.map(function(unit, i) {
+        var d = unitMap[unit];
+        return [i + 1, unit, d.total, d.regularNpa, d.milisyang, d.noType].map(q);
+      });
+      // Grand total row
+      var gt = 0, gnpa = 0, gmb = 0, gno = 0;
+      units.forEach(function(u) { gt += unitMap[u].total; gnpa += unitMap[u].regularNpa; gmb += unitMap[u].milisyang; gno += unitMap[u].noType; });
+      rows.push(['', 'GRAND TOTAL', gt, gnpa, gmb, gno].map(q));
+      count    = units.length;
+      filename = 'FR_PER_UNIT_SUMMARY_' + dateStr + '.csv';
+      csv = [headers.map(q).join(',')].concat(rows.map(function(r) { return r.join(','); })).join('\n');
 
     } else if (type === 'assistance') {
       var list = records.slice().sort(function(a,b){
@@ -2463,7 +2625,8 @@ function toggleSectorOthersSpec() { var cb=document.getElementById('sec_others')
 function onReligionChange() { var val=document.getElementById('religion').value,group=document.getElementById('religionOthersGroup'),inp=document.getElementById('religionOthers');group.style.display=val==='OTHERS'?'block':'none';if(val!=='OTHERS')inp.value=''; }
 function togglePwdSpec() { var cb=document.getElementById('sec_pwd'),row=document.getElementById('pwdDisabilityRow'),inp=document.getElementById('pwdDisability');row.style.display=cb.checked?'block':'none';if(!cb.checked)inp.value=''; }
 function onMedicalConditionChange() { var val=document.getElementById('medicalCondition').value,group=document.getElementById('medicalConditionSpecGroup'),spec=document.getElementById('medicalConditionSpec');group.style.display=val==='YES'?'block':'none';if(val!=='YES')spec.value=''; }
-function onTribalGroupChange() { var val=document.getElementById('tribalGroup').value,ipCb=document.getElementById('sec_ip');if(val&&val!=='NO TRIBAL GROUP')ipCb.checked=true;else if(val==='NO TRIBAL GROUP')ipCb.checked=false; }
+function onTribalGroupChange() { var val=document.getElementById('tribalGroup').value,ipCb=document.getElementById('sec_ip'),farmerCb=document.getElementById('sec_farmer');if(val&&val!=='NO TRIBAL GROUP'){ipCb.checked=true;farmerCb.checked=true;}else if(val==='NO TRIBAL GROUP'){ipCb.checked=false;} }
+function onIPSectorChange() { var ipCb=document.getElementById('sec_ip'),farmerCb=document.getElementById('sec_farmer');if(ipCb.checked)farmerCb.checked=true; }
 
 // -- SAVE RECORD (with Firebase Storage upload) ---------------
 var isSaving = false; // guard against double-submit
@@ -2478,7 +2641,7 @@ function saveRecord(event) {
 
   function unlockSave() {
     isSaving = false;
-    if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = '?? SAVE RECORD'; }
+    if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = '\uD83D\uDCBE SAVE RECORD'; }
   }
   var sectorChecked = SECTOR_IDS.some(function(id){return document.getElementById(id).checked;});
   var sectorErr = document.getElementById('sectorError');
@@ -2588,77 +2751,64 @@ function saveRecord(event) {
     unlockSave();
     return;
   }
-  // No fuzzy match in cache � also do Firestore exact query as fallback
-  db.collection('records')
-    .where('lastName',  '==', record.lastName)
-    .where('firstName', '==', record.firstName)
-    .get()
-    .then(function(snap) {
-      var duplicate = null;
-      snap.docs.forEach(function(d) {
-        if (d.id === record.id) return; // skip self when editing
-        var existing = d.data();
-        var newSuffix = getSuffix(record);
-        var exSuffix  = getSuffix(existing);
-        // Only skip if the suffixes are DIFFERENT (e.g. one is JR, other is SR)
-        // Two records both carrying SR (or both JR) are still duplicates
-        if (newSuffix && exSuffix && newSuffix !== exSuffix) return;
-        // Same last + first name ? flag as duplicate
-        duplicate = existing;
-      });
-      if (duplicate) {
-        showToast(
-          'DUPLICATE ENTRY - ' + duplicate.lastName + ', ' + duplicate.firstName +
-          (duplicate.middleName ? ' ' + duplicate.middleName : '') +
-          ' ALREADY EXISTS. ADD JR. OR SR. IF THIS IS A DIFFERENT PERSON.',
-          'error'
-        );
-        unlockSave();
-        return;
+  // No fuzzy match in cache -- use cache-only check (avoids extra Firestore read on every save)
+  function proceedWithSave() {
+    var finalDup = null;
+    for (var fi = 0; fi < allRecordsCache.length; fi++) {
+      var fc = allRecordsCache[fi];
+      if (fc.id === record.id) continue;
+      var fNewSuffix = getSuffix(record);
+      var fExSuffix  = getSuffix(fc);
+      if (fNewSuffix && fExSuffix && fNewSuffix !== fExSuffix) continue;
+      if ((fc.lastName  || '').toUpperCase() === (record.lastName  || '').toUpperCase() &&
+          (fc.firstName || '').toUpperCase() === (record.firstName || '').toUpperCase()) {
+        finalDup = fc; break;
       }
-      // No duplicate - proceed with save
-      showToast('SAVING RECORD...', 'info');
-      uploadRecordFiles(record).then(function(r) {
-        return dbPut(r);
-      }).then(function() {
-        unlockSave();
-        playChime();
-        showToast(isEdit ? 'RECORD UPDATED SUCCESSFULLY' : 'RECORD SAVED SUCCESSFULLY', 'success');
-        // Manual save � remove this record from the recent imports widget
-        try { var _ri = JSON.parse(localStorage.getItem('frdb-recentImports')||'[]'); localStorage.setItem('frdb-recentImports', JSON.stringify(_ri.filter(function(e){return e.id!==recordId;}))); } catch(ex) {}
-        editingRecordId = null;
-        allRecordsCache = [];
-        dbGetAll().then(function(records) {
-          allRecordsCache = records;
-          showPage('records');
-        }).catch(function() {
-          showPage('records');
-        });
-      }).catch(function(err) {
-        unlockSave();
-        showToast('ERROR SAVING RECORD: ' + err.message, 'error');
-      });
-    })
-    .catch(function(err) {
-      console.warn('[FRDB] Duplicate check failed:', err.message);
-      showToast('SAVING RECORD...', 'info');
-      uploadRecordFiles(record).then(function(r) {
-        return dbPut(r);
-      }).then(function() {
-        unlockSave();
-        playChime();
-        showToast(isEdit ? 'RECORD UPDATED SUCCESSFULLY' : 'RECORD SAVED SUCCESSFULLY', 'success');
-        editingRecordId = null;
-        allRecordsCache = [];
-        dbGetAll().then(function(records) {
-          allRecordsCache = records;
-          showPage('records');
-        }).catch(function() { showPage('records'); });
-      }).catch(function(err) {
-        unlockSave();
-        showToast('ERROR SAVING RECORD: ' + err.message, 'error');
-      });
+    }
+    if (finalDup) {
+      showToast(
+        'DUPLICATE ENTRY - ' + finalDup.lastName + ', ' + finalDup.firstName +
+        (finalDup.middleName ? ' ' + finalDup.middleName : '') +
+        ' ALREADY EXISTS. ADD JR. OR SR. IF THIS IS A DIFFERENT PERSON.',
+        'error'
+      );
+      unlockSave();
+      return;
+    }
+    // No duplicate -- proceed with save
+    showToast('SAVING RECORD...', 'info');
+    uploadRecordFiles(record).then(function(r) {
+      return dbPut(r);
+    }).then(function() {
+      unlockSave();
+      playChime();
+      showToast(isEdit ? 'RECORD UPDATED SUCCESSFULLY' : 'RECORD SAVED SUCCESSFULLY', 'success');
+      try { var _ri = JSON.parse(localStorage.getItem('frdb-recentImports')||'[]'); localStorage.setItem('frdb-recentImports', JSON.stringify(_ri.filter(function(e){return e.id!==recordId;}))); } catch(ex) {}
+      editingRecordId = null;
+      allRecordsCache = [];
+      dbGetAll().then(function(records) {
+        allRecordsCache = records;
+        showPage('records');
+      }).catch(function() { showPage('records'); });
+    }).catch(function(err) {
+      unlockSave();
+      showToast('ERROR SAVING RECORD: ' + err.message, 'error');
     });
+  }
+
+  if (allRecordsCache.length) {
+    proceedWithSave();
+  } else {
+    // Cache empty -- load it first, then check and save
+    dbGetAll().then(function(records) {
+      allRecordsCache = records;
+      proceedWithSave();
+    }).catch(function(err) {
+      console.warn('[FRDB] Cache load failed before save:', err.message);
+      showToast('ERROR: COULD NOT VERIFY DUPLICATES - ' + err.message, 'error');
+      unlockSave();
+    });
+  }
 }
 
 // -- RESET FORM -----------------------------------------------
@@ -2716,6 +2866,8 @@ function editRecord(id) {
     if(s==='FARMER/FISHERFOLK'){document.getElementById('sec_farmer').checked=true;document.getElementById('sec_fisherfolk').checked=true;return;}
     if(secMap[s])document.getElementById(secMap[s]).checked=true;else if(s.indexOf('OTHERS')===0){document.getElementById('sec_others').checked=true;document.getElementById('sec_others_spec').style.display='inline-block';document.getElementById('sec_others_spec').value=s.replace('OTHERS: ','').replace('OTHERS','');}
   });
+  // Auto-check FARMER if INDIGENOUS PEOPLE is checked
+  if(document.getElementById('sec_ip').checked) document.getElementById('sec_farmer').checked=true;
   togglePwdSpec(); calcAge(); onTribalGroupChange();
   if(r.idPhoto){idPhotoData=r.idPhoto;var img=document.getElementById('idPhotoPreview');img.src=r.idPhoto;img.style.display='block';document.getElementById('idPhotoPlaceholder').style.display='none';document.getElementById('removePhotoBtn').style.display='block';}
   else{removeIdPhoto();}
@@ -2944,14 +3096,15 @@ var IMPORT_SECTOR_MAP = {
 };
 // Keyword map for fuzzy sector matching
 var SECTOR_KEYWORD_MAP = [
-  { keywords: ['FARMER'],                         canonical: ['FARMER'] },
+  { keywords: ['FARMER/FISHERFOLK'],               canonical: ['FARMER', 'FISHERFOLK'] },
+  { keywords: ['FARMER'],                          canonical: ['FARMER'] },
   { keywords: ['FISHERFOLK','FISHER'],             canonical: ['FISHERFOLK'] },
   { keywords: ['WOMEN','WOMAN','FEMALE'],          canonical: ['WOMEN'] },
   { keywords: ['PWD','DISABILITY','DISABLED','PERSONS WITH DISABILITY'], canonical: ['PWD'] },
   { keywords: ['YOUTH','CHILDREN','CHILD','MINOR'],canonical: ['CHILDREN AND YOUTH'] },
   { keywords: ['SENIOR','ELDERLY','OLDER'],        canonical: ['SENIOR CITIZEN'] },
   { keywords: ['SOLO PARENT','SINGLE PARENT'],     canonical: ['SOLO PARENT'] },
-  { keywords: ['INDIGENOUS','LUMAD','MANGYAN','TRIBAL','IP ','IPS'], canonical: ['INDIGENOUS PEOPLE'] },
+  { keywords: ['INDIGENOUS PEOPLE','INDIGENOUS','LUMAD','MANGYAN','TRIBAL','IP'], canonical: ['INDIGENOUS PEOPLE'] },
   { keywords: ['URBAN POOR','INFORMAL SETTLER'],   canonical: ['URBAN POOR'] }
 ];
 function normalizeSectorList(raw) {
@@ -2971,12 +3124,16 @@ function normalizeSectorList(raw) {
       if (!seen[up]) { seen[up] = true; result.push(up); }
       return;
     }
-    // Fuzzy keyword match
+    // Fuzzy keyword match (whole-word to avoid false positives)
     var matched = false;
     for (var j = 0; j < SECTOR_KEYWORD_MAP.length; j++) {
       var entry = SECTOR_KEYWORD_MAP[j];
       for (var k = 0; k < entry.keywords.length; k++) {
-        if (up.indexOf(entry.keywords[k]) !== -1) {
+        var kw = entry.keywords[k];
+        // Match exact equality OR keyword appears as whole word (bounded by space/start/end)
+        var kwMatch = (up === kw) ||
+          (new RegExp('(^|[^A-Z])' + kw.replace(/[/]/g, '\\/') + '([^A-Z]|$)').test(up));
+        if (kwMatch) {
           entry.canonical.forEach(function(m) { if (!seen[m]) { seen[m] = true; result.push(m); } });
           matched = true; break;
         }
@@ -3181,6 +3338,7 @@ function importCSVFile(event) {
       var lastName       = ucField(col('LAST NAME'));
       var firstName      = ucField(col('FIRST NAME'));
       var middleName     = ucField(col('MIDDLE NAME'));
+      if (!middleName || middleName.length <= 1) middleName = 'UNKNOWN';
       var alias          = ucField(col('ALIAS'));
       var addressBarangay = ucField(col('BARANGAY'));
       var unit           = ucField(col('UNIT'));
@@ -3197,17 +3355,17 @@ function importCSVFile(event) {
       var medicalCond    = matchEnum(col('MEDICAL CONDITION'), MEDICAL_VALS) || 'NO';
       var fourPs         = matchEnum(col('4Ps'), FOURPS_VALS) || 'NO';
       var pendingCase    = matchEnum(col('PENDING CASE'), PENDING_VALS) || 'NO';
-      var membershipType = matchEnum(col('MEMBERSHIP TYPE'), MEMBERSHIP_VALS);
-      if (!membershipType) {
+      var membershipType = (function() {
         var rawMem = ucField(col('MEMBERSHIP TYPE'));
+        // Normalize common variants before matching
         if (rawMem === 'NPA' || rawMem === 'REGULAR' || rawMem === 'REG NPA' || rawMem === 'REG. NPA') {
-          membershipType = 'REGULAR NPA';
-        } else if (rawMem === 'MB' || rawMem === 'MILISYA' || rawMem === 'MILISYANG' ||
-                   rawMem === 'MILISYA NG BAYAN' || rawMem === 'MILISYANG BAYAN' ||
-                   rawMem.indexOf('MILISYA') === 0) {
-          membershipType = 'MILISYANG BAYAN';
+          return 'REGULAR NPA';
         }
-      }
+        if (rawMem === 'MB' || rawMem.indexOf('MILISYA') === 0) {
+          return 'MILISYANG BAYAN';
+        }
+        return matchEnum(rawMem, MEMBERSHIP_VALS);
+      })();
       var areaOfOp       = matchEnum(col('AREA OF OPERATION'), AOO_VALS);
       var recordStatus   = col('STATUS') ? matchEnum(col('STATUS'), STATUS_VALS) : '';
       var province       = col('PROVINCE') ? matchEnum(col('PROVINCE'), PROVINCE_VALS) : 'OCCIDENTAL MINDORO';
@@ -3258,6 +3416,10 @@ function importCSVFile(event) {
       // -- Auto-tick INDIGENOUS PEOPLE if a tribal group is present
       if (tribalGroup && tribalGroup !== 'NO TRIBAL GROUP' && sectorList.indexOf('INDIGENOUS PEOPLE') === -1) {
         sectorList.push('INDIGENOUS PEOPLE');
+      }
+      // -- Auto-tick FARMER if INDIGENOUS PEOPLE is in sector
+      if (sectorList.indexOf('INDIGENOUS PEOPLE') !== -1 && sectorList.indexOf('FARMER') === -1) {
+        sectorList.push('FARMER');
       }
       // -- Auto-tick WOMEN if sex is FEMALE
       if (sex === 'FEMALE' && sectorList.indexOf('WOMEN') === -1) {
@@ -3476,7 +3638,6 @@ function importCSVFile(event) {
       var allOps = toInsert.concat(toUpdate).map(function(r) { return dbPut(r); });
       Promise.all(allOps).then(function() {
         hideImportOverlay();
-        allRecordsCache = [];
 
         // -- Save undo snapshot to localStorage
         var snapshot = {
@@ -3877,11 +4038,14 @@ function saveUser() {
 function runMigrationsManually() {
   if (!currentUser || currentUser.role !== 'ADMIN') { showToast('ACCESS DENIED', 'error'); return; }
   showToast('RUNNING MIGRATIONS...', 'info');
+  // Reset the one-time flag so migrations actually run
+  localStorage.removeItem('frdb-migrations-done-v2');
   migrateCivilStatus();
   migrateDefaults();
   // Give Firestore time to complete then show result
   setTimeout(function() {
     allRecordsCache = [];
+    localStorage.setItem('frdb-migrations-done-v2', '1');
     showToast('MIGRATIONS COMPLETE - RECORDS UPDATED', 'success');
   }, 4000);
 }
@@ -3908,7 +4072,7 @@ function runMiddleNameUpdate() {
       var data = doc.data();
       var middleName = data.middleName;
 
-      if (!middleName || middleName.trim() === '') {
+      if (!middleName || middleName.trim() === '' || middleName.trim().length <= 1) {
         var fullName = (data.lastName || '?') + ', ' + (data.firstName || '?');
         needsUpdate.push({
           id: doc.id,
@@ -4038,6 +4202,127 @@ function runNaibuanTribalFix() {
   });
 }
 
+// -- NO TRIBAL GROUP FIX (one-time migration) -----------------
+function runNoTribalGroupFix() {
+  if (!currentUser || currentUser.role !== 'ADMIN') { showToast('ACCESS DENIED - ADMIN ONLY', 'error'); return; }
+  var statusSpan = document.getElementById('noTribalGroupFixStatus');
+  if (statusSpan) statusSpan.textContent = 'Checking records...';
+  showToast('SCANNING FOR RECORDS WITH NO TRIBAL GROUP DATA...', 'info');
+
+  waitForAuth().then(function() {
+    return db.collection('records').get();
+  }).then(function(snapshot) {
+    var toFix = [];
+    snapshot.forEach(function(doc) {
+      var r = doc.data();
+      if (!r.tribalGroup || r.tribalGroup.trim() === '') {
+        toFix.push({
+          ref: doc.ref,
+          name: (r.lastName || '?') + ', ' + (r.firstName || '?')
+        });
+      }
+    });
+
+    if (!toFix.length) {
+      showToast('NO RECORDS WITH MISSING TRIBAL GROUP FOUND', 'success');
+      if (statusSpan) statusSpan.textContent = 'Nothing to update.';
+      return;
+    }
+
+    var recordsList = toFix.slice(0, 10).map(function(r) { return '  - ' + r.name; }).join('\n');
+    if (toFix.length > 10) recordsList += '\n  ... and ' + (toFix.length - 10) + ' more';
+
+    if (!confirm('Set tribalGroup = "NO TRIBAL GROUP" on ' + toFix.length + ' record(s) with no tribal group data?\n\n' + recordsList + '\n\nTHIS CANNOT BE UNDONE.')) {
+      if (statusSpan) statusSpan.textContent = '';
+      return;
+    }
+
+    if (statusSpan) statusSpan.textContent = 'Updating ' + toFix.length + ' record(s)...';
+    var batch = db.batch();
+    toFix.forEach(function(item) {
+      batch.update(item.ref, { tribalGroup: 'NO TRIBAL GROUP', updatedAt: new Date().toISOString() });
+    });
+    return batch.commit().then(function() {
+      showToast('UPDATED ' + toFix.length + ' RECORD(S) TO NO TRIBAL GROUP', 'success');
+      if (statusSpan) statusSpan.textContent = 'Updated ' + toFix.length + ' record(s).';
+      allRecordsCache = [];
+    });
+  }).catch(function(err) {
+    showToast('ERROR: ' + err.message, 'error');
+    if (statusSpan) statusSpan.textContent = 'Error.';
+  });
+}
+
+// -- UNRECOGNIZED TRIBAL GROUP FIX (one-time migration) -------
+function runUnrecognizedTribalGroupFix() {
+  if (!currentUser || currentUser.role !== 'ADMIN') { showToast('ACCESS DENIED - ADMIN ONLY', 'error'); return; }
+  var statusSpan = document.getElementById('unrecognizedTribalGroupFixStatus');
+  if (statusSpan) statusSpan.textContent = 'Checking records...';
+  showToast('SCANNING FOR RECORDS WITH UNSPECIFIED TRIBAL GROUP...', 'info');
+
+  var VALID_TRIBAL = ['IRAYA','ALANGAN','TADYAWAN','TAU-BUID','BANGON','BUHID','HANUNUO','RATAGNON','OTHERS','NO TRIBAL GROUP'];
+
+  waitForAuth().then(function() {
+    return db.collection('records').get();
+  }).then(function(snapshot) {
+    var toFix = [];
+    snapshot.forEach(function(doc) {
+      var r = doc.data();
+      var tg = (r.tribalGroup || '').trim().toUpperCase();
+      if (tg && VALID_TRIBAL.indexOf(tg) === -1) {
+        var sector = r.sector || [];
+        var needsIP = sector.indexOf('INDIGENOUS PEOPLE') === -1;
+        var needsFarmer = sector.indexOf('FARMER') === -1;
+        toFix.push({
+          ref: doc.ref,
+          name: (r.lastName || '?') + ', ' + (r.firstName || '?'),
+          currentValue: r.tribalGroup,
+          sector: sector,
+          needsIP: needsIP,
+          needsFarmer: needsFarmer
+        });
+      }
+    });
+
+    if (!toFix.length) {
+      showToast('NO RECORDS WITH UNRECOGNIZED TRIBAL GROUP FOUND', 'success');
+      if (statusSpan) statusSpan.textContent = 'Nothing to update.';
+      return;
+    }
+
+    var recordsList = toFix.slice(0, 10).map(function(r) {
+      return '  - ' + r.name + ' (currently: "' + r.currentValue + '")';
+    }).join('\n');
+    if (toFix.length > 10) recordsList += '\n  ... and ' + (toFix.length - 10) + ' more';
+
+    if (!confirm('Set tribalGroup = "OTHERS" and add INDIGENOUS PEOPLE to sector on ' + toFix.length + ' record(s) with unrecognized tribal group values?\n\n' + recordsList + '\n\nTHIS CANNOT BE UNDONE.')) {
+      if (statusSpan) statusSpan.textContent = '';
+      return;
+    }
+
+    if (statusSpan) statusSpan.textContent = 'Updating ' + toFix.length + ' record(s)...';
+    var batch = db.batch();
+    toFix.forEach(function(item) {
+      var newSector = item.sector.slice();
+      if (item.needsIP)     newSector.push('INDIGENOUS PEOPLE');
+      if (item.needsFarmer) newSector.push('FARMER');
+      batch.update(item.ref, {
+        tribalGroup: 'OTHERS',
+        sector: newSector,
+        updatedAt: new Date().toISOString()
+      });
+    });
+    return batch.commit().then(function() {
+      showToast('UPDATED ' + toFix.length + ' RECORD(S) TO OTHERS (IP)', 'success');
+      if (statusSpan) statusSpan.textContent = 'Updated ' + toFix.length + ' record(s).';
+      allRecordsCache = [];
+    });
+  }).catch(function(err) {
+    showToast('ERROR: ' + err.message, 'error');
+    if (statusSpan) statusSpan.textContent = 'Error.';
+  });
+}
+
 // -- PURGE ALL OPERATORS --------------------------------------
 function purgeAllOperators() {
   if (!currentUser || currentUser.role !== 'ADMIN') { showToast('ACCESS DENIED', 'error'); return; }
@@ -4153,10 +4438,10 @@ function applyTheme(theme) {
   var icon  = document.getElementById('themeToggleIcon');
   var label = document.getElementById('themeToggleLabel');
   if (theme === 'light') {
-    if (icon)  icon.textContent  = '??';
+    if (icon)  icon.textContent  = '\uD83C\uDF19'; // 🌙 moon
     if (label) label.textContent = 'DARK';
   } else {
-    if (icon)  icon.textContent  = '??';
+    if (icon)  icon.textContent  = '\u2600\uFE0F'; // ☀️ sun
     if (label) label.textContent = 'LIGHT';
   }
   localStorage.setItem('frdb-theme', theme);
@@ -4277,9 +4562,13 @@ auth.onAuthStateChanged(function(user) {
           console.warn('[FRDB] Could not load user profile:', err.code);
         });
       onLoginSuccess();
-      // One-time migrations: normalize old values + apply new defaults
-      migrateCivilStatus();
-      migrateDefaults();
+      // One-time migrations: only run once per device, not on every login
+      var migKey = 'frdb-migrations-done-v2';
+      if (!localStorage.getItem(migKey)) {
+        migrateCivilStatus();
+        migrateDefaults();
+        localStorage.setItem(migKey, '1');
+      }
     }
   }
 });
