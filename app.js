@@ -1223,15 +1223,16 @@ function printUnitSummaryReport() {
     var printed   = new Date().toLocaleString('en-PH');
     var printedBy = currentUser ? currentUser.username + ' (' + currentUser.role + ')' : 'UNKNOWN';
 
-    // Build unit map: { unitName: { total, regularNpa, milisyang, noType } }
+    // Build unit map: { unitName: { total, regularNpa, milisyang, noType, noJapic } }
     var unitMap = {};
     records.forEach(function(r) {
       var unit = (r.referringUnit || 'NOT SPECIFIED').trim().toUpperCase();
-      if (!unitMap[unit]) unitMap[unit] = { total: 0, regularNpa: 0, milisyang: 0, noType: 0 };
+      if (!unitMap[unit]) unitMap[unit] = { total: 0, regularNpa: 0, milisyang: 0, noType: 0, noJapic: 0 };
       unitMap[unit].total++;
-      if (r.membershipType === 'REGULAR NPA')    unitMap[unit].regularNpa++;
+      if (r.membershipType === 'REGULAR NPA')          unitMap[unit].regularNpa++;
       else if (r.membershipType === 'MILISYANG BAYAN') unitMap[unit].milisyang++;
-      else                                        unitMap[unit].noType++;
+      else                                             unitMap[unit].noType++;
+      if (!r.japic || !(r.japic.url || r.japic.dataUrl || r.japic.fileName)) unitMap[unit].noJapic++;
     });
 
     // Sort units alphabetically, but keep NOT SPECIFIED last
@@ -1242,29 +1243,34 @@ function printUnitSummaryReport() {
     });
 
     var grandTotal = records.length;
-    var grandNpa   = 0, grandMb = 0, grandNo = 0;
+    var grandNpa = 0, grandMb = 0, grandNo = 0, grandNoJapic = 0;
 
     var rows = units.map(function(unit, i) {
       var d = unitMap[unit];
-      grandNpa += d.regularNpa;
-      grandMb  += d.milisyang;
-      grandNo  += d.noType;
+      grandNpa     += d.regularNpa;
+      grandMb      += d.milisyang;
+      grandNo      += d.noType;
+      grandNoJapic += d.noJapic;
       var npaCell = d.regularNpa > 0
         ? '<span style="color:#c42b1c;font-weight:700">' + d.regularNpa + '</span>'
         : '<span style="color:#aaa">0</span>';
-      var mbCell  = d.milisyang  > 0
-        ? '<span style="color:#9a6700;font-weight:700">' + d.milisyang  + '</span>'
+      var mbCell = d.milisyang > 0
+        ? '<span style="color:#9a6700;font-weight:700">' + d.milisyang + '</span>'
         : '<span style="color:#aaa">0</span>';
-      var noCell  = d.noType     > 0
+      var noCell = d.noType > 0
         ? '<span style="color:#888">' + d.noType + '</span>'
         : '<span style="color:#aaa">0</span>';
+      var japicCell = d.noJapic > 0
+        ? '<span style="color:#c42b1c;font-weight:700">' + d.noJapic + '</span>'
+        : '<span style="color:#3a7d44;font-weight:700">0</span>';
       return '<tr>' +
         '<td style="text-align:center">' + (i + 1) + '</td>' +
         '<td style="font-weight:600">' + unit + '</td>' +
         '<td style="text-align:center;font-size:13px;font-weight:700">' + d.total + '</td>' +
-        '<td style="text-align:center">' + npaCell + '</td>' +
-        '<td style="text-align:center">' + mbCell  + '</td>' +
-        '<td style="text-align:center">' + noCell  + '</td>' +
+        '<td style="text-align:center">' + npaCell   + '</td>' +
+        '<td style="text-align:center">' + mbCell    + '</td>' +
+        '<td style="text-align:center">' + noCell    + '</td>' +
+        '<td style="text-align:center">' + japicCell + '</td>' +
         '</tr>';
     }).join('');
 
@@ -1275,6 +1281,7 @@ function printUnitSummaryReport() {
         '<td style="text-align:center;color:#c42b1c">' + grandNpa + '</td>' +
         '<td style="text-align:center;color:#9a6700">' + grandMb  + '</td>' +
         '<td style="text-align:center;color:#888">'   + grandNo  + '</td>' +
+        '<td style="text-align:center;color:#c42b1c">' + grandNoJapic + '</td>' +
       '</tr>';
 
     var body =
@@ -1291,6 +1298,7 @@ function printUnitSummaryReport() {
           '<th style="text-align:center;width:80px">REGULAR NPA</th>' +
           '<th style="text-align:center;width:80px">MILISYANG BAYAN</th>' +
           '<th style="text-align:center;width:80px">NOT SPECIFIED</th>' +
+          '<th style="text-align:center;width:80px">NO JAPIC</th>' +
         '</tr></thead>' +
         '<tbody>' + rows + '</tbody>' +
         '<tfoot>' + tfoot + '</tfoot>' +
@@ -1953,26 +1961,26 @@ function downloadReportCSV(type) {
       var unitMap = {};
       records.forEach(function(r) {
         var unit = (r.referringUnit || 'NOT SPECIFIED').trim().toUpperCase();
-        if (!unitMap[unit]) unitMap[unit] = { total: 0, regularNpa: 0, milisyang: 0, noType: 0 };
+        if (!unitMap[unit]) unitMap[unit] = { total: 0, regularNpa: 0, milisyang: 0, noType: 0, noJapic: 0 };
         unitMap[unit].total++;
-        if (r.membershipType === 'REGULAR NPA')       unitMap[unit].regularNpa++;
+        if (r.membershipType === 'REGULAR NPA')          unitMap[unit].regularNpa++;
         else if (r.membershipType === 'MILISYANG BAYAN') unitMap[unit].milisyang++;
-        else                                           unitMap[unit].noType++;
+        else                                             unitMap[unit].noType++;
+        if (!r.japic || !(r.japic.url || r.japic.dataUrl || r.japic.fileName)) unitMap[unit].noJapic++;
       });
       var units = Object.keys(unitMap).sort(function(a, b) {
         if (a === 'NOT SPECIFIED') return 1;
         if (b === 'NOT SPECIFIED') return -1;
         return a.localeCompare(b);
       });
-      var headers = ['#', 'REFERRING UNIT', 'TOTAL FRs', 'REGULAR NPA', 'MILISYANG BAYAN', 'NOT SPECIFIED'];
+      var headers = ['#', 'REFERRING UNIT', 'TOTAL FRs', 'REGULAR NPA', 'MILISYANG BAYAN', 'NOT SPECIFIED', 'NO JAPIC'];
       var rows = units.map(function(unit, i) {
         var d = unitMap[unit];
-        return [i + 1, unit, d.total, d.regularNpa, d.milisyang, d.noType].map(q);
+        return [i + 1, unit, d.total, d.regularNpa, d.milisyang, d.noType, d.noJapic].map(q);
       });
-      // Grand total row
-      var gt = 0, gnpa = 0, gmb = 0, gno = 0;
-      units.forEach(function(u) { gt += unitMap[u].total; gnpa += unitMap[u].regularNpa; gmb += unitMap[u].milisyang; gno += unitMap[u].noType; });
-      rows.push(['', 'GRAND TOTAL', gt, gnpa, gmb, gno].map(q));
+      var gt = 0, gnpa = 0, gmb = 0, gno = 0, gnj = 0;
+      units.forEach(function(u) { gt += unitMap[u].total; gnpa += unitMap[u].regularNpa; gmb += unitMap[u].milisyang; gno += unitMap[u].noType; gnj += unitMap[u].noJapic; });
+      rows.push(['', 'GRAND TOTAL', gt, gnpa, gmb, gno, gnj].map(q));
       count    = units.length;
       filename = 'FR_PER_UNIT_SUMMARY_' + dateStr + '.csv';
       csv = [headers.map(q).join(',')].concat(rows.map(function(r) { return r.join(','); })).join('\n');
