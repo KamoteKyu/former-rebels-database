@@ -319,6 +319,13 @@ a { text-decoration: none; color: inherit; }
 .no-eclip-header {
   display: flex; align-items: center; justify-content: space-between;
   margin-bottom: 12px; gap: 12px;
+  border-radius: var(--radius);
+  padding: 4px 6px;
+  margin-left: -6px; margin-right: -6px;
+  transition: background 0.15s;
+}
+.no-eclip-header:hover {
+  background: rgba(255,255,255,0.04);
 }
 .no-eclip-title {
   font-size: 0.72rem; letter-spacing: 1.5px; font-weight: 700;
@@ -920,6 +927,356 @@ textarea { resize: vertical; min-height: 120px; }
   white-space: nowrap;
 }
 .btn-theme-toggle:hover { border-color: var(--accent); color: var(--accent2); background: var(--bg2); }
+
+/* ===== HOLIDAY DYNAMIC THEMES (LOGIN PAGE) ===== */
+/* Floating-decoration layer */
+.holiday-decor { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 0; }
+
+/* --- CHRISTMAS (Dec 1–31) --- */
+.login-screen[data-holiday="christmas"] {
+  background: linear-gradient(135deg, #0b1f12 0%, #0d1117 60%, #1a0a0a 100%);
+}
+.login-screen[data-holiday="christmas"]::before {
+  background: radial-gradient(circle, rgba(63,185,80,0.32) 0%, transparent 70%);
+}
+.login-screen[data-holiday="christmas"]::after {
+  background: radial-gradient(circle, rgba(248,81,73,0.25) 0%, transparent 70%);
+}
+.login-screen[data-holiday="christmas"] .login-card {
+  box-shadow: var(--shadow), 0 0 60px rgba(63,185,80,0.22);
+}
+.login-screen[data-holiday="christmas"] .btn-login {
+  background: linear-gradient(135deg, #cf222e 0%, #2ea043 100%);
+}
+.login-screen[data-holiday="christmas"] .btn-login:hover {
+  box-shadow: 0 0 16px rgba(63,185,80,0.4);
+}
+.login-screen[data-holiday="christmas"] .login-form input:focus {
+  border-color: #2ea043; box-shadow: 0 0 0 3px rgba(63,185,80,0.2);
+}
+
+/* --- NEW YEAR (Jan 1–7) --- */
+.login-screen[data-holiday="newyear"] {
+  background: linear-gradient(135deg, #0a0a2e 0%, #0d1117 55%, #1a1505 100%);
+}
+.login-screen[data-holiday="newyear"]::before {
+  background: radial-gradient(circle, rgba(210,153,34,0.32) 0%, transparent 70%);
+}
+.login-screen[data-holiday="newyear"]::after {
+  background: radial-gradient(circle, rgba(255,215,0,0.22) 0%, transparent 70%);
+}
+.login-screen[data-holiday="newyear"] .login-card {
+  box-shadow: var(--shadow), 0 0 60px rgba(210,153,34,0.25);
+}
+.login-screen[data-holiday="newyear"] .btn-login {
+  background: linear-gradient(135deg, #d29922 0%, #b08800 100%);
+}
+.login-screen[data-holiday="newyear"] .btn-login:hover {
+  box-shadow: 0 0 16px rgba(210,153,34,0.4);
+}
+.login-screen[data-holiday="newyear"] .login-form input:focus {
+  border-color: #d29922; box-shadow: 0 0 0 3px rgba(210,153,34,0.2);
+}
+
+/* --- VALENTINE'S (Feb 1–15) --- */
+.login-screen[data-holiday="valentines"] {
+  background: linear-gradient(135deg, #2a0a14 0%, #0d1117 55%, #1a0510 100%);
+}
+.login-screen[data-holiday="valentines"]::before {
+  background: radial-gradient(circle, rgba(248,81,73,0.30) 0%, transparent 70%);
+}
+.login-screen[data-holiday="valentines"]::after {
+  background: radial-gradient(circle, rgba(255,105,180,0.22) 0%, transparent 70%);
+}
+.login-screen[data-holiday="valentines"] .login-card {
+  box-shadow: var(--shadow), 0 0 60px rgba(248,81,73,0.22);
+}
+.login-screen[data-holiday="valentines"] .btn-login {
+  background: linear-gradient(135deg, #e3345c 0%, #ff6b9d 100%);
+}
+.login-screen[data-holiday="valentines"] .btn-login:hover {
+  box-shadow: 0 0 16px rgba(248,81,73,0.4);
+}
+.login-screen[data-holiday="valentines"] .login-form input:focus {
+  border-color: #e3345c; box-shadow: 0 0 0 3px rgba(248,81,73,0.2);
+}
+
+/* --- HALLOWEEN / UNDAS (Oct 15 – Nov 2) --- */
+.login-screen[data-holiday="halloween"] {
+  background: linear-gradient(135deg, #1a0a2e 0%, #0d1117 55%, #0a0a0a 100%);
+}
+.login-screen[data-holiday="halloween"]::before {
+  background: radial-gradient(circle, rgba(255,140,0,0.30) 0%, transparent 70%);
+}
+.login-screen[data-holiday="halloween"]::after {
+  background: radial-gradient(circle, rgba(138,43,226,0.28) 0%, transparent 70%);
+}
+.login-screen[data-holiday="halloween"] .login-card {
+  box-shadow: var(--shadow), 0 0 60px rgba(138,43,226,0.25);
+}
+.login-screen[data-holiday="halloween"] .btn-login {
+  background: linear-gradient(135deg, #ff7518 0%, #8a2be2 100%);
+}
+.login-screen[data-holiday="halloween"] .btn-login:hover {
+  box-shadow: 0 0 16px rgba(255,140,0,0.4);
+}
+.login-screen[data-holiday="halloween"] .login-form input:focus {
+  border-color: #ff7518; box-shadow: 0 0 0 3px rgba(255,140,0,0.2);
+}
+
+/* ===== HALLOWEEN SCARY EFFECTS ===== */
+
+/* Vignette — darkens the edges for an ominous feel */
+.login-screen[data-holiday="halloween"] .holiday-decor::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 4;
+  background: radial-gradient(ellipse at center, transparent 38%, rgba(8,0,18,0.55) 92%);
+}
+
+/* --- Realistic Spider --- */
+.hween-spider { position: absolute; top: 0; z-index: 2; pointer-events: none; }
+.hween-silk {
+  width: 2px; height: 0; margin: 0 auto;
+  background: linear-gradient(to bottom, rgba(210,210,210,0.6), rgba(180,180,180,0.3));
+  animation: hweenSilkGrow 9s ease-in-out infinite;
+}
+.hween-spider-body {
+  width: 38px; height: 48px; position: relative; margin: -2px auto 0;
+  background: radial-gradient(ellipse 80% 60% at 35% 25%, #4a4a4a 0%, #2a2a2a 35%, #0d0d0d 100%);
+  border-radius: 50% 50% 42% 42% / 55% 55% 45% 45%;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.8), inset -4px -4px 8px rgba(0,0,0,0.5), inset 3px 4px 6px rgba(90,90,90,0.25);
+  animation: hweenSway 3s ease-in-out infinite;
+}
+.hween-spider-eyes { position: absolute; top: 8px; left: 50%; transform: translateX(-50%); width: 16px; height: 5px; }
+.hween-spider-eyes::before, .hween-spider-eyes::after {
+  content: ''; position: absolute; top: 0; width: 5px; height: 5px; border-radius: 50%;
+  background: radial-gradient(circle, #ff2020 0%, #800000 70%);
+  box-shadow: 0 0 6px 1px rgba(255,30,30,0.7);
+}
+.hween-spider-eyes::before { left: 0; }
+.hween-spider-eyes::after  { right: 0; }
+
+/* Spider legs — 8 jointed legs using CSS custom properties */
+.hween-leg {
+  --base: 0deg;
+  position: absolute; width: 30px; height: 2px; top: 14px; left: 50%;
+  background: linear-gradient(to right, #2a2a2a 60%, #111 100%);
+  border-radius: 0 2px 2px 0; transform-origin: 0 50%;
+  transform: rotate(var(--base));
+  animation: hweenLegWave 1.6s ease-in-out infinite;
+}
+.hween-l1 { --base: 22deg;   animation-delay: 0s; }
+.hween-l2 { --base: 10deg;   animation-delay: .1s; }
+.hween-l3 { --base: -10deg;  animation-delay: .2s; }
+.hween-l4 { --base: -22deg;  animation-delay: .3s; }
+.hween-r1 { --base: 158deg;  animation-delay: .15s; }
+.hween-r2 { --base: 170deg;  animation-delay: .25s; }
+.hween-r3 { --base: 190deg;  animation-delay: .35s; }
+.hween-r4 { --base: 202deg;  animation-delay: .45s; }
+
+@keyframes hweenLegWave {
+  0%, 100% { transform: rotate(var(--base)); }
+  50%      { transform: rotate(calc(var(--base) + 12deg)); }
+}
+@keyframes hweenSilkGrow {
+  0%   { height: 0; }
+  25%  { height: 180px; }
+  75%  { height: 180px; }
+  100% { height: 0; }
+}
+@keyframes hweenSway {
+  0%, 100% { transform: rotate(-4deg); }
+  50%      { transform: rotate(4deg); }
+}
+
+/* --- Peeking Ghost --- */
+.hween-ghost {
+  position: absolute; bottom: -130px; right: 12%; width: 80px; height: 100px;
+  z-index: 2; pointer-events: none; opacity: 0;
+  animation: hweenGhostPeek 14s ease-in-out infinite;
+  animation-delay: 5s;
+}
+.hween-ghost::before {
+  content: ''; position: absolute; inset: 0;
+  background: radial-gradient(ellipse 60% 50% at 50% 30%, rgba(230,235,245,0.88), rgba(200,210,225,0.55) 60%, rgba(170,180,195,0.25) 100%);
+  border-radius: 50% 50% 8% 8% / 55% 55% 12% 12%;
+  box-shadow: 0 0 40px rgba(200,210,225,0.2);
+}
+/* Wavy ragged bottom edge */
+.hween-ghost::after {
+  content: ''; position: absolute; bottom: -10px; left: 0; right: 0; height: 16px;
+  background:
+    radial-gradient(circle 13px at 18% 0%, rgba(210,218,230,0.7) 49%, transparent 50%),
+    radial-gradient(circle 13px at 50% 0%, rgba(210,218,230,0.7) 49%, transparent 50%),
+    radial-gradient(circle 13px at 82% 0%, rgba(210,218,230,0.7) 49%, transparent 50%);
+}
+.hween-ghost-eyes {
+  position: absolute; top: 26px; left: 50%; transform: translateX(-50%);
+  width: 40px; height: 17px; z-index: 1;
+}
+.hween-ghost-eyes::before, .hween-ghost-eyes::after {
+  content: ''; position: absolute; top: 0; width: 13px; height: 17px;
+  background: radial-gradient(ellipse, #050505 25%, #1a0510 100%);
+  border-radius: 50%; box-shadow: inset 0 2px 4px rgba(0,0,0,0.9);
+}
+.hween-ghost-eyes::before { left: 0; }
+.hween-ghost-eyes::after  { right: 0; }
+.hween-ghost-mouth {
+  position: absolute; top: 50px; left: 50%; transform: translateX(-50%);
+  width: 14px; height: 18px; z-index: 1;
+  background: radial-gradient(ellipse, #050505 25%, #1a0510 100%);
+  border-radius: 50% 50% 50% 50% / 35% 35% 65% 65%;
+}
+@keyframes hweenGhostPeek {
+  0%   { bottom: -130px; opacity: 0; }
+  8%   { opacity: 0.9; }
+  15%  { bottom: -15px; }
+  25%  { bottom: -25px; }
+  35%  { bottom: -15px; }
+  45%  { bottom: -30px; opacity: 0.9; }
+  52%  { opacity: 0; }
+  100% { bottom: -130px; opacity: 0; }
+}
+
+/* --- Glowing eyes in the dark --- */
+.hween-eyes-pair {
+  position: absolute; width: 24px; height: 8px; z-index: 1;
+  pointer-events: none; opacity: 0;
+  animation: hweenEyesBlink 6s ease-in-out infinite;
+}
+.hween-eyes-pair::before, .hween-eyes-pair::after {
+  content: ''; position: absolute; top: 0; width: 7px; height: 7px; border-radius: 50%;
+  background: radial-gradient(circle, #ff3030 0%, #cc0000 50%, #440000 100%);
+  box-shadow: 0 0 8px 2px rgba(255,40,40,0.6);
+}
+.hween-eyes-pair::before { left: 0; }
+.hween-eyes-pair::after  { right: 0; }
+@keyframes hweenEyesBlink {
+  0%, 100% { opacity: 0; }
+  20%      { opacity: 0; }
+  30%      { opacity: 0.85; }
+  45%      { opacity: 0.85; }
+  50%      { opacity: 0; }
+  70%      { opacity: 0; }
+  78%      { opacity: 0.55; }
+  84%      { opacity: 0; }
+}
+
+/* --- Rolling fog at the bottom --- */
+.hween-fog {
+  position: absolute; bottom: 0; left: 0; right: 0; height: 130px;
+  z-index: 1; pointer-events: none;
+  background: linear-gradient(to top, rgba(120,100,140,0.28) 0%, rgba(100,80,120,0.15) 40%, transparent 100%);
+  animation: hweenFogDrift 18s ease-in-out infinite alternate;
+}
+@keyframes hweenFogDrift {
+  0%   { transform: translateX(-30px); opacity: 0.5; }
+  100% { transform: translateX(30px); opacity: 1; }
+}
+
+/* --- Eerie card flicker (replaces normal cardGlow for halloween) --- */
+.login-screen[data-holiday="halloween"] .login-card {
+  animation: hweenFlicker 5s ease-in-out infinite;
+}
+@keyframes hweenFlicker {
+  0%, 100% { box-shadow: var(--shadow), 0 0 60px rgba(138,43,226,0.25); }
+  8%       { box-shadow: var(--shadow), 0 0 35px rgba(255,140,0,0.15); }
+  12%      { box-shadow: var(--shadow), 0 0 60px rgba(138,43,226,0.25); }
+  47%      { box-shadow: var(--shadow), 0 0 45px rgba(138,43,226,0.1); }
+  50%      { box-shadow: var(--shadow), 0 0 70px rgba(255,140,0,0.3); }
+  53%      { box-shadow: var(--shadow), 0 0 45px rgba(138,43,226,0.1); }
+}
+
+/* --- INDEPENDENCE DAY PH (Jun 1-15) --- */
+.login-screen[data-holiday="independence"] {
+  background: linear-gradient(135deg, #0a1428 0%, #0d1117 55%, #2a0a0a 100%);
+}
+.login-screen[data-holiday="independence"]::before {
+  background: radial-gradient(circle, rgba(0,56,168,0.32) 0%, transparent 70%);
+}
+.login-screen[data-holiday="independence"]::after {
+  background: radial-gradient(circle, rgba(206,17,38,0.25) 0%, transparent 70%);
+}
+.login-screen[data-holiday="independence"] .login-card {
+  box-shadow: var(--shadow), 0 0 60px rgba(0,56,168,0.22);
+}
+.login-screen[data-holiday="independence"] .btn-login {
+  background: linear-gradient(135deg, #0038a8 0%, #ce1126 100%);
+}
+.login-screen[data-holiday="independence"] .btn-login:hover {
+  box-shadow: 0 0 16px rgba(0,56,168,0.4);
+}
+.login-screen[data-holiday="independence"] .login-form input:focus {
+  border-color: #0038a8; box-shadow: 0 0 0 3px rgba(0,56,168,0.2);
+}
+
+/* --- ARAWATAN FESTIVAL (Nov 10-15) --- */
+.login-screen[data-holiday="arawatan"] {
+  background: linear-gradient(135deg, #1a1a00 0%, #0d1117 50%, #0a2e2a 100%);
+}
+.login-screen[data-holiday="arawatan"]::before {
+  background: radial-gradient(circle, rgba(255,193,7,0.32) 0%, transparent 70%);
+}
+.login-screen[data-holiday="arawatan"]::after {
+  background: radial-gradient(circle, rgba(0,200,150,0.28) 0%, transparent 70%);
+}
+.login-screen[data-holiday="arawatan"] .login-card {
+  box-shadow: var(--shadow), 0 0 60px rgba(255,193,7,0.22);
+}
+.login-screen[data-holiday="arawatan"] .btn-login {
+  background: linear-gradient(135deg, #ffc107 0%, #00c896 100%);
+}
+.login-screen[data-holiday="arawatan"] .btn-login:hover {
+  box-shadow: 0 0 16px rgba(255,193,7,0.4);
+}
+.login-screen[data-holiday="arawatan"] .login-form input:focus {
+  border-color: #ffc107; box-shadow: 0 0 0 3px rgba(255,193,7,0.2);
+}
+
+/* --- JACOB'S BIRTHDAY (Jun 15) --- */
+.login-screen[data-holiday="jacobs"] {
+  background: linear-gradient(135deg, #1a0a2e 0%, #0d1117 50%, #2a1515 100%);
+}
+.login-screen[data-holiday="jacobs"]::before {
+  background: radial-gradient(circle, rgba(168,85,247,0.32) 0%, transparent 70%);
+}
+.login-screen[data-holiday="jacobs"]::after {
+  background: radial-gradient(circle, rgba(255,215,0,0.25) 0%, transparent 70%);
+}
+.login-screen[data-holiday="jacobs"] .login-card {
+  box-shadow: var(--shadow), 0 0 60px rgba(168,85,247,0.25);
+}
+.login-screen[data-holiday="jacobs"] .btn-login {
+  background: linear-gradient(135deg, #a855f7 0%, #ffd700 100%);
+}
+.login-screen[data-holiday="jacobs"] .btn-login:hover {
+  box-shadow: 0 0 16px rgba(168,85,247,0.4);
+}
+.login-screen[data-holiday="jacobs"] .login-form input:focus {
+  border-color: #a855f7; box-shadow: 0 0 0 3px rgba(168,85,247,0.2);
+}
+
+/* Light-theme holiday adjustments (softer pastel backgrounds) */
+[data-theme="light"] .login-screen[data-holiday="christmas"] {
+  background: linear-gradient(135deg, #e8f5e9 0%, #f0f2f5 60%, #fdecea 100%);
+}
+[data-theme="light"] .login-screen[data-holiday="newyear"] {
+  background: linear-gradient(135deg, #fff8e1 0%, #f0f2f5 55%, #fffde7 100%);
+}
+[data-theme="light"] .login-screen[data-holiday="valentines"] {
+  background: linear-gradient(135deg, #fce4ec 0%, #f0f2f5 55%, #fde7ef 100%);
+}
+[data-theme="light"] .login-screen[data-holiday="halloween"] {
+  background: linear-gradient(135deg, #f3e5f5 0%, #f0f2f5 55%, #fff3e0 100%);
+}
+[data-theme="light"] .login-screen[data-holiday="independence"] {
+  background: linear-gradient(135deg, #e3f2fd 0%, #f0f2f5 55%, #ffebee 100%);
+}
+[data-theme="light"] .login-screen[data-holiday="arawatan"] {
+  background: linear-gradient(135deg, #fffde7 0%, #f0f2f5 50%, #e0f7f4 100%);
+}
+[data-theme="light"] .login-screen[data-holiday="jacobs"] {
+  background: linear-gradient(135deg, #f3e5f5 0%, #f0f2f5 50%, #fff8e1 100%);
+}
 
 /* ===== SCROLLBAR ===== */
 ::-webkit-scrollbar { width: 6px; height: 6px; }

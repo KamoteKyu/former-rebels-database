@@ -1,5 +1,5 @@
-﻿/* ============================================================
-   FORMER REBELS DATABASE MANAGEMENT SYSTEM - app.js
+/* ============================================================
+   FORMER REBEL DATABASE MANAGEMENT AND JAPIC REPOSITORY SYSTEM - app.js
    Storage: Firebase Firestore (records) + Firebase Auth (users)
             + Firebase Storage (files/photos)
    ============================================================ */
@@ -447,6 +447,8 @@ function doLogin() {
 
 function onLoginSuccess() {
   document.getElementById('loginScreen').classList.add('hidden');
+  // Play maniacal laugh during Halloween season
+  if (getCurrentHoliday() === 'halloween') playManiacalLaugh();
   document.getElementById('mainApp').classList.remove('hidden');
   document.getElementById('sidebarUsername').textContent = currentUser.username;
   document.getElementById('sidebarRole').textContent     = currentUser.role;
@@ -469,6 +471,7 @@ function doLogout() {
     allRecordsCache = [];
     document.getElementById('mainApp').classList.add('hidden');
     document.getElementById('loginScreen').classList.remove('hidden');
+    applyHolidayTheme();
     document.getElementById('loginUser').value = '';
     document.getElementById('loginPass').value = '';
     document.getElementById('loginError').textContent = '';
@@ -532,7 +535,7 @@ function showPage(page) {
         var msg, detail, retryCooldown;
         if (isQuota) {
           msg = 'FIREBASE DAILY QUOTA EXCEEDED';
-          detail = 'The free daily read limit has been reached. The app will recover automatically after midnight Pacific Time (UTC-8). Do not keep retrying — each attempt uses more quota.';
+          detail = 'The free daily read limit has been reached. The app will recover automatically after midnight Pacific Time (UTC-8). Do not keep retrying � each attempt uses more quota.';
           retryCooldown = 60;
         } else if (isOffline) {
           msg = 'NO INTERNET CONNECTION';
@@ -598,10 +601,30 @@ function toggleReportDropdown() {
 function closeReportDropdown() {
   document.getElementById('reportDropdown').classList.remove('open');
 }
+
+// -- CARD REPORT DROPDOWNS (generic) -------------------------
+// All per-card dropdowns share these two helpers.
+function toggleCardDropdown(id) {
+  var el = document.getElementById(id);
+  if (!el) return;
+  var isOpen = el.classList.contains('open');
+  // Close every open card dropdown first
+  document.querySelectorAll('.report-dropdown.open').forEach(function(d) { d.classList.remove('open'); });
+  if (!isOpen) el.classList.add('open');
+}
+function closeCardDropdown(id) {
+  var el = document.getElementById(id);
+  if (el) el.classList.remove('open');
+}
+// Legacy aliases kept for the municipality dropdown already wired up
+function toggleAddrReportDropdown() { toggleCardDropdown('addrReportDropdown'); }
+function closeAddrReportDropdown()   { closeCardDropdown('addrReportDropdown'); }
 // Close dropdown when clicking outside
 document.addEventListener('click', function(e) {
-  var dd = document.getElementById('reportDropdown');
-  if (dd && !dd.contains(e.target)) dd.classList.remove('open');
+  // Close all open report dropdowns when clicking outside any of them
+  document.querySelectorAll('.report-dropdown.open').forEach(function(d) {
+    if (!d.contains(e.target)) d.classList.remove('open');
+  });
 });
 
 // -- NO E-CLIP WIDGET -----------------------------------------
@@ -611,6 +634,12 @@ function toggleNoEclipList(listId, badgeId) {
   var open  = list.style.display !== 'none';
   list.style.display  = open ? 'none' : 'flex';
   badge.style.borderRadius = open ? '20px' : '20px 20px 0 0';
+  // Toggle chevron arrow on the parent header
+  var header = list.previousElementSibling;
+  if (header) {
+    var arrow = header.querySelector('.no-eclip-arrow');
+    if (arrow) arrow.style.transform = open ? 'rotate(0deg)' : 'rotate(180deg)';
+  }
 }
 
 // Called when a status stat card is clicked - scrolls to widget and opens the list
@@ -704,6 +733,13 @@ function renderNoEclipWidget(records) {
   document.getElementById('deceasedBadge').textContent      = deceased.length      + ' PROFILE' + (deceased.length      !== 1 ? 'S' : '');
   document.getElementById('incarceratedBadge').textContent  = incarcerated.length  + ' PROFILE' + (incarcerated.length  !== 1 ? 'S' : '');
 
+  // Group 5 - no assistance at all
+  var noAssistance = records.filter(function(r) {
+    return !r.assistance || r.assistance.length === 0;
+  }).slice().sort(function(a, b) { return (a.lastName || '').localeCompare(b.lastName || ''); });
+
+  document.getElementById('noAssistanceBadge').textContent = noAssistance.length + ' PROFILE' + (noAssistance.length !== 1 ? 'S' : '');
+
   function buildItems(list, emptyMsg) {
     if (!list.length) return '<div class="no-eclip-empty">' + emptyMsg + '</div>';
     return list.map(function(r) {
@@ -741,6 +777,7 @@ function renderNoEclipWidget(records) {
   document.getElementById('cannotLocateList').innerHTML  = buildItems(cannotLocate,  '&#10003; NO PROFILES MARKED AS CANNOT BE LOCATED');
   document.getElementById('deceasedList').innerHTML      = buildItems(deceased,      '&#10003; NO PROFILES MARKED AS DECEASED');
   document.getElementById('incarceratedList').innerHTML  = buildItems(incarcerated,  '&#10003; NO PROFILES MARKED AS INCARCERATED');
+  document.getElementById('noAssistanceList').innerHTML  = buildItems(noAssistance,  '&#10003; ALL PROFILES HAVE AT LEAST ONE ASSISTANCE RECORDED');
 }
 
 // -- RECENTLY IMPORTED/UPDATED WIDGET -------------------------
@@ -768,7 +805,7 @@ function renderRecentImportsWidget() {
       if (allRecordsCache[i].id === e.id) { r = allRecordsCache[i]; break; }
     }
     var photo = r && r.idPhoto ? r.idPhoto : 'BHB.png';
-    // Always use live record name if available � never trust the stored string
+    // Always use live record name if available ? never trust the stored string
     var displayName = r
       ? (r.lastName || '') + ', ' + (r.firstName || '') + (r.middleName ? ' ' + r.middleName : '')
       : e.name;
@@ -823,6 +860,7 @@ function renderDashboard(records) {
   renderAgeReport(records);
   renderMunicipalityReport(records);
   render4PsReport(records);
+  renderPhilhealthReport(records);
   renderSectorReport(records);
   renderReferringUnitReport(records);
   renderSurrenderByYearReport(records);
@@ -972,7 +1010,7 @@ function generateReport() {
     if (!records.length) { showToast('NO RECORDS FOR REPORT', 'info'); return; }
     var printed = new Date().toLocaleString('en-PH');
     var generatedBy = currentUser ? currentUser.username + ' (' + currentUser.role + ')' : 'UNKNOWN';
-    var body = '<div class="print-header"><h1>FORMER REBELS DATABASE MANAGEMENT SYSTEM</h1><p>DASHBOARD SUMMARY REPORT</p><p>Generated: ' + printed + '</p><p>Generated by: ' + generatedBy + '</p></div>' +
+    var body = '<div class="print-header"><h1>FORMER REBEL DATABASE MANAGEMENT AND JAPIC REPOSITORY SYSTEM</h1><p>DASHBOARD SUMMARY REPORT</p><p>Generated: ' + printed + '</p><p>Generated by: ' + generatedBy + '</p></div>' +
       buildDashboardReportHtml(records);
     openPrintDocument('FR Dashboard Report', body, REPORT_PRINT_STYLES);
     showToast('REPORT GENERATED', 'success');
@@ -1011,7 +1049,7 @@ function printNoEclipList() {
 
     var body =
       '<div class="print-header">' +
-        '<h1>FORMER REBELS DATABASE MANAGEMENT SYSTEM</h1>' +
+        '<h1>FORMER REBEL DATABASE MANAGEMENT AND JAPIC REPOSITORY SYSTEM</h1>' +
         '<p>PROFILES WITH NO E-CLIP</p>' +
         '<p>Generated: ' + printed + ' &nbsp;|&nbsp; By: ' + printedBy + '</p>' +
       '</div>' +
@@ -1066,7 +1104,7 @@ function printNoJapicList() {
 
     var body =
       '<div class="print-header">' +
-        '<h1>FORMER REBELS DATABASE MANAGEMENT SYSTEM</h1>' +
+        '<h1>FORMER REBEL DATABASE MANAGEMENT AND JAPIC REPOSITORY SYSTEM</h1>' +
         '<p>PROFILES WITH NO JAPIC CERTIFICATE ON FILE</p>' +
         '<p>Generated: ' + printed + ' &nbsp;|&nbsp; By: ' + printedBy + '</p>' +
       '</div>' +
@@ -1087,6 +1125,63 @@ function printNoJapicList() {
 
     openPrintDocument('No JAPIC List', body, REPORT_PRINT_STYLES);
     showToast('NO JAPIC LIST GENERATED - ' + list.length + ' PROFILE(S)', 'success');
+  }
+  if (allRecordsCache.length) run(allRecordsCache);
+  else dbGetAll().then(function(records) { allRecordsCache = records; run(records); })
+    .catch(function(err) { showToast('ERROR: ' + err.message, 'error'); });
+}
+
+// -- PRINT WITH JAPIC LIST ------------------------------------
+function printWithJapicList() {
+  function run(records) {
+    var list = records.filter(function(r) {
+      return r.japic && (r.japic.url || r.japic.dataUrl || r.japic.fileName);
+    }).sort(function(a, b) { return (a.lastName||'').localeCompare(b.lastName||''); });
+
+    if (!list.length) { showToast('NO PROFILES WITH JAPIC ON FILE', 'info'); return; }
+
+    var printed   = new Date().toLocaleString('en-PH');
+    var printedBy = currentUser ? currentUser.username + ' (' + currentUser.role + ')' : 'UNKNOWN';
+
+    var rows = list.map(function(r, i) {
+      var age = calcAgeFromDob(r.dob);
+      var japicFile = r.japic.fileName || 'ON FILE';
+      return '<tr>' +
+        '<td style="text-align:center">' + (i + 1) + '</td>' +
+        '<td><strong>' + (r.lastName||'') + ', ' + (r.firstName||'') + '</strong>' + (r.middleName ? ' ' + r.middleName : '') + '</td>' +
+        '<td>' + (r.alias||'-') + '</td>' +
+        '<td style="text-align:center">' + (r.sex||'-') + '</td>' +
+        '<td style="text-align:center">' + age + '</td>' +
+        '<td>' + (r.referringUnit||'-') + '</td>' +
+        '<td style="text-align:center">' + formatDate(r.dateSurrendered) + '</td>' +
+        '<td style="text-align:center;color:#3fb950;font-weight:700">' + japicFile + '</td>' +
+        '</tr>';
+    }).join('');
+
+    var body =
+      '<div class="print-header">' +
+        '<h1>FORMER REBEL DATABASE MANAGEMENT AND JAPIC REPOSITORY SYSTEM</h1>' +
+        '<p>PROFILES WITH JAPIC CERTIFICATE ON FILE</p>' +
+        '<p>Generated: ' + printed + ' &nbsp;|&nbsp; By: ' + printedBy + '</p>' +
+      '</div>' +
+      '<table class="report-table" style="width:100%;font-size:10px">' +
+        '<thead><tr>' +
+          '<th style="text-align:center;width:28px">#</th>' +
+          '<th>FULL NAME</th><th>ALIAS</th>' +
+          '<th style="text-align:center">SEX</th>' +
+          '<th style="text-align:center">AGE</th>' +
+          '<th>REFERRING UNIT</th>' +
+          '<th style="text-align:center">DATE SURRENDERED</th>' +
+          '<th style="text-align:center">JAPIC FILE</th>' +
+        '</tr></thead>' +
+        '<tbody>' + rows + '</tbody>' +
+        '<tfoot><tr><td colspan="8" style="text-align:right;font-size:9px;padding-top:6px;border-top:2px solid #333">' +
+          'TOTAL: ' + list.length + ' PROFILE' + (list.length !== 1 ? 'S' : '') + ' WITH JAPIC ON FILE' +
+        '</td></tr></tfoot>' +
+      '</table>';
+
+    openPrintDocument('With JAPIC List', body, REPORT_PRINT_STYLES);
+    showToast('WITH JAPIC LIST GENERATED - ' + list.length + ' PROFILE(S)', 'success');
   }
   if (allRecordsCache.length) run(allRecordsCache);
   else dbGetAll().then(function(records) { allRecordsCache = records; run(records); })
@@ -1117,7 +1212,7 @@ function printIncompleteList() {
 
     var body =
       '<div class="print-header">' +
-        '<h1>FORMER REBELS DATABASE MANAGEMENT SYSTEM</h1>' +
+        '<h1>FORMER REBEL DATABASE MANAGEMENT AND JAPIC REPOSITORY SYSTEM</h1>' +
         '<p>PROFILES WITH INCOMPLETE DATA</p>' +
         '<p>Generated: ' + printed + ' &nbsp;|&nbsp; By: ' + printedBy + '</p>' +
       '</div>' +
@@ -1136,6 +1231,66 @@ function printIncompleteList() {
 
     openPrintDocument('Incomplete Data List', body, REPORT_PRINT_STYLES);
     showToast('INCOMPLETE DATA LIST GENERATED - ' + list.length + ' PROFILE(S)', 'success');
+  }
+  if (allRecordsCache.length) run(allRecordsCache);
+  else dbGetAll().then(function(records) { allRecordsCache = records; run(records); })
+    .catch(function(err) { showToast('ERROR: ' + err.message, 'error'); });
+}
+
+// -- PRINT NO ASSISTANCE LIST ---------------------------------
+function printNoAssistanceList() {
+  function run(records) {
+    var list = records.filter(function(r) {
+      return !r.assistance || r.assistance.length === 0;
+    }).sort(function(a, b) { return (a.lastName||'').localeCompare(b.lastName||''); });
+
+    if (!list.length) { showToast('ALL PROFILES HAVE AT LEAST ONE ASSISTANCE RECORDED', 'success'); return; }
+
+    var printed   = new Date().toLocaleString('en-PH');
+    var printedBy = currentUser ? currentUser.username + ' (' + currentUser.role + ')' : 'UNKNOWN';
+
+    var rows = list.map(function(r, i) {
+      var age = calcAgeFromDob(r.dob);
+      var statusStyle = '';
+      if (r.recordStatus === 'DECEASED')          statusStyle = 'color:#cf222e;font-weight:700';
+      if (r.recordStatus === 'CANNOT BE LOCATED') statusStyle = 'color:#9a6700;font-weight:700';
+      if (r.recordStatus === 'INCARCERATED')      statusStyle = 'color:#7a43b6;font-weight:700';
+      return '<tr>' +
+        '<td style="text-align:center">' + (i + 1) + '</td>' +
+        '<td><strong>' + (r.lastName||'') + ', ' + (r.firstName||'') + '</strong>' + (r.middleName ? ' ' + r.middleName : '') + '</td>' +
+        '<td>' + (r.alias||'-') + '</td>' +
+        '<td style="text-align:center">' + (r.sex||'-') + '</td>' +
+        '<td style="text-align:center">' + age + '</td>' +
+        '<td>' + (r.referringUnit||'-') + '</td>' +
+        '<td style="text-align:center">' + formatDate(r.dateSurrendered) + '</td>' +
+        '<td style="' + statusStyle + '">' + (r.recordStatus||'ACTIVE') + '</td>' +
+        '</tr>';
+    }).join('');
+
+    var body =
+      '<div class="print-header">' +
+        '<h1>FORMER REBEL DATABASE MANAGEMENT AND JAPIC REPOSITORY SYSTEM</h1>' +
+        '<p>PROFILES WITH NO ASSISTANCE RECORDED</p>' +
+        '<p>Generated: ' + printed + ' &nbsp;|&nbsp; By: ' + printedBy + '</p>' +
+      '</div>' +
+      '<table class="report-table" style="width:100%;font-size:10px">' +
+        '<thead><tr>' +
+          '<th style="text-align:center;width:28px">#</th>' +
+          '<th>FULL NAME</th><th>ALIAS</th>' +
+          '<th style="text-align:center">SEX</th>' +
+          '<th style="text-align:center">AGE</th>' +
+          '<th>REFERRING UNIT</th>' +
+          '<th style="text-align:center">DATE SURRENDERED</th>' +
+          '<th>STATUS</th>' +
+        '</tr></thead>' +
+        '<tbody>' + rows + '</tbody>' +
+        '<tfoot><tr><td colspan="8" style="text-align:right;font-size:9px;padding-top:6px;border-top:2px solid #333">' +
+          'TOTAL: ' + list.length + ' PROFILE' + (list.length !== 1 ? 'S' : '') + ' WITH NO ASSISTANCE' +
+        '</td></tr></tfoot>' +
+      '</table>';
+
+    openPrintDocument('No Assistance List', body, REPORT_PRINT_STYLES);
+    showToast('NO ASSISTANCE LIST GENERATED - ' + list.length + ' PROFILE(S)', 'success');
   }
   if (allRecordsCache.length) run(allRecordsCache);
   else dbGetAll().then(function(records) { allRecordsCache = records; run(records); })
@@ -1184,7 +1339,7 @@ function printFullList() {
 
     var body =
       '<div class="print-header">' +
-        '<h1>FORMER REBELS DATABASE MANAGEMENT SYSTEM</h1>' +
+        '<h1>FORMER REBEL DATABASE MANAGEMENT AND JAPIC REPOSITORY SYSTEM</h1>' +
         '<p>FULL LIST OF FORMER REBELS</p>' +
         '<p>Generated: ' + printed + ' &nbsp;|&nbsp; By: ' + printedBy + '</p>' +
       '</div>' +
@@ -1286,7 +1441,7 @@ function printUnitSummaryReport() {
 
     var body =
       '<div class="print-header">' +
-        '<h1>FORMER REBELS DATABASE MANAGEMENT SYSTEM</h1>' +
+        '<h1>FORMER REBEL DATABASE MANAGEMENT AND JAPIC REPOSITORY SYSTEM</h1>' +
         '<p>NUMBER OF FRs PER REFERRING UNIT</p>' +
         '<p>Generated: ' + printed + ' &nbsp;|&nbsp; By: ' + printedBy + '</p>' +
       '</div>' +
@@ -1306,6 +1461,684 @@ function printUnitSummaryReport() {
 
     openPrintDocument('FR Per Unit Summary', body, REPORT_PRINT_STYLES);
     showToast('UNIT SUMMARY REPORT GENERATED - ' + units.length + ' UNIT(S)', 'success');
+  }
+  if (allRecordsCache.length) run(allRecordsCache);
+  else dbGetAll().then(function(records) { allRecordsCache = records; run(records); })
+    .catch(function(err) { showToast('ERROR: ' + err.message, 'error'); });
+}
+
+// -- PRINT SUMMARY REPORTS ------------------------------------
+// type: 'assistance' | 'membership' | 'tribal' | 'age' | '4ps' |
+//       'sector' | 'municipality' | 'unit' | 'year'
+function printSummaryReport(type) {
+  function run(records) {
+    if (!records.length) { showToast('NO RECORDS TO PRINT', 'info'); return; }
+    var total     = records.length;
+    var printed   = new Date().toLocaleString('en-PH');
+    var printedBy = currentUser ? currentUser.username + ' (' + currentUser.role + ')' : 'UNKNOWN';
+
+    var title, tableHtml;
+
+    // ---- helper: build a standard 3-col summary table (category | count | %)
+    function summaryTable(headers, rows, footerLabel, footerCount) {
+      var thead = '<thead><tr>' + headers.map(function(h,i){
+        return '<th' + (i>0?' style="text-align:center"':'') + '>' + h + '</th>';
+      }).join('') + '</tr></thead>';
+      var tbody = '<tbody>' + rows.map(function(r){
+        return '<tr>' + r.map(function(c,i){
+          return '<td' + (i>0?' style="text-align:center"':'') + '>' + c + '</td>';
+        }).join('') + '</tr>';
+      }).join('') + '</tbody>';
+      var tfoot = footerLabel !== undefined
+        ? '<tfoot><tr>' +
+            '<td style="font-weight:700;font-size:10px;border-top:2px solid #333">' + footerLabel + '</td>' +
+            '<td style="text-align:center;font-weight:700;border-top:2px solid #333">' + footerCount + '</td>' +
+            '<td style="text-align:center;border-top:2px solid #333">' + (total>0?((footerCount/total)*100).toFixed(1):'0.0') + '%</td>' +
+          '</tr></tfoot>'
+        : '';
+      return '<table class="report-table" style="width:60%;font-size:11px">' + thead + tbody + tfoot + '</table>';
+    }
+
+    if (type === 'assistance') {
+      title = 'ASSISTANCE PROVIDED — SUMMARY';
+      var ASST_TYPES = ['E-CLIP','NOT QUALIFIED FOR E-CLIP','FEA REMUNERATION','LIVELIHOOD','MEDICAL','EDUCATIONAL','ISSUANCE OF CREDENTIALS','PHILHEALTH','ISSUANCE OF SAFE CONDUCT PASS','APPLIED FOR AMNESTY','OTHERS'];
+      var counts = {}; ASST_TYPES.forEach(function(t){counts[t]=0;});
+      records.forEach(function(r){(r.assistance||[]).forEach(function(a){var k=a.indexOf('OTHERS')===0?'OTHERS':a;if(counts[k]!==undefined)counts[k]++;});});
+      var beneficiaries = records.filter(function(r){return r.assistance&&r.assistance.length>0;}).length;
+      var rows = ASST_TYPES.map(function(t){
+        var c=counts[t]; return [t, c, total>0?((c/total)*100).toFixed(1)+'%':'0.0%'];
+      });
+      tableHtml = summaryTable(['TYPE OF ASSISTANCE','BENEFICIARIES','% OF TOTAL'],rows,'TOTAL WITH ANY ASSISTANCE',beneficiaries);
+    }
+
+    else if (type === 'membership' || type === 'membership-npa' || type === 'membership-mb') {
+      var MCOLORS = {'REGULAR NPA':'#f85149','MILISYANG BAYAN':'#d29922'};
+      var npaList = records.filter(function(r){return r.membershipType==='REGULAR NPA';}).slice().sort(function(a,b){return (a.lastName||'').localeCompare(b.lastName||'');});
+      var mbList  = records.filter(function(r){return r.membershipType==='MILISYANG BAYAN';}).slice().sort(function(a,b){return (a.lastName||'').localeCompare(b.lastName||'');});
+      var noType  = total - npaList.length - mbList.length;
+
+      // Shared summary counts table
+      var mSummaryRows = [
+        ['REGULAR NPA',    npaList.length, total>0?((npaList.length/total)*100).toFixed(1)+'%':'0.0%'],
+        ['MILISYANG BAYAN', mbList.length, total>0?((mbList.length/total)*100).toFixed(1)+'%':'0.0%'],
+        ['NOT SPECIFIED',  noType,         total>0?((noType/total)*100).toFixed(1)+'%':'0.0%']
+      ];
+      var mSummaryHtml = summaryTable(['MEMBERSHIP TYPE','COUNT','% OF TOTAL'], mSummaryRows, 'TOTAL', total);
+
+      function memberList(list) {
+        if (!list.length) return '<p style="color:#888;font-size:11px;padding:4px 0">No records.</p>';
+        return '<table class="report-table" style="width:100%;font-size:10px">' +
+          '<thead><tr><th style="width:26px;text-align:center">#</th><th>FULL NAME</th><th>ALIAS</th><th style="text-align:center">SEX</th><th style="text-align:center">AGE</th><th>UNIT</th><th>REFERRING UNIT</th><th style="text-align:center">DATE SURRENDERED</th></tr></thead>' +
+          '<tbody>' + list.map(function(r,i){
+            var st=r.recordStatus==='DECEASED'?'color:#c42b1c;font-weight:700':r.recordStatus==='CANNOT BE LOCATED'?'color:#9a6700;font-weight:700':r.recordStatus==='INCARCERATED'?'color:#7a43b6;font-weight:700':'';
+            return '<tr>' +
+              '<td style="text-align:center">'+(i+1)+'</td>' +
+              '<td style="'+st+'"><strong>'+(r.lastName||'')+', '+(r.firstName||'')+'</strong>'+(r.middleName?' '+r.middleName:'')+'</td>' +
+              '<td>'+(r.alias||'-')+'</td>' +
+              '<td style="text-align:center">'+(r.sex||'-')+'</td>' +
+              '<td style="text-align:center">'+calcAgeFromDob(r.dob)+'</td>' +
+              '<td style="font-size:9px">'+(r.unit||'-')+'</td>' +
+              '<td style="font-size:9px">'+(r.referringUnit||'-')+'</td>' +
+              '<td style="text-align:center">'+formatDate(r.dateSurrendered)+'</td>' +
+            '</tr>';
+          }).join('') + '</tbody>' +
+          '<tfoot><tr><td colspan="8" style="text-align:right;font-size:9px;padding-top:6px;border-top:2px solid #333">SUBTOTAL: '+list.length+' RECORD'+(list.length!==1?'S':'')+'</td></tr></tfoot>' +
+        '</table>';
+      }
+
+      function memberSection(label, list, color) {
+        return '<div style="margin-top:20px;page-break-inside:avoid">' +
+          '<h2 style="font-size:13px;letter-spacing:1.5px;margin:0 0 4px;border-bottom:2px solid '+color+';padding-bottom:4px;color:'+color+'">' +
+            label+' <span style="float:right;font-size:10px;font-weight:400;color:#555">'+list.length+' RECORD'+(list.length!==1?'S':'')+'</span></h2>' +
+          memberList(list) + '</div>';
+      }
+
+      if (type === 'membership') {
+        title = 'MEMBERSHIP TYPE — SUMMARY';
+        tableHtml = mSummaryHtml;
+      } else if (type === 'membership-npa') {
+        title = 'REGULAR NPA — LIST';
+        tableHtml = mSummaryHtml + memberSection('REGULAR NPA', npaList, MCOLORS['REGULAR NPA']);
+      } else {
+        title = 'MILISYANG BAYAN — LIST';
+        tableHtml = mSummaryHtml + memberSection('MILISYANG BAYAN', mbList, MCOLORS['MILISYANG BAYAN']);
+      }
+    }
+
+    else if (type === 'tribal' || type === 'tribal-detail') {
+      var TTYPES = TRIBAL_GROUP_TYPES.slice();
+      var TCOLORS = {'IRAYA':'#3fb950','ALANGAN':'#2ea043','TADYAWAN':'#56d364','TAU-BUID':'#26a641','BANGON':'#388bfd','BUHID':'#1f6feb','HANUNUO':'#58a6ff','RATAGNON':'#79c0ff','OTHERS':'#d29922','NO TRIBAL GROUP':'#6e7681'};
+      var tc = {}; TTYPES.forEach(function(t){tc[t]=0;});
+      records.forEach(function(r){var k=normalizeTribalGroup(r.tribalGroup);if(k&&tc[k]!==undefined)tc[k]++;});
+      var withTribal = TTYPES.reduce(function(s,t){return s+tc[t];},0);
+      var ipCount = TTYPES.filter(function(t){return t!=='NO TRIBAL GROUP';}).reduce(function(s,t){return s+tc[t];},0);
+      var tRows = TTYPES.map(function(t){return [t, tc[t], total>0?((tc[t]/total)*100).toFixed(1)+'%':'0.0%'];});
+      var noData = total - withTribal;
+      if (noData > 0) tRows.push(['NOT SPECIFIED / NO DATA', noData, total>0?((noData/total)*100).toFixed(1)+'%':'0.0%']);
+      var ipSummary = '<p style="margin:0 0 8px;font-size:11px"><strong>INDIGENOUS PEOPLE (IP):</strong> ' + ipCount +
+        ' &nbsp;|&nbsp; <strong>NON-IP (NO TRIBAL GROUP):</strong> ' + tc['NO TRIBAL GROUP'] +
+        ' &nbsp;|&nbsp; <strong>NOT SPECIFIED:</strong> ' + noData + '</p>';
+      var tSummaryHtml = ipSummary + summaryTable(['TRIBAL GROUP','COUNT','% OF TOTAL'], tRows, 'TOTAL', total);
+
+      if (type === 'tribal') {
+        title = 'TRIBAL GROUP — SUMMARY';
+        tableHtml = tSummaryHtml;
+      } else {
+        // tribal-detail: one section per tribal group, FR list with Tribal Group column
+        title = 'TRIBAL GROUP — DETAIL LIST';
+        function tribalFrList(list) {
+          if (!list.length) return '<p style="color:#888;font-size:11px;padding:4px 0">No records.</p>';
+          return '<table class="report-table" style="width:100%;font-size:10px">' +
+            '<thead><tr>' +
+              '<th style="width:26px;text-align:center">#</th>' +
+              '<th>FULL NAME</th>' +
+              '<th>ALIAS</th>' +
+              '<th style="text-align:center">SEX</th>' +
+              '<th style="text-align:center">AGE</th>' +
+              '<th>TRIBAL GROUP</th>' +
+              '<th>REFERRING UNIT</th>' +
+              '<th style="text-align:center">DATE SURRENDERED</th>' +
+            '</tr></thead>' +
+            '<tbody>' + list.map(function(r,i){
+              var st = r.recordStatus==='DECEASED'?'color:#c42b1c;font-weight:700':r.recordStatus==='CANNOT BE LOCATED'?'color:#9a6700;font-weight:700':r.recordStatus==='INCARCERATED'?'color:#7a43b6;font-weight:700':'';
+              var tg = r.tribalGroup || 'NO TRIBAL GROUP';
+              return '<tr>' +
+                '<td style="text-align:center">'+(i+1)+'</td>' +
+                '<td style="'+st+'"><strong>'+(r.lastName||'')+', '+(r.firstName||'')+'</strong>'+(r.middleName?' '+r.middleName:'')+'</td>' +
+                '<td>'+(r.alias||'-')+'</td>' +
+                '<td style="text-align:center">'+(r.sex||'-')+'</td>' +
+                '<td style="text-align:center">'+calcAgeFromDob(r.dob)+'</td>' +
+                '<td style="font-weight:600">' + tg + '</td>' +
+                '<td style="font-size:9px">'+(r.referringUnit||'-')+'</td>' +
+                '<td style="text-align:center">'+formatDate(r.dateSurrendered)+'</td>' +
+              '</tr>';
+            }).join('') + '</tbody>' +
+            '<tfoot><tr><td colspan="8" style="text-align:right;font-size:9px;padding-top:6px;border-top:2px solid #333">SUBTOTAL: '+list.length+' RECORD'+(list.length!==1?'S':'')+'</td></tr></tfoot>' +
+          '</table>';
+        }
+
+        // Build one section per tribal type (skip empty groups)
+        var sections = TTYPES.map(function(t){
+          var list = records.filter(function(r){
+            return (normalizeTribalGroup(r.tribalGroup) || 'NO TRIBAL GROUP') === t;
+          }).slice().sort(function(a,b){return (a.lastName||'').localeCompare(b.lastName||'');});
+          if (!list.length) return '';
+          var color = TCOLORS[t] || '#888';
+          return '<div style="margin-top:20px;page-break-inside:avoid">' +
+            '<h2 style="font-size:13px;letter-spacing:1.5px;margin:0 0 4px;border-bottom:2px solid '+color+';padding-bottom:4px;color:'+color+'">' +
+              t+' <span style="float:right;font-size:10px;font-weight:400;color:#555">'+list.length+' RECORD'+(list.length!==1?'S':'')+'</span></h2>' +
+            tribalFrList(list) +
+          '</div>';
+        }).join('');
+
+        // Unspecified tribal group
+        var unspec = records.filter(function(r){ return !normalizeTribalGroup(r.tribalGroup); }).slice().sort(function(a,b){return (a.lastName||'').localeCompare(b.lastName||'');});
+        if (unspec.length) {
+          sections += '<div style="margin-top:20px;page-break-inside:avoid">' +
+            '<h2 style="font-size:13px;letter-spacing:1.5px;margin:0 0 4px;border-bottom:2px solid #888;padding-bottom:4px;color:#888">' +
+              'NOT SPECIFIED <span style="float:right;font-size:10px;font-weight:400;color:#555">'+unspec.length+' RECORD'+(unspec.length!==1?'S':'')+'</span></h2>' +
+            tribalFrList(unspec) +
+          '</div>';
+        }
+
+        tableHtml = tSummaryHtml + sections;
+      }
+    }
+
+    else if (type === 'age') {
+      title = 'AGE BRACKET DISTRIBUTION — SUMMARY';
+      var BRACKETS=[{label:'18 & BELOW',min:0,max:18},{label:'19 - 24',min:19,max:24},{label:'25 - 30',min:25,max:30},{label:'31 - 40',min:31,max:40},{label:'41 - 59',min:41,max:59},{label:'60 & ABOVE',min:60,max:999}];
+      var ac = BRACKETS.map(function(){return 0;}); var withAge=0;
+      records.forEach(function(r){
+        var age=parseInt(calcAgeFromDob(r.dob)); if(isNaN(age))return; withAge++;
+        for(var i=0;i<BRACKETS.length;i++){
+          if(age>=BRACKETS[i].min&&age<=BRACKETS[i].max){ ac[i]++; break; }
+        }
+      });
+      var rows = BRACKETS.map(function(b,i){
+        var c=ac[i]; return [b.label, c, total>0?((c/total)*100).toFixed(1)+'%':'0.0%'];
+      });
+      tableHtml = summaryTable(['AGE BRACKET','COUNT','% OF TOTAL'],rows,'NO AGE DATA',total-withAge);
+    }
+
+    else if (type === '4ps' || type === '4ps-yes' || type === '4ps-no') {
+      var yes4    = records.filter(function(r){return r.fourPs==='YES';}).slice().sort(function(a,b){return (a.lastName||'').localeCompare(b.lastName||'');});
+      var no4     = records.filter(function(r){return r.fourPs==='NO';}).slice().sort(function(a,b){return (a.lastName||'').localeCompare(b.lastName||'');});
+      var noData4 = records.filter(function(r){return r.fourPs!=='YES'&&r.fourPs!=='NO';}).slice().sort(function(a,b){return (a.lastName||'').localeCompare(b.lastName||'');});
+
+      // Summary counts table (shared by all three)
+      var summaryRows4 = [
+        ['YES (4Ps BENEFICIARY)', yes4.length,    total>0?((yes4.length/total)*100).toFixed(1)+'%':'0.0%'],
+        ['NO (NON-4Ps)',          no4.length,     total>0?((no4.length/total)*100).toFixed(1)+'%':'0.0%'],
+        ['NOT SPECIFIED',         noData4.length, total>0?((noData4.length/total)*100).toFixed(1)+'%':'0.0%']
+      ];
+      var summaryHtml4 = summaryTable(['4Ps STATUS','COUNT','% OF TOTAL'], summaryRows4, 'TOTAL', total);
+
+      function fourPsFrList(list) {
+        if (!list.length) return '<p style="color:#888;font-size:11px;padding:4px 0">No records.</p>';
+        return '<table class="report-table" style="width:100%;font-size:10px">' +
+          '<thead><tr><th style="width:26px;text-align:center">#</th><th>FULL NAME</th><th>ALIAS</th><th style="text-align:center">SEX</th><th style="text-align:center">AGE</th><th>REFERRING UNIT</th><th style="text-align:center">DATE SURRENDERED</th></tr></thead>' +
+          '<tbody>' + list.map(function(r,i){
+            var st=r.recordStatus==='DECEASED'?'color:#c42b1c;font-weight:700':r.recordStatus==='CANNOT BE LOCATED'?'color:#9a6700;font-weight:700':r.recordStatus==='INCARCERATED'?'color:#7a43b6;font-weight:700':'';
+            return '<tr>' +
+              '<td style="text-align:center">'+(i+1)+'</td>' +
+              '<td style="'+st+'"><strong>'+(r.lastName||'')+', '+(r.firstName||'')+'</strong>'+(r.middleName?' '+r.middleName:'')+'</td>' +
+              '<td>'+(r.alias||'-')+'</td>' +
+              '<td style="text-align:center">'+(r.sex||'-')+'</td>' +
+              '<td style="text-align:center">'+calcAgeFromDob(r.dob)+'</td>' +
+              '<td style="font-size:9px">'+(r.referringUnit||'-')+'</td>' +
+              '<td style="text-align:center">'+formatDate(r.dateSurrendered)+'</td>' +
+            '</tr>';
+          }).join('') + '</tbody>' +
+          '<tfoot><tr><td colspan="7" style="text-align:right;font-size:9px;padding-top:6px;border-top:2px solid #333">SUBTOTAL: '+list.length+' RECORD'+(list.length!==1?'S':'')+'</td></tr></tfoot>' +
+        '</table>';
+      }
+
+      if (type === '4ps') {
+        title = '4Ps BENEFICIARIES — SUMMARY';
+        tableHtml = summaryHtml4;
+      } else if (type === '4ps-yes') {
+        title = '4Ps BENEFICIARIES — LIST';
+        tableHtml = summaryHtml4 +
+          '<div style="margin-top:20px;page-break-inside:avoid">' +
+          '<h2 style="font-size:13px;letter-spacing:1.5px;margin:0 0 4px;border-bottom:2px solid #3fb950;padding-bottom:4px;color:#3fb950">' +
+            '4Ps BENEFICIARIES <span style="float:right;font-size:10px;font-weight:400;color:#555">'+yes4.length+' RECORDS</span></h2>' +
+          fourPsFrList(yes4) + '</div>';
+      } else {
+        title = 'NON-4Ps — LIST';
+        tableHtml = summaryHtml4 +
+          '<div style="margin-top:20px;page-break-inside:avoid">' +
+          '<h2 style="font-size:13px;letter-spacing:1.5px;margin:0 0 4px;border-bottom:2px solid #f85149;padding-bottom:4px;color:#f85149">' +
+            'NON-4Ps <span style="float:right;font-size:10px;font-weight:400;color:#555">'+no4.length+' RECORDS</span></h2>' +
+          fourPsFrList(no4) + '</div>';
+      }
+    }
+
+    else if (type === 'sector') {
+      title = 'SECTOR — SUMMARY';
+      var SECTORS=['FARMER','FISHERFOLK','WOMEN','PWD','CHILDREN AND YOUTH','SENIOR CITIZEN','SOLO PARENT','INDIGENOUS PEOPLE','URBAN POOR','OTHERS'];
+      var sc = {}; SECTORS.forEach(function(s){sc[s]=0;});
+      records.forEach(function(r){(r.sector||[]).forEach(function(s){if(s==='FARMER/FISHERFOLK'){sc['FARMER']++;sc['FISHERFOLK']++;return;}var k=s.indexOf('OTHERS')===0?'OTHERS':s;if(sc[k]!==undefined)sc[k]++;});});
+      var withSector=records.filter(function(r){return r.sector&&r.sector.length>0;}).length;
+      var rows = SECTORS.map(function(s){return [s, sc[s], total>0?((sc[s]/total)*100).toFixed(1)+'%':'0.0%'];});
+      tableHtml = summaryTable(['SECTOR','COUNT','% OF TOTAL'],rows,'NO SECTOR RECORDED',total-withSector);
+    }
+
+    else if (type === 'municipality') {
+      title = 'MUNICIPALITY — SUMMARY';
+      var OCC=['SAN JOSE','MAGSAYSAY','RIZAL','CALINTAAN','SABLAYAN','STA. CRUZ','MAMBURAO','PALUAN','ABRA DE ILOG','LOOC','LUBANG'];
+      var ORI=['BACO','BULALACAO','BANSUD','BONGABONG','GLORIA','MANSALAY','NAUJAN','PINAMALAYAN','POLA','PUERTO GALERA','ROXAS','SAN TEODORO','SOCORRO','VICTORIA','CALAPAN'];
+      var ALL_MUN = OCC.concat(ORI);
+      var munC = {}; ALL_MUN.forEach(function(m){munC[m]=0;}); var noMun=0, outsideC=0;
+      records.forEach(function(r){if(r.addressProvince==='OUTSIDE MINDORO'){outsideC++;return;}var m=r.addressMunicipality||'';if(m&&munC[m]!==undefined)munC[m]++;else if(m)munC[m]=1;else noMun++;});
+      function buildGroup(list, groupLabel) {
+        var header = '<tr><td colspan="3" style="background:#f5f5f5;font-size:9px;font-weight:700;letter-spacing:1px;padding:4px 8px">' + groupLabel + '</td></tr>';
+        return header + list.map(function(m){var c=munC[m]||0;return '<tr><td>'+m+'</td><td style="text-align:center;font-weight:'+(c>0?'700':'400')+'">'+ c+'</td><td style="text-align:center">'+(total>0?((c/total)*100).toFixed(1):'0.0')+'%</td></tr>';}).join('');
+      }
+      tableHtml = '<table class="report-table" style="width:65%;font-size:11px">' +
+        '<thead><tr><th>MUNICIPALITY</th><th style="text-align:center">COUNT</th><th style="text-align:center">% OF TOTAL</th></tr></thead>' +
+        '<tbody>' + buildGroup(OCC,'OCCIDENTAL MINDORO') + buildGroup(ORI,'ORIENTAL MINDORO') +
+        '<tr><td colspan="3" style="background:#f5f5f5;font-size:9px;font-weight:700;letter-spacing:1px;padding:4px 8px">OUTSIDE MINDORO</td></tr>' +
+        '<tr><td>OUTSIDE MINDORO</td><td style="text-align:center;font-weight:'+(outsideC>0?'700':'400')+'">'+ outsideC+'</td><td style="text-align:center">'+(total>0?((outsideC/total)*100).toFixed(1):'0.0')+'%</td></tr>' +
+        '</tbody>' +
+        '<tfoot><tr><td style="font-weight:700;font-size:10px;border-top:2px solid #333">NOT SPECIFIED</td><td style="text-align:center;border-top:2px solid #333;font-weight:700">'+noMun+'</td><td style="text-align:center;border-top:2px solid #333">'+(total>0?((noMun/total)*100).toFixed(1):'0.0')+'%</td></tr></tfoot>' +
+      '</table>';
+    }
+
+    else if (type === 'unit') {
+      title = 'REFERRING UNIT — SUMMARY';
+      var unitMap = {};
+      records.forEach(function(r){var u=(r.referringUnit||'NOT SPECIFIED').trim().toUpperCase();if(!unitMap[u])unitMap[u]={total:0,npa:0,mb:0};unitMap[u].total++;if(r.membershipType==='REGULAR NPA')unitMap[u].npa++;else if(r.membershipType==='MILISYANG BAYAN')unitMap[u].mb++;});
+      var units = Object.keys(unitMap).sort(function(a,b){if(a==='NOT SPECIFIED')return 1;if(b==='NOT SPECIFIED')return -1;return a.localeCompare(b);});
+      var gTotal=0,gNpa=0,gMb=0;
+      var rows = units.map(function(u){var d=unitMap[u];gTotal+=d.total;gNpa+=d.npa;gMb+=d.mb;return [u,d.total,d.npa,d.mb,total>0?((d.total/total)*100).toFixed(1)+'%':'0.0%'];});
+      var thead = '<thead><tr><th>REFERRING UNIT</th><th style="text-align:center">TOTAL</th><th style="text-align:center">REG. NPA</th><th style="text-align:center">MILISYANG</th><th style="text-align:center">% OF TOTAL</th></tr></thead>';
+      var tbody = '<tbody>' + rows.map(function(r){return '<tr>'+r.map(function(c,i){return '<td'+(i>0?' style="text-align:center"':'')+'>'+c+'</td>';}).join('')+'</tr>';}).join('') + '</tbody>';
+      var tfoot = '<tfoot><tr><td style="font-weight:700;font-size:10px;border-top:2px solid #333">GRAND TOTAL</td><td style="text-align:center;font-weight:700;border-top:2px solid #333">'+gTotal+'</td><td style="text-align:center;border-top:2px solid #333">'+gNpa+'</td><td style="text-align:center;border-top:2px solid #333">'+gMb+'</td><td style="text-align:center;border-top:2px solid #333">100%</td></tr></tfoot>';
+      tableHtml = '<table class="report-table" style="width:80%;font-size:11px">' + thead + tbody + tfoot + '</table>';
+    }
+
+    else if (type === 'year') {
+      title = 'SURRENDER BY YEAR — SUMMARY';
+      var START_YEAR=2016, thisYear=new Date().getFullYear(), years=[];
+      for(var y=START_YEAR;y<=thisYear;y++) years.push(y);
+      var yc={}, noDate=0; years.forEach(function(y){yc[y]=0;});
+      records.forEach(function(r){if(!r.dateSurrendered){noDate++;return;}var yr=new Date(r.dateSurrendered).getFullYear();if(yc[yr]!==undefined)yc[yr]++;else yc[yr]=1;});
+      var rows = years.map(function(y){var c=yc[y];return [y,c,total>0?((c/total)*100).toFixed(1)+'%':'0.0%'];});
+      tableHtml = summaryTable(['YEAR','COUNT','% OF TOTAL'],rows,'NO DATE RECORDED',noDate);
+    }
+
+    var body =
+      '<div class="print-header">' +
+        '<h1>FORMER REBEL DATABASE MANAGEMENT AND JAPIC REPOSITORY SYSTEM</h1>' +
+        '<p>' + title + '</p>' +
+        '<p>Total Records: <strong>' + total + '</strong></p>' +
+        '<p>Generated: ' + printed + ' &nbsp;|&nbsp; By: ' + printedBy + '</p>' +
+      '</div>' +
+      tableHtml;
+
+    openPrintDocument(title, body, REPORT_PRINT_STYLES);
+    showToast(title + ' GENERATED', 'success');
+  }
+  if (allRecordsCache.length) run(allRecordsCache);
+  else dbGetAll().then(function(records) { allRecordsCache = records; run(records); })
+    .catch(function(err) { showToast('ERROR: ' + err.message, 'error'); });
+}
+
+// -- PRINT YEAR DETAIL REPORT ---------------------------------
+// Generates one section per year listing every FR who surrendered that year
+function printYearDetailReport() {
+  function run(records) {
+    if (!records.length) { showToast('NO RECORDS TO PRINT', 'info'); return; }
+    var printed   = new Date().toLocaleString('en-PH');
+    var printedBy = currentUser ? currentUser.username + ' (' + currentUser.role + ')' : 'UNKNOWN';
+    var total     = records.length;
+
+    var START_YEAR = 2016, thisYear = new Date().getFullYear(), years = [];
+    for (var y = START_YEAR; y <= thisYear; y++) years.push(y);
+
+    // Bucket records by year
+    var byYear = {}; years.forEach(function(y){ byYear[y] = []; });
+    var noDate = [];
+    records.forEach(function(r) {
+      if (!r.dateSurrendered) { noDate.push(r); return; }
+      var yr = new Date(r.dateSurrendered).getFullYear();
+      if (byYear[yr]) byYear[yr].push(r); else { byYear[yr] = [r]; years.indexOf(yr) === -1 && years.push(yr); }
+    });
+    years.sort(function(a,b){return a-b;});
+
+    function frRow(r, i) {
+      var statusStyle = r.recordStatus === 'DECEASED' ? 'color:#c42b1c;font-weight:700' : r.recordStatus === 'CANNOT BE LOCATED' ? 'color:#9a6700;font-weight:700' : r.recordStatus === 'INCARCERATED' ? 'color:#7a43b6;font-weight:700' : '';
+      return '<tr>' +
+        '<td style="text-align:center">' + (i+1) + '</td>' +
+        '<td><strong>' + (r.lastName||'') + ', ' + (r.firstName||'') + '</strong>' + (r.middleName ? ' '+r.middleName : '') + '</td>' +
+        '<td>' + (r.alias||'-') + '</td>' +
+        '<td style="text-align:center">' + (r.sex||'-') + '</td>' +
+        '<td style="text-align:center">' + calcAgeFromDob(r.dob) + '</td>' +
+        '<td style="font-size:9px">' + (r.referringUnit||'-') + '</td>' +
+        '<td style="text-align:center;font-size:9px;' + statusStyle + '">' + formatDate(r.dateSurrendered) + '</td>' +
+      '</tr>';
+    }
+    function yearSection(yr, list) {
+      if (!list.length) return '';
+      var sorted = list.slice().sort(function(a,b){return (a.lastName||'').localeCompare(b.lastName||'');});
+      return '<div style="margin-top:20px;page-break-inside:avoid">' +
+        '<h2 style="font-size:13px;letter-spacing:2px;margin:0 0 4px;border-bottom:2px solid #333;padding-bottom:4px">' +
+          yr + ' <span style="font-size:10px;font-weight:400;color:#555">— ' + list.length + ' FORMER REBEL' + (list.length!==1?'S':'') + '</span>' +
+        '</h2>' +
+        '<table class="report-table" style="width:100%;font-size:10px">' +
+          '<thead><tr><th style="width:26px;text-align:center">#</th><th>FULL NAME</th><th>ALIAS</th><th style="text-align:center">SEX</th><th style="text-align:center">AGE</th><th>REFERRING UNIT</th><th style="text-align:center">DATE SURRENDERED</th></tr></thead>' +
+          '<tbody>' + sorted.map(frRow).join('') + '</tbody>' +
+        '</table>' +
+      '</div>';
+    }
+
+    // Summary header table
+    var summaryRows = years.map(function(y){ return '<tr><td>'+y+'</td><td style="text-align:center;font-weight:700">'+(byYear[y]?byYear[y].length:0)+'</td><td style="text-align:center">'+(total>0?(((byYear[y]?byYear[y].length:0)/total)*100).toFixed(1):'0.0')+'%</td></tr>'; }).join('');
+    var summaryTable = '<table class="report-table" style="width:40%;font-size:10px;margin-bottom:20px">' +
+      '<thead><tr><th>YEAR</th><th style="text-align:center">COUNT</th><th style="text-align:center">%</th></tr></thead>' +
+      '<tbody>' + summaryRows + '</tbody>' +
+      '<tfoot><tr><td style="font-weight:700;border-top:2px solid #333">NO DATE RECORDED</td><td style="text-align:center;border-top:2px solid #333;font-weight:700">'+noDate.length+'</td><td style="text-align:center;border-top:2px solid #333">'+(total>0?((noDate.length/total)*100).toFixed(1):'0.0')+'%</td></tr></tfoot>' +
+    '</table>';
+
+    var sections = years.map(function(y){ return yearSection(y, byYear[y]||[]); }).join('');
+    if (noDate.length) sections += yearSection('NO DATE RECORDED', noDate);
+
+    var body =
+      '<div class="print-header">' +
+        '<h1>FORMER REBEL DATABASE MANAGEMENT AND JAPIC REPOSITORY SYSTEM</h1>' +
+        '<p>FORMER REBELS BY YEAR SURRENDERED</p>' +
+        '<p>Generated: ' + printed + ' &nbsp;|&nbsp; By: ' + printedBy + '</p>' +
+      '</div>' + summaryTable + sections;
+
+    openPrintDocument('FR by Year Surrendered', body, REPORT_PRINT_STYLES);
+    showToast('YEAR DETAIL REPORT GENERATED — ' + total + ' RECORDS', 'success');
+  }
+  if (allRecordsCache.length) run(allRecordsCache);
+  else dbGetAll().then(function(records){ allRecordsCache = records; run(records); })
+    .catch(function(err){ showToast('ERROR: ' + err.message, 'error'); });
+}
+
+// -- PRINT UNIT DETAIL REPORT ---------------------------------
+// Generates one section per referring unit listing every FR in that unit
+function printUnitDetailReport() {
+  function run(records) {
+    if (!records.length) { showToast('NO RECORDS TO PRINT', 'info'); return; }
+    var printed   = new Date().toLocaleString('en-PH');
+    var printedBy = currentUser ? currentUser.username + ' (' + currentUser.role + ')' : 'UNKNOWN';
+    var total     = records.length;
+
+    // Bucket by unit
+    var unitMap = {}, unitOrder = [];
+    records.forEach(function(r) {
+      var u = (r.referringUnit || 'NOT SPECIFIED').trim();
+      if (!unitMap[u]) { unitMap[u] = []; unitOrder.push(u); }
+      unitMap[u].push(r);
+    });
+    unitOrder.sort(function(a,b){
+      if (a === 'NOT SPECIFIED') return 1;
+      if (b === 'NOT SPECIFIED') return -1;
+      return a.localeCompare(b);
+    });
+
+    function frRow(r, i) {
+      var statusStyle = r.recordStatus === 'DECEASED' ? 'color:#c42b1c;font-weight:700' : r.recordStatus === 'CANNOT BE LOCATED' ? 'color:#9a6700;font-weight:700' : r.recordStatus === 'INCARCERATED' ? 'color:#7a43b6;font-weight:700' : '';
+      return '<tr>' +
+        '<td style="text-align:center">' + (i+1) + '</td>' +
+        '<td><strong>' + (r.lastName||'') + ', ' + (r.firstName||'') + '</strong>' + (r.middleName ? ' '+r.middleName : '') + '</td>' +
+        '<td>' + (r.alias||'-') + '</td>' +
+        '<td style="text-align:center">' + (r.sex||'-') + '</td>' +
+        '<td style="text-align:center">' + calcAgeFromDob(r.dob) + '</td>' +
+        '<td style="text-align:center">' + (r.membershipType||'-') + '</td>' +
+        '<td style="text-align:center;font-size:9px">' + formatDate(r.dateSurrendered) + '</td>' +
+        '<td style="text-align:center;font-size:9px;' + statusStyle + '">' + (r.recordStatus||'ACTIVE') + '</td>' +
+      '</tr>';
+    }
+    function unitSection(unit, list) {
+      var sorted = list.slice().sort(function(a,b){return (a.lastName||'').localeCompare(b.lastName||'');});
+      var npa = list.filter(function(r){return r.membershipType==='REGULAR NPA';}).length;
+      var mb  = list.filter(function(r){return r.membershipType==='MILISYANG BAYAN';}).length;
+      return '<div style="margin-top:24px;page-break-inside:avoid">' +
+        '<h2 style="font-size:12px;letter-spacing:1.5px;margin:0 0 2px;border-bottom:2px solid #333;padding-bottom:4px">' +
+          unit +
+          '<span style="float:right;font-size:10px;font-weight:400;color:#555">' + list.length + ' FR' + (list.length!==1?'s':'') +
+          ' &nbsp;|&nbsp; NPA: ' + npa + ' &nbsp;|&nbsp; MB: ' + mb + '</span>' +
+        '</h2>' +
+        '<table class="report-table" style="width:100%;font-size:10px">' +
+          '<thead><tr><th style="width:26px;text-align:center">#</th><th>FULL NAME</th><th>ALIAS</th><th style="text-align:center">SEX</th><th style="text-align:center">AGE</th><th style="text-align:center">MEMBERSHIP</th><th style="text-align:center">DATE SURRENDERED</th><th style="text-align:center">STATUS</th></tr></thead>' +
+          '<tbody>' + sorted.map(frRow).join('') + '</tbody>' +
+        '</table>' +
+      '</div>';
+    }
+
+    // Summary header
+    var summaryRows = unitOrder.map(function(u){ var d=unitMap[u]; return '<tr><td>'+u+'</td><td style="text-align:center;font-weight:700">'+d.length+'</td><td style="text-align:center">'+(total>0?((d.length/total)*100).toFixed(1):'0.0')+'%</td></tr>'; }).join('');
+    var summaryTable = '<table class="report-table" style="width:55%;font-size:10px;margin-bottom:20px">' +
+      '<thead><tr><th>REFERRING UNIT</th><th style="text-align:center">COUNT</th><th style="text-align:center">%</th></tr></thead>' +
+      '<tbody>' + summaryRows + '</tbody>' +
+      '<tfoot><tr><td style="font-weight:700;border-top:2px solid #333">GRAND TOTAL</td><td style="text-align:center;border-top:2px solid #333;font-weight:700">'+total+'</td><td style="text-align:center;border-top:2px solid #333">100%</td></tr></tfoot>' +
+    '</table>';
+
+    var sections = unitOrder.map(function(u){ return unitSection(u, unitMap[u]); }).join('');
+
+    var body =
+      '<div class="print-header">' +
+        '<h1>FORMER REBEL DATABASE MANAGEMENT AND JAPIC REPOSITORY SYSTEM</h1>' +
+        '<p>FORMER REBELS PER REFERRING UNIT</p>' +
+        '<p>Generated: ' + printed + ' &nbsp;|&nbsp; By: ' + printedBy + '</p>' +
+      '</div>' + summaryTable + sections;
+
+    openPrintDocument('FR per Referring Unit', body, REPORT_PRINT_STYLES);
+    showToast('UNIT DETAIL REPORT GENERATED — ' + unitOrder.length + ' UNIT(S)', 'success');
+  }
+  if (allRecordsCache.length) run(allRecordsCache);
+  else dbGetAll().then(function(records){ allRecordsCache = records; run(records); })
+    .catch(function(err){ showToast('ERROR: ' + err.message, 'error'); });
+}
+
+// -- PRINT ADDRESS REPORT -------------------------------------
+// scope: 'MAPSA' | 'SAMARICA' | 'OUTSIDE' | 'NOADDRESS' | 'ALL'
+var ADDRESS_AREAS = {
+  MAPSA:     { label: 'MAPSA', subtitle: 'Mamburao, Abra de Ilog, Paluan, Sablayan, Sta. Cruz', municipalities: ['MAMBURAO','ABRA DE ILOG','PALUAN','SABLAYAN','STA. CRUZ','SANTA CRUZ'] },
+  SAMARICA:  { label: 'SAMARICA', subtitle: 'San Jose, Magsaysay, Rizal, Calintaan', municipalities: ['SAN JOSE','MAGSAYSAY','RIZAL','CALINTAAN'] }
+};
+
+function classifyAddressArea(r) {
+  var mun  = (r.addressMunicipality || '').trim().toUpperCase();
+  var prov = (r.addressProvince     || '').trim().toUpperCase();
+  var bar  = (r.addressBarangay     || r.address || '').trim();
+
+  // No address at all
+  var hasAny = mun || prov || bar;
+  if (!hasAny) return 'NOADDRESS';
+
+  // Outside Occidental Mindoro
+  if (prov && prov !== 'OCCIDENTAL MINDORO') return 'OUTSIDE';
+
+  // Check MAPSA municipalities
+  if (ADDRESS_AREAS.MAPSA.municipalities.indexOf(mun) !== -1) return 'MAPSA';
+
+  // Check SAMARICA municipalities
+  if (ADDRESS_AREAS.SAMARICA.municipalities.indexOf(mun) !== -1) return 'SAMARICA';
+
+  // In Occidental Mindoro but not in either cluster (e.g. LOOC, LUBANG, or no municipality set)
+  if (prov === 'OCCIDENTAL MINDORO' && mun && ['LOOC','LUBANG'].indexOf(mun) !== -1) return 'OUTSIDE_CLUSTER';
+
+  return 'OUTSIDE_CLUSTER'; // has address but doesn't fit known clusters
+}
+
+function buildAddressReportTable(list, startIdx) {
+  if (!list.length) return '<p style="color:#888;font-size:11px;padding:8px 0">No records in this category.</p>';
+  var rows = list.map(function(r, i) {
+    var fullName = (r.lastName || '') + ', ' + (r.firstName || '') + (r.middleName ? ' ' + r.middleName : '');
+    var addr = [
+      r.addressBarangay || r.address || '',
+      r.addressMunicipality || '',
+      r.addressProvince || ''
+    ].filter(Boolean).join(', ') || '-';
+    var statusStyle = '';
+    if (r.recordStatus === 'DECEASED')          statusStyle = 'color:#c42b1c;font-weight:700';
+    if (r.recordStatus === 'CANNOT BE LOCATED') statusStyle = 'color:#9a6700;font-weight:700';
+    if (r.recordStatus === 'INCARCERATED')      statusStyle = 'color:#7a43b6;font-weight:700';
+    return '<tr>' +
+      '<td style="text-align:center;width:26px">'  + ((startIdx || 0) + i + 1) + '</td>' +
+      '<td><strong>' + fullName + '</strong></td>' +
+      '<td style="font-size:10px">' + (r.alias || '-') + '</td>' +
+      '<td style="text-align:center">' + (r.sex || '-') + '</td>' +
+      '<td style="font-size:10px">' + addr + '</td>' +
+      '<td style="font-size:10px;' + statusStyle + '">' + (r.recordStatus || 'ACTIVE') + '</td>' +
+      '<td style="text-align:center;font-size:10px">' + formatDate(r.dateSurrendered) + '</td>' +
+    '</tr>';
+  }).join('');
+  return '<table class="report-table" style="width:100%;font-size:10px">' +
+    '<thead><tr>' +
+      '<th style="text-align:center;width:26px">#</th>' +
+      '<th>FULL NAME</th>' +
+      '<th>ALIAS</th>' +
+      '<th style="text-align:center">SEX</th>' +
+      '<th>ADDRESS</th>' +
+      '<th>STATUS</th>' +
+      '<th style="text-align:center">DATE SURRENDERED</th>' +
+    '</tr></thead>' +
+    '<tbody>' + rows + '</tbody>' +
+    '<tfoot><tr><td colspan="7" style="text-align:right;font-size:9px;padding-top:6px;border-top:2px solid #333">' +
+      'SUBTOTAL: ' + list.length + ' RECORD' + (list.length !== 1 ? 'S' : '') +
+    '</td></tr></tfoot>' +
+  '</table>';
+}
+
+function printAddressReport(scope) {
+  function run(records) {
+    if (!records.length) { showToast('NO RECORDS TO PRINT', 'info'); return; }
+
+    var sorted = records.slice().sort(function(a, b) {
+      return (a.lastName || '').localeCompare(b.lastName || '');
+    });
+
+    var printed   = new Date().toLocaleString('en-PH');
+    var printedBy = currentUser ? currentUser.username + ' (' + currentUser.role + ')' : 'UNKNOWN';
+
+    // Classify all records
+    var buckets = { MAPSA: [], SAMARICA: [], OUTSIDE: [], OUTSIDE_CLUSTER: [], NOADDRESS: [] };
+    sorted.forEach(function(r) { buckets[classifyAddressArea(r)].push(r); });
+    var outsideAll = buckets.OUTSIDE.concat(buckets.OUTSIDE_CLUSTER).sort(function(a,b){
+      return (a.lastName||'').localeCompare(b.lastName||'');
+    });
+
+    // -- SUMMARY ONLY scope --
+    if (scope === 'SUMMARY') {
+      var rows = [
+        ['MAPSA', 'Mamburao, Abra de Ilog, Paluan, Sablayan, Sta. Cruz', buckets.MAPSA.length,    '#1a7f37'],
+        ['SAMARICA', 'San Jose, Magsaysay, Rizal, Calintaan',             buckets.SAMARICA.length, '#0969da'],
+        ['OUTSIDE OF OCCIDENTAL MINDORO', 'Oriental Mindoro, other provinces, unknown municipality', outsideAll.length, '#9a6700'],
+        ['NO ADDRESS ON RECORD', 'Address fields are blank',              buckets.NOADDRESS.length, '#cf222e']
+      ];
+      var total = records.length;
+      var tableRows = rows.map(function(row) {
+        return '<tr>' +
+          '<td style="font-weight:600;color:' + row[3] + '">' + row[0] + '</td>' +
+          '<td style="font-size:10px;color:#555">' + row[1] + '</td>' +
+          '<td style="text-align:center;font-size:14px;font-weight:700;color:' + row[3] + '">' + row[2] + '</td>' +
+          '<td style="text-align:center">' + (total > 0 ? ((row[2] / total) * 100).toFixed(1) : '0.0') + '%</td>' +
+        '</tr>';
+      }).join('');
+      var body =
+        '<div class="print-header">' +
+          '<h1>FORMER REBEL DATABASE MANAGEMENT AND JAPIC REPOSITORY SYSTEM</h1>' +
+          '<p>FR ADDRESS REPORT — SUMMARY BY AREA</p>' +
+          '<p>Generated: ' + printed + ' &nbsp;|&nbsp; By: ' + printedBy + '</p>' +
+        '</div>' +
+        '<table class="report-table" style="width:70%;font-size:11px">' +
+          '<thead><tr>' +
+            '<th>AREA</th>' +
+            '<th>MUNICIPALITIES COVERED</th>' +
+            '<th style="text-align:center">COUNT</th>' +
+            '<th style="text-align:center">% OF TOTAL</th>' +
+          '</tr></thead>' +
+          '<tbody>' + tableRows + '</tbody>' +
+          '<tfoot><tr>' +
+            '<td colspan="2" style="text-align:right;font-weight:700;font-size:10px;border-top:2px solid #333">TOTAL</td>' +
+            '<td style="text-align:center;font-size:14px;font-weight:700;border-top:2px solid #333">' + total + '</td>' +
+            '<td style="text-align:center;border-top:2px solid #333">100%</td>' +
+          '</tr></tfoot>' +
+        '</table>';
+      openPrintDocument('FR Address Summary', body, REPORT_PRINT_STYLES);
+      showToast('ADDRESS SUMMARY GENERATED', 'success');
+      return;
+    }
+
+    // Merge OUTSIDE + OUTSIDE_CLUSTER into one "Outside" bucket for display (detail scopes)
+    var body = '<div class="print-header">' +
+      '<h1>FORMER REBEL DATABASE MANAGEMENT AND JAPIC REPOSITORY SYSTEM</h1>';
+
+    var sections = '';
+    var totalShown = 0;
+
+    function makeSection(title, subtitle, list, color) {
+      if (!list.length && scope !== 'ALL') return '';
+      totalShown += list.length;
+      return '<div style="margin-top:20px;page-break-inside:avoid">' +
+        '<h2 style="font-size:12px;letter-spacing:1.5px;margin:0 0 2px;border-bottom:2px solid ' + color + ';padding-bottom:4px;color:' + color + '">' +
+          title + ' <span style="font-size:9px;color:#555;font-weight:400;letter-spacing:0">— ' + subtitle + '</span>' +
+          '<span style="float:right;font-size:10px;font-weight:700;color:#333">' + list.length + ' RECORD' + (list.length !== 1 ? 'S' : '') + '</span>' +
+        '</h2>' +
+        buildAddressReportTable(list, 0) +
+      '</div>';
+    }
+
+    if (scope === 'MAPSA' || scope === 'ALL') {
+      body += '<p>FR ADDRESS REPORT — MAPSA AREA</p>';
+      sections += makeSection('MAPSA', 'Mamburao, Abra de Ilog, Paluan, Sablayan, Sta. Cruz', buckets.MAPSA, '#1a7f37');
+    }
+    if (scope === 'SAMARICA' || scope === 'ALL') {
+      if (scope === 'SAMARICA') body += '<p>FR ADDRESS REPORT — SAMARICA AREA</p>';
+      sections += makeSection('SAMARICA', 'San Jose, Magsaysay, Rizal, Calintaan', buckets.SAMARICA, '#0969da');
+    }
+    if (scope === 'OUTSIDE' || scope === 'ALL') {
+      if (scope === 'OUTSIDE') body += '<p>FR ADDRESS REPORT — OUTSIDE OCCIDENTAL MINDORO</p>';
+      sections += makeSection('OUTSIDE OF OCCIDENTAL MINDORO', 'Oriental Mindoro, Metro Manila, other provinces, unknown municipality', outsideAll, '#9a6700');
+    }
+    if (scope === 'NOADDRESS' || scope === 'ALL') {
+      if (scope === 'NOADDRESS') body += '<p>FR ADDRESS REPORT — NO ADDRESS ON RECORD</p>';
+      sections += makeSection('NO ADDRESS ON RECORD', 'Address fields are blank', buckets.NOADDRESS, '#cf222e');
+    }
+    if (scope === 'ALL') {
+      body += '<p>FR ADDRESS REPORT — ALL AREAS</p>';
+    }
+
+    body += '<p>Generated: ' + printed + ' &nbsp;|&nbsp; By: ' + printedBy + '</p></div>';
+
+    // Summary box for ALL scope
+    if (scope === 'ALL') {
+      var summaryRows = [
+        ['MAPSA (Mamburao, Abra de Ilog, Paluan, Sablayan, Sta. Cruz)', buckets.MAPSA.length],
+        ['SAMARICA (San Jose, Magsaysay, Rizal, Calintaan)',             buckets.SAMARICA.length],
+        ['OUTSIDE OF OCCIDENTAL MINDORO',                                outsideAll.length],
+        ['NO ADDRESS ON RECORD',                                          buckets.NOADDRESS.length]
+      ];
+      body += '<div style="margin-bottom:16px;page-break-inside:avoid">' +
+        '<h2 style="font-size:11px;letter-spacing:1.5px;margin:0 0 6px;border-bottom:1px solid #999;padding-bottom:4px">SUMMARY BY AREA</h2>' +
+        '<table class="report-table" style="width:60%;font-size:10px">' +
+          '<thead><tr><th>AREA</th><th style="text-align:center">COUNT</th></tr></thead>' +
+          '<tbody>' + summaryRows.map(function(row) {
+            return '<tr><td>' + row[0] + '</td><td style="text-align:center;font-weight:700">' + row[1] + '</td></tr>';
+          }).join('') + '</tbody>' +
+          '<tfoot><tr>' +
+            '<td style="font-weight:700;text-align:right;font-size:9px;border-top:2px solid #333">TOTAL</td>' +
+            '<td style="text-align:center;font-weight:700;border-top:2px solid #333">' + records.length + '</td>' +
+          '</tr></tfoot>' +
+        '</table>' +
+      '</div>';
+    }
+
+    body += sections;
+
+    var scopeLabels = {
+      MAPSA: 'MAPSA', SAMARICA: 'SAMARICA', OUTSIDE: 'OUTSIDE OCC. MINDORO',
+      NOADDRESS: 'NO ADDRESS', ALL: 'ALL AREAS'
+    };
+    openPrintDocument('FR Address Report', body, REPORT_PRINT_STYLES);
+    showToast('ADDRESS REPORT GENERATED — ' + scopeLabels[scope] + ' (' + (scope === 'ALL' ? records.length : totalShown) + ' RECORD' + ((scope === 'ALL' ? records.length : totalShown) !== 1 ? 'S' : '') + ')', 'success');
   }
   if (allRecordsCache.length) run(allRecordsCache);
   else dbGetAll().then(function(records) { allRecordsCache = records; run(records); })
@@ -1396,8 +2229,8 @@ function printAssistanceList() {
 
     var body =
       '<div class="print-header">' +
-        '<h1>FORMER REBELS DATABASE MANAGEMENT SYSTEM</h1>' +
-        '<p>ASSISTANCE PROVIDED � FORMER REBELS</p>' +
+        '<h1>FORMER REBEL DATABASE MANAGEMENT AND JAPIC REPOSITORY SYSTEM</h1>' +
+        '<p>ASSISTANCE PROVIDED ? FORMER REBELS</p>' +
         '<p>Generated: ' + printed + ' &nbsp;|&nbsp; By: ' + printedBy + '</p>' +
       '</div>' +
       summaryTable +
@@ -1425,7 +2258,7 @@ function deleteDuplicateRecord(id) {
     dbGetAll().then(function(records) {
       allRecordsCache = records;
       // Re-render records table in background
-      if (currentPage === 'records') renderRecords(records, document.getElementById('searchInput').value, document.getElementById('unitFilterSelect').value, document.getElementById('membershipFilterSelect').value);
+      if (currentPage === 'records') renderRecords(records, document.getElementById('searchInput').value, document.getElementById('unitFilterSelect').value, document.getElementById('membershipFilterSelect').value, document.getElementById('yearFilterSelect') ? document.getElementById('yearFilterSelect').value : '');
       // Refresh modal content
       showPossibleDuplicates();
     });
@@ -1524,7 +2357,7 @@ function fuzzyNameMatch(a, b) {
 
   if (!lastA || !firstA || !lastB || !firstB) return false;
 
-  // If first names are completely different, skip � avoids false positives
+  // If first names are completely different, skip ? avoids false positives
   var firstDist = editDistance(firstA, firstB);
   var maxFirstLen = Math.max(firstA.length, firstB.length);
   // Allow at most 2 edits OR 25% of the longer name (whichever is smaller)
@@ -1548,7 +2381,7 @@ function fuzzyNameMatch(a, b) {
       lastA.length >= 6 && lastB.length >= 6 && lastDist <= 1 &&
       firstA.length >= 4 && firstB.length >= 4 && firstDist <= 2) return true;
 
-  // Swapped last/first: a.lastName � b.firstName AND a.firstName � b.lastName (exact or dist = 1)
+  // Swapped last/first: a.lastName ? b.firstName AND a.firstName ? b.lastName (exact or dist = 1)
   var swapLastDist  = editDistance(lastA,  firstB);
   var swapFirstDist = editDistance(firstA, lastB);
   if (lastA.length >= 4 && firstB.length >= 4 && firstA.length >= 4 && lastB.length >= 4 &&
@@ -1571,7 +2404,7 @@ function findDuplicateGroups(records) {
     var m = combined.match(/\b(JR\.?|SR\.?)\b/);
     return m ? m[1].replace('.', '') : '';
   }
-  // Build groups using fuzzy matching � O(n�) but fine for <1000 records
+  // Build groups using fuzzy matching ? O(n?) but fine for <1000 records
   var grouped = []; // array of arrays
   var assigned = {}; // id ? group index
 
@@ -1636,7 +2469,7 @@ function printPhilhealthList(hasPhilhealth) {
 
     var body =
       '<div class="print-header">' +
-        '<h1>FORMER REBELS DATABASE MANAGEMENT SYSTEM</h1>' +
+        '<h1>FORMER REBEL DATABASE MANAGEMENT AND JAPIC REPOSITORY SYSTEM</h1>' +
         '<p>' + title + '</p>' +
         '<p>Printed: ' + printed + ' &nbsp;|&nbsp; Printed by: ' + printedBy + '</p>' +
       '</div>' +
@@ -1693,7 +2526,7 @@ function printNon4PsList() {
 
     var body =
       '<div class="print-header">' +
-        '<h1>FORMER REBELS DATABASE MANAGEMENT SYSTEM</h1>' +
+        '<h1>FORMER REBEL DATABASE MANAGEMENT AND JAPIC REPOSITORY SYSTEM</h1>' +
         '<p>NON-4Ps MEMBERS LIST</p>' +
         '<p>Printed: ' + printed + ' &nbsp;|&nbsp; Printed by: ' + printedBy + '</p>' +
       '</div>' +
@@ -1755,7 +2588,7 @@ function printDuplicatesList() {
 
     var body =
       '<div class="print-header">' +
-        '<h1>FORMER REBELS DATABASE MANAGEMENT SYSTEM</h1>' +
+        '<h1>FORMER REBEL DATABASE MANAGEMENT AND JAPIC REPOSITORY SYSTEM</h1>' +
         '<p>POSSIBLE DUPLICATE PROFILES</p>' +
         '<p>Generated: ' + printed + ' &nbsp;|&nbsp; By: ' + printedBy + '</p>' +
       '</div>' +
@@ -1857,6 +2690,23 @@ function downloadReportCSV(type) {
       });
       count = list.length;
       filename = 'FR_NO_JAPIC_' + dateStr + '.csv';
+      csv = [headers.map(q).join(',')].concat(rows.map(function(r){return r.join(',');})).join('\n');
+
+    } else if (type === 'withjapic') {
+      var list = records.filter(function(r) {
+        return r.japic && (r.japic.url || r.japic.dataUrl || r.japic.fileName);
+      }).sort(function(a,b){return(a.lastName||'').localeCompare(b.lastName||'');});
+      if (!list.length) { showToast('NO PROFILES WITH JAPIC ON FILE', 'info'); return; }
+      var headers = ['#','LAST NAME','FIRST NAME','MIDDLE NAME','ALIAS','SEX','AGE',
+        'REFERRING UNIT','DATE SURRENDERED','STATUS','JAPIC FILE'];
+      var rows = list.map(function(r, i) {
+        return [i+1, r.lastName, r.firstName, r.middleName||'', r.alias||'',
+          r.sex||'', calcAgeFromDob(r.dob),
+          r.referringUnit||'', r.dateSurrendered||'', r.recordStatus||'',
+          r.japic.fileName||'ON FILE'].map(q);
+      });
+      count = list.length;
+      filename = 'FR_WITH_JAPIC_' + dateStr + '.csv';
       csv = [headers.map(q).join(',')].concat(rows.map(function(r){return r.join(',');})).join('\n');
 
     } else if (type === 'incomplete') {
@@ -2011,6 +2861,27 @@ function downloadReportCSV(type) {
       csv = [headers.map(q).join(',')].concat(rows.map(function(r){return r.join(',');})).join('\n');
     }
 
+    else if (type === 'noassistance') {
+      var list = records.filter(function(r) {
+        return !r.assistance || r.assistance.length === 0;
+      }).slice().sort(function(a,b){
+        var la=(a.lastName||'').toUpperCase(),lb=(b.lastName||'').toUpperCase();
+        var fa=(a.firstName||'').toUpperCase(),fb=(b.firstName||'').toUpperCase();
+        if(la<lb)return -1;if(la>lb)return 1;if(fa<fb)return -1;if(fa>fb)return 1;return 0;
+      });
+      if (!list.length) { showToast('ALL PROFILES HAVE ASSISTANCE RECORDED', 'success'); return; }
+      var headers = ['#','LAST NAME','FIRST NAME','MIDDLE NAME','ALIAS',
+        'SEX','AGE','REFERRING UNIT','DATE SURRENDERED','STATUS'];
+      var rows = list.map(function(r, i) {
+        return [i+1, r.lastName||'', r.firstName||'', r.middleName||'', r.alias||'',
+          r.sex||'', calcAgeFromDob(r.dob), r.referringUnit||'',
+          r.dateSurrendered||'', r.recordStatus||'ACTIVE'].map(q);
+      });
+      count    = list.length;
+      filename = 'FR_NO_ASSISTANCE_' + dateStr + '.csv';
+      csv = [headers.map(q).join(',')].concat(rows.map(function(r){return r.join(',');})).join('\n');
+    }
+
     var blob = new Blob([csv], { type: 'text/csv' });
     var url  = URL.createObjectURL(blob);
     var a    = document.createElement('a');
@@ -2153,7 +3024,7 @@ function buildDashboardReportHtml(records) {
     '<div class="report-section"><h2>STATUS - CANNOT BE LOCATED / DECEASED</h2>' + buildReportTable(['STATUS','COUNT','% OF TOTAL'], statusRows) + '</div>' +
     '<div class="report-section"><h2>ASSISTANCE PROVIDED</h2>' + buildReportTable(['TYPE OF ASSISTANCE','COUNT','% OF TOTAL'], asstRows) + '</div>' +
     '<div class="report-section"><h2>JAPIC CERTIFICATE STATUS</h2>' + buildReportTable(['JAPIC STATUS','COUNT','% OF TOTAL'], japicRows) + '</div>' +
-    '<div class="report-section"><h2>SURRENDER BY YEAR ('+START_YEAR+'�'+curYear+')</h2>' + buildReportTable(['YEAR','COUNT','% OF TOTAL'], yrRows) + '</div>' +
+    '<div class="report-section"><h2>SURRENDER BY YEAR ('+START_YEAR+'?'+curYear+')</h2>' + buildReportTable(['YEAR','COUNT','% OF TOTAL'], yrRows) + '</div>' +
     '<div class="report-section"><h2>MEMBERSHIP TYPE</h2>' + buildReportTable(['TYPE','COUNT','% OF TOTAL'], memRows) + '</div>' +
     '<div class="report-section"><h2>TRIBAL GROUP</h2>' + buildReportTable(['TRIBAL GROUP','COUNT','% OF TOTAL'], tribalRows) + '</div>' +
     '<div class="report-section"><h2>AGE BRACKET</h2>' + buildReportTable(['AGE BRACKET','COUNT','% OF TOTAL'], ageRows) + '</div>' +
@@ -2325,6 +3196,36 @@ function render4PsReport(records) {
   document.getElementById('fourPsTableBody').innerHTML=rows.map(function(r){var pct=total>0?((r.count/total)*100).toFixed(1):'0.0',barW=total>0?Math.round((r.count/total)*100):0;return '<tr class="'+(r.count===0?'asst-zero':'')+'"><td><span class="donut-dot" style="background:'+r.color+';display:inline-block;margin-right:6px"></span>'+r.label+'</td><td style="text-align:center;font-weight:'+(r.count>0?'700':'400')+';color:'+(r.count>0?r.color:'var(--text3)')+'">'+r.count+'</td><td style="text-align:center">'+pct+'%</td><td><div class="asst-mini-bar-wrap"><div class="asst-mini-bar" style="width:'+barW+'%;background:'+r.color+'"></div></div></td></tr>';}).join('');
 }
 
+// -- PHILHEALTH REPORT ----------------------------------------
+function renderPhilhealthReport(records) {
+  var total = records.length;
+  var yes   = records.filter(function(r) { return (r.assistance||[]).indexOf('PHILHEALTH') !== -1; }).length;
+  var no    = total - yes;
+  document.getElementById('philhealthTotalBadge').textContent = yes + ' WITH PHILHEALTH';
+  var rows = [
+    { label: 'WITH PHILHEALTH',    count: yes, color: '#3fb950' },
+    { label: 'WITHOUT PHILHEALTH', count: no,  color: '#f85149' }
+  ];
+  var maxCount = Math.max.apply(null, rows.map(function(r) { return r.count; }).concat([1]));
+  document.getElementById('philhealthBars').innerHTML = rows.map(function(r) {
+    var barPx = Math.max(Math.round((r.count / maxCount) * 110), r.count > 0 ? 4 : 0);
+    return '<div class="asst-bar-group"><div class="asst-bar-wrap">' +
+      '<div class="asst-bar-count">' + r.count + '</div>' +
+      '<div class="asst-bar" style="height:' + barPx + 'px;background:linear-gradient(180deg,' + r.color + ' 0%,' + r.color + '99 100%)" title="' + r.label + ': ' + r.count + '"></div>' +
+      '</div><div class="asst-bar-label">' + r.label + '</div></div>';
+  }).join('');
+  document.getElementById('philhealthTableBody').innerHTML = rows.map(function(r) {
+    var pct  = total > 0 ? ((r.count / total) * 100).toFixed(1) : '0.0';
+    var barW = total > 0 ? Math.round((r.count / total) * 100) : 0;
+    return '<tr class="' + (r.count === 0 ? 'asst-zero' : '') + '">' +
+      '<td><span class="donut-dot" style="background:' + r.color + ';display:inline-block;margin-right:6px"></span>' + r.label + '</td>' +
+      '<td style="text-align:center;font-weight:' + (r.count > 0 ? '700' : '400') + ';color:' + (r.count > 0 ? r.color : 'var(--text3)') + '">' + r.count + '</td>' +
+      '<td style="text-align:center">' + pct + '%</td>' +
+      '<td><div class="asst-mini-bar-wrap"><div class="asst-mini-bar" style="width:' + barW + '%;background:' + r.color + '"></div></div></td>' +
+    '</tr>';
+  }).join('');
+}
+
 function renderSectorReport(records) {
   var SECTORS=['FARMER','FISHERFOLK','WOMEN','PWD','CHILDREN AND YOUTH','SENIOR CITIZEN','SOLO PARENT','INDIGENOUS PEOPLE','URBAN POOR','OTHERS'];
   var COLORS=['#3fb950','#58a6ff','#a371f7','#f85149','#388bfd','#d29922','#79c0ff','#39d353','#ffa657','#6e7681'];
@@ -2356,10 +3257,11 @@ function renderReferringUnitReport(records) {
 }
 
 // -- RECORDS LIST ---------------------------------------------
-function renderRecords(records, filter, unitFilter, membershipFilter) {
+function renderRecords(records, filter, unitFilter, membershipFilter, yearFilter) {
   filter           = filter           || '';
   unitFilter       = unitFilter       || '';
   membershipFilter = membershipFilter || '';
+  yearFilter       = yearFilter       || '';
   var list = records;
   if (filter) {
     var q = filter.toLowerCase();
@@ -2389,6 +3291,12 @@ function renderRecords(records, filter, unitFilter, membershipFilter) {
       return ru === unitFilter;
     });
   }
+  if (yearFilter) {
+    list = list.filter(function(r) {
+      if (!r.dateSurrendered) return false;
+      return new Date(r.dateSurrendered).getFullYear().toString() === yearFilter;
+    });
+  }
   // Sort alphabetically by Last Name then First Name
   list = list.slice().sort(function(a, b) {
     var la = (a.lastName  || '').toUpperCase();
@@ -2402,6 +3310,7 @@ function renderRecords(records, filter, unitFilter, membershipFilter) {
     return 0;
   });
   filteredRecordsCache = list; // keep reference for print/export
+  populateYearFilter(records); // rebuild year options from full dataset
   var tbody = document.getElementById('recordsTableBody');
   if (!list.length) { tbody.innerHTML='<tr><td colspan="10"><div class="empty-state"><div class="empty-icon">&#128269;</div><p>NO RECORDS FOUND</p></div></td></tr>'; return; }
   tbody.innerHTML = list.map(function(r, i) {
@@ -2416,14 +3325,34 @@ function renderRecords(records, filter, unitFilter, membershipFilter) {
 // Tracks the last rendered filtered list so print/export can use it
 var filteredRecordsCache = [];
 
+// -- POPULATE YEAR FILTER -------------------------------------
+function populateYearFilter(records) {
+  var sel = document.getElementById('yearFilterSelect');
+  if (!sel) return;
+  var current = sel.value; // preserve selection across refreshes
+  var years = {};
+  records.forEach(function(r) {
+    if (r.dateSurrendered) {
+      var y = new Date(r.dateSurrendered).getFullYear();
+      if (!isNaN(y)) years[y] = true;
+    }
+  });
+  var sorted = Object.keys(years).map(Number).sort(function(a, b) { return b - a; }); // newest first
+  sel.innerHTML = '<option value="">ALL YEARS</option>' +
+    sorted.map(function(y) {
+      return '<option value="' + y + '"' + (current === String(y) ? ' selected' : '') + '>' + y + '</option>';
+    }).join('');
+}
+
 function filterRecords() {
   var search           = document.getElementById('searchInput').value;
   var unitFilter       = document.getElementById('unitFilterSelect').value;
   var membershipFilter = document.getElementById('membershipFilterSelect').value;
-  renderRecords(allRecordsCache, search, unitFilter, membershipFilter);
+  var yearFilter       = document.getElementById('yearFilterSelect') ? document.getElementById('yearFilterSelect').value : '';
+  renderRecords(allRecordsCache, search, unitFilter, membershipFilter, yearFilter);
   // Show print button whenever any filter is active
   var printBtn = document.getElementById('printFilteredBtn');
-  if (printBtn) printBtn.style.display = (search || unitFilter || membershipFilter) ? 'inline-flex' : 'none';
+  if (printBtn) printBtn.style.display = (search || unitFilter || membershipFilter || yearFilter) ? 'inline-flex' : 'none';
 }
 
 // -- PRINT FILTERED RECORDS LIST ------------------------------
@@ -2467,7 +3396,7 @@ function printFilteredRecords() {
 
   var body =
     '<div class="print-header">' +
-      '<h1>FORMER REBELS DATABASE MANAGEMENT SYSTEM</h1>' +
+      '<h1>FORMER REBEL DATABASE MANAGEMENT AND JAPIC REPOSITORY SYSTEM</h1>' +
       '<p>RECORDS LIST</p>' +
       '<p style="font-size:10px">Filter: ' + filterLine + '</p>' +
       '<p>Printed: ' + printed + ' &nbsp;|&nbsp; Printed by: ' + printedBy + '</p>' +
@@ -2737,7 +3666,7 @@ function saveRecord(event) {
   }
 
   showToast('CHECKING FOR DUPLICATES...', 'info');
-  // Fuzzy check against full cache � handles swapped names and typos
+  // Fuzzy check against full cache ? handles swapped names and typos
   var duplicate = null;
   if (allRecordsCache.length) {
     for (var ci = 0; ci < allRecordsCache.length; ci++) {
@@ -2909,9 +3838,15 @@ function buildRecordDetailHtml(r, forPrint) {
   forPrint=!!forPrint;
   var age=calcAgeFromDob(r.dob);
   var photoSrc=r.idPhoto||(r.idPhotoUrl)||null;
-  var photoHtml=photoSrc
+  var photoFileName=(r.lastName||'PHOTO')+'_'+(r.firstName||'')+'_2x2.jpg';
+  var photoImg=photoSrc
     ?'<img src="'+photoSrc+'" class="modal-id-photo" alt="ID Photo"/>'
     :'<img src="BHB.png" class="modal-id-photo" alt="ID Photo"/>';
+  // Store photo src + filename on the button via data attributes to avoid URL-in-onclick escaping issues
+  var dlBtn=(!forPrint&&photoSrc)
+    ?'<button class="btn-attach-dl btn-dl-photo" data-src="'+photoSrc.replace(/"/g,'&quot;')+'" data-name="'+photoFileName.replace(/"/g,'&quot;')+'" style="margin-top:6px;width:100px;font-size:0.65rem">&#11015; DOWNLOAD</button>'
+    :'';
+  var photoHtml='<div style="display:flex;flex-direction:column;align-items:center;gap:4px">'+photoImg+dlBtn+'</div>';
   var tagsSex=r.sex?'<span class="tag tag-blue">'+r.sex+'</span>':'';
   var tagsCivil=r.civilStatus?'<span class="tag tag-blue">'+r.civilStatus+'</span>':'';
   var tribalDisplay=normalizeTribalGroup(r.tribalGroup)||r.tribalGroup;
@@ -2919,7 +3854,7 @@ function buildRecordDetailHtml(r, forPrint) {
   var statusColors={'CANNOT BE LOCATED':'#d29922','DECEASED':'#f85149','INCARCERATED':'#a371f7'};
   var tagsStatus=r.recordStatus?'<span class="tag" style="background:rgba(248,81,73,0.15);border-color:'+statusColors[r.recordStatus]+';color:'+statusColors[r.recordStatus]+';font-weight:700">&#9679; '+r.recordStatus+'</span>':'';
   var asstRaw = r.assistance || [];
-  // Collapse bare 'OTHERS' if a specific 'OTHERS: <value>' already exists � avoids redundant tags
+  // Collapse bare 'OTHERS' if a specific 'OTHERS: <value>' already exists ? avoids redundant tags
   var hasSpecificOthers = asstRaw.some(function(a) { return a.length > 6 && a.indexOf('OTHERS:') === 0; });
   var asstFiltered = hasSpecificOthers ? asstRaw.filter(function(a) { return a !== 'OTHERS'; }) : asstRaw;
   var asstHtml = asstFiltered.length ? asstFiltered.map(function(a){return'<span class="tag tag-green">'+a+'</span>';}).join('') : '-';
@@ -2990,6 +3925,13 @@ function viewRecord(id) {
   var r=getRecordById(id); if(!r) return;
   viewingRecordId=id;
   document.getElementById('modalContent').innerHTML=buildRecordDetailHtml(r,false);
+  // Handle photo download button (uses data attributes to avoid URL-in-onclick escaping issues)
+  var dlPhotoBtn = document.querySelector('.btn-dl-photo');
+  if (dlPhotoBtn) {
+    dlPhotoBtn.addEventListener('click', function() {
+      downloadAttachment(this.getAttribute('data-src'), this.getAttribute('data-name'));
+    });
+  }
   document.getElementById('viewModal').classList.remove('hidden');
 }
 function closeModal() { document.getElementById('viewModal').classList.add('hidden'); }
@@ -2999,7 +3941,7 @@ function printRecord(id) {
   id=id||viewingRecordId; var r=getRecordById(id); if(!r){showToast('RECORD NOT FOUND','error');return;}
   var name=r.lastName+', '+r.firstName, printed=new Date().toLocaleString('en-PH');
   var printedBy = currentUser ? currentUser.username + ' (' + currentUser.role + ')' : 'UNKNOWN';
-  var html='<!DOCTYPE html><html><head><meta charset="UTF-8"><title></title><style>'+PRINT_RECORD_STYLES+CONFIDENTIAL_WATERMARK_STYLE+'</style></head><body><div class="confidential-watermark">CONFIDENTIAL</div><div class="print-header"><h1>FORMER REBELS DATABASE MANAGEMENT SYSTEM</h1><p>RECORD PRINTOUT</p><p>Printed: '+printed+'</p><p>Printed by: '+printedBy+'</p></div>'+buildRecordDetailHtml(r,true)+'</body></html>';
+  var html='<!DOCTYPE html><html><head><meta charset="UTF-8"><title></title><style>'+PRINT_RECORD_STYLES+CONFIDENTIAL_WATERMARK_STYLE+'</style></head><body><div class="confidential-watermark">CONFIDENTIAL</div><div class="print-header"><h1>FORMER REBEL DATABASE MANAGEMENT AND JAPIC REPOSITORY SYSTEM</h1><p>RECORD PRINTOUT</p><p>Printed: '+printed+'</p><p>Printed by: '+printedBy+'</p></div>'+buildRecordDetailHtml(r,true)+'</body></html>';
   var w=window.open('','_blank');if(!w){showToast('ALLOW POPUPS TO PRINT','error');return;}
   w.document.open();w.document.write(html);w.document.close();w.focus();setTimeout(function(){w.print();},350);
 }
@@ -3013,9 +3955,25 @@ function openAttachment(src, fileName) {
   w.document.close();
 }
 function downloadAttachment(src, fileName) {
-  // For Firebase Storage URLs, open in new tab (direct download may be blocked)
-  if(src.startsWith('https://firebasestorage')) { window.open(src,'_blank'); return; }
-  var a=document.createElement('a'); a.href=src; a.download=fileName; a.click();
+  if (!src) return;
+  // For http/https URLs (Firebase Storage etc.) — fetch as blob so browser saves the file
+  if (src.startsWith('http://') || src.startsWith('https://')) {
+    fetch(src)
+      .then(function(res) { return res.blob(); })
+      .then(function(blob) {
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url; a.download = fileName || 'download'; a.click();
+        setTimeout(function() { URL.revokeObjectURL(url); }, 3000);
+      })
+      .catch(function() {
+        // Fallback: open in new tab if fetch fails (CORS etc.)
+        window.open(src, '_blank');
+      });
+    return;
+  }
+  // Base64 / data URL
+  var a = document.createElement('a'); a.href = src; a.download = fileName || 'download'; a.click();
 }
 
 // -- DELETE ---------------------------------------------------
@@ -3025,7 +3983,7 @@ function confirmDelete() {
   if(!deleteTargetId) return;
   dbDelete(deleteTargetId).then(function() {
     closeDeleteModal(); showToast('RECORD DELETED','error');
-    dbGetAll().then(function(records){allRecordsCache=records;renderRecords(records,document.getElementById('searchInput').value,document.getElementById('unitFilterSelect').value,document.getElementById('membershipFilterSelect').value);});
+    dbGetAll().then(function(records){allRecordsCache=records;renderRecords(records,document.getElementById('searchInput').value,document.getElementById('unitFilterSelect').value,document.getElementById('membershipFilterSelect').value,document.getElementById('yearFilterSelect')?document.getElementById('yearFilterSelect').value:'');});
   }).catch(function(err){showToast('DELETE FAILED: '+err.message,'error');});
 }
 
@@ -3149,7 +4107,7 @@ function normalizeSectorList(raw) {
       if (matched) break;
     }
     if (!matched) {
-      // Unknown � store as OTHERS: <value>
+      // Unknown ? store as OTHERS: <value>
       var othersVal = 'OTHERS: ' + up;
       if (!seen[othersVal]) { seen[othersVal] = true; result.push(othersVal); }
     }
@@ -3192,7 +4150,7 @@ function normalizeAsstList(raw) {
         return;
       }
     }
-    // Already prefixed with OTHERS � keep as-is
+    // Already prefixed with OTHERS ? keep as-is
     if (up.indexOf('OTHERS') === 0) {
       if (!seen[up]) { seen[up] = true; result.push(up); }
       return;
@@ -3211,7 +4169,7 @@ function normalizeAsstList(raw) {
     }
     if (matchedCanonical) {
       // Check if value has extra content beyond just the keyword
-      // (e.g. amounts, sources � indicates a descriptive note)
+      // (e.g. amounts, sources ? indicates a descriptive note)
       var isDescriptive = /\d/.test(up) || up.length > matchedCanonical.length + 15;
       if (!seen[matchedCanonical]) { seen[matchedCanonical] = true; result.push(matchedCanonical); }
       if (isDescriptive) {
@@ -3220,12 +4178,12 @@ function normalizeAsstList(raw) {
         if (!seen[othersVal]) { seen[othersVal] = true; result.push(othersVal); }
       }
     } else {
-      // No match at all � store as OTHERS: <value>
+      // No match at all ? store as OTHERS: <value>
       var othersKey = 'OTHERS: ' + up;
       if (!seen[othersKey]) { seen[othersKey] = true; result.push(othersKey); }
     }
   });
-  // If any OTHERS: <value> entries exist, remove bare 'OTHERS' � it's redundant
+  // If any OTHERS: <value> entries exist, remove bare 'OTHERS' ? it's redundant
   var hasSpecificOthers = result.some(function(a) { return a.length > 6 && a.indexOf('OTHERS:') === 0; });
   if (hasSpecificOthers) result = result.filter(function(a) { return a !== 'OTHERS'; });
   return result;
@@ -3338,7 +4296,7 @@ function importCSVFile(event) {
     var parsed = [];
     for (var r = 1; r < lines.length; r++) {
       var cols = parseCSVLine(lines[r]);
-      // Skip rows with significantly more columns than the header � unquoted comma in a field
+      // Skip rows with significantly more columns than the header ? unquoted comma in a field
       if (cols.length > headerCount + 3) { skippedMisaligned++; continue; }
       var col  = function(name) { return (cols[idx[name]] || '').trim(); };
 
@@ -3585,7 +4543,7 @@ function importCSVFile(event) {
             existMatch = nameMatches[i];
             break;
           }
-          // Fuzzy fallback � catches swapped names and typo variants
+          // Fuzzy fallback ? catches swapped names and typo variants
           if (!existMatch) {
             for (var fi = 0; fi < existing.length; fi++) {
               var cand = existing[fi];
@@ -3684,7 +4642,7 @@ function importCSVFile(event) {
         if (toUpdate.length) parts.push(toUpdate.length + ' UPDATED');
         var msg = parts.join(', ') + ' RECORD' + (totalOps !== 1 ? 'S' : '') + ' IMPORTED';
         if (skippedNew > 0) msg += ' - ' + skippedNew + ' SKIPPED (ALREADY UP TO DATE)';
-        if (skippedMisaligned > 0) msg += ' - ' + skippedMisaligned + ' ROW' + (skippedMisaligned !== 1 ? 'S' : '') + ' SKIPPED (COLUMN MISMATCH � CHECK CSV FOR UNQUOTED COMMAS)';
+        if (skippedMisaligned > 0) msg += ' - ' + skippedMisaligned + ' ROW' + (skippedMisaligned !== 1 ? 'S' : '') + ' SKIPPED (COLUMN MISMATCH ? CHECK CSV FOR UNQUOTED COMMAS)';
         showToast(msg, 'success');
         showPage('records');
       }).catch(function(err) { hideImportOverlay(); showToast('IMPORT ERROR: ' + err.message, 'error'); });
@@ -3744,8 +4702,8 @@ function undoLastImport() {
 
   if (!confirm(
     'UNDO LAST IMPORT?\n\n' +
-    '� ' + inserted.length + ' new record(s) will be DELETED\n' +
-    '� ' + restored.length + ' updated record(s) will be RESTORED to their previous state\n\n' +
+    '? ' + inserted.length + ' new record(s) will be DELETED\n' +
+    '? ' + restored.length + ' updated record(s) will be RESTORED to their previous state\n\n' +
     'This cannot be undone again.'
   )) return;
 
@@ -4103,7 +5061,7 @@ function runMiddleNameUpdate() {
     }
 
     // Build confirmation message with record list
-    var recordsList = needsUpdate.slice(0, 10).map(function(r) { return '  � ' + r.name; }).join('\n');
+    var recordsList = needsUpdate.slice(0, 10).map(function(r) { return '  ? ' + r.name; }).join('\n');
     if (needsUpdate.length > 10) {
       recordsList += '\n  ... and ' + (needsUpdate.length - 10) + ' more';
     }
@@ -4406,6 +5364,17 @@ function resetIdleTimer() {
   document.addEventListener(evt, resetIdleTimer, { passive: true });
 });
 
+// -- AUTO LOGOUT ON WINDOW CLOSE ------------------------------
+// Fires when the Electron window is closed (or browser tab unloaded).
+// Signs out from Firebase so the session is invalidated immediately.
+window.addEventListener('beforeunload', function() {
+  try {
+    if (typeof auth !== 'undefined' && auth.currentUser) {
+      auth.signOut();
+    }
+  } catch (e) { /* silent — window is already closing */ }
+});
+
 // -- ELECTRON TITLE BAR --------------------------------------
 (function() {
   // Only activate when running inside Electron (electronAPI is injected by preload.js)
@@ -4446,10 +5415,10 @@ function applyTheme(theme) {
   var icon  = document.getElementById('themeToggleIcon');
   var label = document.getElementById('themeToggleLabel');
   if (theme === 'light') {
-    if (icon)  icon.textContent  = '\uD83C\uDF19'; // 🌙 moon
+    if (icon)  icon.textContent  = '\uD83C\uDF19'; // ?? moon
     if (label) label.textContent = 'DARK';
   } else {
-    if (icon)  icon.textContent  = '\u2600\uFE0F'; // ☀️ sun
+    if (icon)  icon.textContent  = '\u2600\uFE0F'; // ?? sun
     if (label) label.textContent = 'LIGHT';
   }
   localStorage.setItem('frdb-theme', theme);
@@ -4465,6 +5434,198 @@ function toggleTheme() {
   var saved = localStorage.getItem('frdb-theme') || 'dark';
   applyTheme(saved);
 })();
+
+// -- HOLIDAY DYNAMIC THEMES (login page only) ----------------
+var HOLIDAY_CONFIG = {
+  christmas:   { emojis: ['\u2744\uFE0F','\uD83C\uDF84','\u26C4','\uD83D\uDD14','\uD83C\uDF81','\uD83E\uDD8C','\u2B50'], count: 18 },
+  newyear:     { emojis: ['\uD83C\uDF86','\uD83C\uDF87','\u2728','\uD83C\uDF89','\uD83E\uDD42','\uD83C\uDF1F'], count: 14 },
+  valentines:  { emojis: ['\u2764\uFE0F','\uD83D\uDC95','\uD83D\uDC9E','\uD83C\uDF39','\uD83D\uDC9D','\uD83D\uDC98'], count: 16 },
+  halloween:   { emojis: ['\uD83C\uDF83','\uD83D\uDC7B','\uD83E\uDE87','\uD83D\uDD78\uFE0F','\uD83D\uDD78','\uD83D\uDC80','\uD83E\uDD89'], count: 8 },
+  arawatan:    { emojis: ['\uD83C\uDF34','\u2600\uFE0F','\uD83C\uDF3A','\uD83C\uDF89','\uD83C\uDFB6','\uD83C\uDFBA','\uD83E\uDD41','\uD83E\uDE95'], count: 16 },
+  jacobs:      { emojis: ['\uD83C\uDF82','\uD83C\uDF88','\uD83C\uDF89','\uD83C\uDF81','\uD83E\uDD73','\uD83C\uDF8A','\uD83E\uDDC1','\uD83C\uDF86'], count: 16 },
+  independence:{ emojis: ['\u2B50','\uD83C\uDDF5\uD83C\uDDF2','\u2600\uFE0F','\uD83E\uDD99','\uD83C\uDF3A'], count: 14 }
+};
+
+// Returns a holiday key based on the current date, or null for none.
+function getCurrentHoliday() {
+  var now = new Date();
+  var m = now.getMonth() + 1; // 1-12
+  var d = now.getDate();
+  if (m === 12)                          return 'christmas';    // all of December
+  if (m === 1 && d <= 7)                 return 'newyear';      // Jan 1-7
+  if (m === 2 && d <= 15)                return 'valentines';   // Feb 1-15
+  if ((m === 10 && d >= 15) ||
+      (m === 11 && d <= 2))              return 'halloween';    // Oct 15 - Nov 2
+  if (m === 11 && d >= 10 && d <= 15)    return 'arawatan';     // Nov 10-15 Arawatan Festival
+  if (m === 6 && d === 15)               return 'jacobs';       // Jun 15 Jacob's Birthday
+  if (m === 6 && d <= 15)                return 'independence'; // Jun 1-15 (PH Independence)
+  return null;
+}
+
+// Applies the holiday theme to the login screen only.
+function applyHolidayTheme() {
+  var holiday = getCurrentHoliday();
+  var loginScreen = document.getElementById('loginScreen');
+  if (!loginScreen) return;
+  if (holiday) {
+    loginScreen.setAttribute('data-holiday', holiday);
+    var decor = document.getElementById('holidayDecor');
+    if (decor) {
+      decor.innerHTML = '';
+
+      // === HALLOWEEN SCARY EFFECTS ===
+      if (holiday === 'halloween') {
+        // Two realistic spiders at different positions
+        var spiderData = [
+          { left: 12 + Math.random() * 22, delay: 0 },
+          { left: 66 + Math.random() * 22, delay: 4.5 }
+        ];
+        spiderData.forEach(function(sd) {
+          var spider = document.createElement('div');
+          spider.className = 'hween-spider';
+          spider.style.left = sd.left + '%';
+          spider.innerHTML =
+            '<div class="hween-silk"></div>' +
+            '<div class="hween-spider-body">' +
+              '<div class="hween-leg hween-l1"></div><div class="hween-leg hween-l2"></div>' +
+              '<div class="hween-leg hween-l3"></div><div class="hween-leg hween-l4"></div>' +
+              '<div class="hween-leg hween-r1"></div><div class="hween-leg hween-r2"></div>' +
+              '<div class="hween-leg hween-r3"></div><div class="hween-leg hween-r4"></div>' +
+              '<div class="hween-spider-eyes"></div>' +
+            '</div>';
+          if (sd.delay) {
+            spider.querySelector('.hween-silk').style.animationDelay = sd.delay + 's';
+            spider.querySelector('.hween-spider-body').style.animationDelay = sd.delay + 's';
+          }
+          decor.appendChild(spider);
+        });
+
+        // Peeking ghost
+        var ghost = document.createElement('div');
+        ghost.className = 'hween-ghost';
+        ghost.innerHTML =
+          '<div class="hween-ghost-eyes"></div>' +
+          '<div class="hween-ghost-mouth"></div>';
+        decor.appendChild(ghost);
+
+        // Glowing eyes in the dark (4 pairs spread evenly across screen)
+        var eyePositions = [
+          { left: 6 + Math.random() * 14,  top: 15 + Math.random() * 20 },
+          { left: 32 + Math.random() * 14, top: 58 + Math.random() * 18 },
+          { left: 60 + Math.random() * 14, top: 18 + Math.random() * 20 },
+          { left: 82 + Math.random() * 10, top: 52 + Math.random() * 22 }
+        ];
+        eyePositions.forEach(function(pos, idx) {
+          var eyePair = document.createElement('div');
+          eyePair.className = 'hween-eyes-pair';
+          eyePair.style.left = pos.left + '%';
+          eyePair.style.top = pos.top + '%';
+          eyePair.style.animationDelay = (idx * 1.5 + Math.random() * 2) + 's';
+          eyePair.style.animationDuration = (5 + Math.random() * 4) + 's';
+          decor.appendChild(eyePair);
+        });
+
+        // Rolling fog at the bottom
+        var fog = document.createElement('div');
+        fog.className = 'hween-fog';
+        decor.appendChild(fog);
+      }
+    }
+    console.log('[FRDB] Holiday theme applied: ' + holiday);
+  } else {
+    loginScreen.removeAttribute('data-holiday');
+    var d = document.getElementById('holidayDecor');
+    if (d) d.innerHTML = '';
+  }
+}
+
+// Apply holiday theme immediately on load (before login)
+applyHolidayTheme();
+
+// -- MANIACAL LAUGH (Halloween login sound) -------------------
+function playManiacalLaugh() {
+  try {
+    var AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    var ctx = new AC();
+    var now = ctx.currentTime;
+
+    // Master volume
+    var master = ctx.createGain();
+    master.gain.value = 0.25;
+    master.connect(ctx.destination);
+
+    // Delay for a creepy echo
+    var delay = ctx.createDelay(1.0);
+    delay.delayTime.value = 0.18;
+    var delayGain = ctx.createGain();
+    delayGain.gain.value = 0.35;
+    var feedback = ctx.createGain();
+    feedback.gain.value = 0.4;
+    delay.connect(delayGain);
+    delayGain.connect(master);
+    delayGain.connect(feedback);
+    feedback.connect(delay);
+
+    // Series of "ha" syllables with rising pitch (maniacal escalation)
+    var numHa = 10, haDur = 0.13, gap = 0.07, basePitch = 150;
+
+    for (var i = 0; i < numHa; i++) {
+      var t = now + i * (haDur + gap);
+      var pitch = basePitch + i * 22;          // each ha rises in pitch
+      var endPitch = pitch * 0.65;             // drop within the syllable
+
+      // Harsh sawtooth for gritty voice character
+      var osc = ctx.createOscillator();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(pitch, t);
+      osc.frequency.exponentialRampToValueAtTime(endPitch, t + haDur);
+
+      // Square wave an octave below for body
+      var osc2 = ctx.createOscillator();
+      osc2.type = 'square';
+      osc2.frequency.setValueAtTime(pitch * 0.5, t);
+      osc2.frequency.exponentialRampToValueAtTime(endPitch * 0.5, t + haDur);
+
+      // Vibrato for an unhinged wobble (gets faster with each ha)
+      var vib = ctx.createOscillator();
+      vib.frequency.value = 6 + i * 0.5;
+      var vibGain = ctx.createGain();
+      vibGain.gain.value = 8;
+      vib.connect(vibGain);
+      vibGain.connect(osc.frequency);
+      vib.start(t);
+      vib.stop(t + haDur);
+
+      // Bandpass filter for a voice-like tone
+      var filt = ctx.createBiquadFilter();
+      filt.type = 'bandpass';
+      filt.frequency.value = pitch * 2.5;
+      filt.Q.value = 1.5;
+
+      // Amplitude envelope — quick attack, fast decay per "ha"
+      var env = ctx.createGain();
+      env.gain.setValueAtTime(0, t);
+      env.gain.linearRampToValueAtTime(0.8, t + 0.012);
+      env.gain.exponentialRampToValueAtTime(0.01, t + haDur);
+
+      osc.connect(filt);
+      osc2.connect(filt);
+      filt.connect(env);
+      env.connect(master);
+      env.connect(delay);
+
+      osc.start(t); osc.stop(t + haDur);
+      osc2.start(t); osc2.stop(t + haDur);
+    }
+
+    // Clean up audio context after the laugh + echo finishes
+    var totalDur = numHa * (haDur + gap) + 2.5;
+    setTimeout(function() { try { ctx.close(); } catch(e) {} }, totalDur * 1000);
+  } catch(e) {
+    console.warn('[FRDB] Laugh sound failed:', e.message);
+  }
+}
 
 // -- DEFAULTS MIGRATION ---------------------------------------
 // Fills in missing position, yearsInMovement, civilStatus on existing records
@@ -4535,6 +5696,1181 @@ function migrateCivilStatus() {
     });
   });
 }
+
+// ============================================================
+// NARRATIVE REPORT GENERATOR
+// Produces a written prose summary of the entire dashboard.
+// ============================================================
+
+var NARRATIVE_REPORT_STYLES =
+  'body{font-family:Georgia,"Times New Roman",serif;color:#111;margin:0;padding:32px 40px;font-size:13px;line-height:1.75}' +
+  'h1{font-size:15px;text-align:center;letter-spacing:2px;margin:0 0 4px;text-transform:uppercase}' +
+  '.sub-title{text-align:center;font-size:11px;color:#555;letter-spacing:1.5px;margin-bottom:4px;font-family:Arial,sans-serif}' +
+  '.meta{text-align:center;font-size:10px;color:#777;margin-bottom:28px;font-family:Arial,sans-serif}' +
+  'hr{border:none;border-top:2px solid #111;margin:0 0 24px}' +
+  'h2{font-size:13px;letter-spacing:1.5px;text-transform:uppercase;margin:28px 0 8px;font-family:Arial,sans-serif;border-bottom:1px solid #ccc;padding-bottom:4px}' +
+  'p{margin:0 0 12px;text-align:justify}' +
+  '.highlight{font-weight:bold}' +
+  '.stat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:14px 0}' +
+  '.stat-box{border:1px solid #ccc;padding:8px 10px;text-align:center;border-radius:4px}' +
+  '.stat-box .num{font-size:20px;font-weight:bold;display:block}' +
+  '.stat-box .lbl{font-size:9px;letter-spacing:1px;color:#555;font-family:Arial,sans-serif}' +
+  '.stat-box.warn .num{color:#9a6700}' +
+  '.stat-box.danger .num{color:#c42b1c}' +
+  '.stat-box.purple .num{color:#7a43b6}' +
+  'table{width:100%;border-collapse:collapse;font-size:11px;margin:10px 0 18px;font-family:Arial,sans-serif}' +
+  'th{background:#f0f0f0;border:1px solid #ccc;padding:5px 8px;text-align:left;font-size:9.5px;letter-spacing:.8px}' +
+  'th.num,td.num{text-align:center}' +
+  'td{border:1px solid #ccc;padding:5px 8px}' +
+  'tr:nth-child(even) td{background:#fafafa}' +
+  '.alert-table td:first-child{font-weight:bold}' +
+  '.footer{margin-top:32px;padding-top:10px;border-top:1px solid #ccc;font-size:9px;color:#888;text-align:center;font-family:Arial,sans-serif}' +
+  '@media print{' +
+    'body{padding:12px}' +
+    '@page{margin:12mm 12mm 20mm 12mm;size:A4;}' +
+    '@page{@bottom-center{content:"PSWDO2026";font-family:Arial,sans-serif;font-size:9pt;color:#555;letter-spacing:2px;}}' +
+  '}';
+
+function _runNarrative(records, mode) {
+    if (!records.length) { showToast('NO RECORDS TO GENERATE NARRATIVE', 'info'); return; }
+
+    var total     = records.length;
+    var printed   = new Date().toLocaleString('en-PH', { weekday:'long', year:'numeric', month:'long', day:'numeric', hour:'2-digit', minute:'2-digit' });
+    var printedBy = currentUser ? currentUser.username + ' (' + currentUser.role + ')' : 'UNKNOWN';
+    var reportDate = new Date().toLocaleDateString('en-PH', { year:'numeric', month:'long', day:'numeric' });
+
+    // ── HELPER: ordinal / percentage ─────────────────────────
+    function pct(n) { return total > 0 ? ((n / total) * 100).toFixed(1) : '0.0'; }
+    function fmt(n) { return n.toLocaleString(); }
+
+    // ── CORE COUNTS ──────────────────────────────────────────
+    var male         = records.filter(function(r){ return r.sex === 'MALE'; }).length;
+    var female       = records.filter(function(r){ return r.sex === 'FEMALE'; }).length;
+    var regularNpa   = records.filter(function(r){ return r.membershipType === 'REGULAR NPA'; }).length;
+    var milisyang    = records.filter(function(r){ return r.membershipType === 'MILISYANG BAYAN'; }).length;
+    var noMemType    = total - regularNpa - milisyang;
+    var cannotLocate = records.filter(function(r){ return r.recordStatus === 'CANNOT BE LOCATED'; }).length;
+    var deceased     = records.filter(function(r){ return r.recordStatus === 'DECEASED'; }).length;
+    var incarcerated = records.filter(function(r){ return r.recordStatus === 'INCARCERATED'; }).length;
+    var activeCount  = total - cannotLocate - deceased - incarcerated;
+
+    // ── JAPIC & E-CLIP ───────────────────────────────────────
+    var withJapic  = records.filter(function(r){ return r.japic && (r.japic.url || r.japic.dataUrl || r.japic.fileName); }).length;
+    var noJapic    = total - withJapic;
+    var withEclip  = records.filter(function(r){ return (r.assistance||[]).indexOf('E-CLIP') !== -1; }).length;
+    var notQualEclip = records.filter(function(r){ return (r.assistance||[]).indexOf('NOT QUALIFIED FOR E-CLIP') !== -1; }).length;
+    var noEclipCount = records.filter(function(r){
+      var a = r.assistance || [];
+      return a.indexOf('E-CLIP') === -1 && a.indexOf('NOT QUALIFIED FOR E-CLIP') === -1;
+    }).length;
+    var noAssistanceNarr = records.filter(function(r){ return !r.assistance || r.assistance.length === 0; }).length;
+    var incomplete = records.filter(function(r){ return getMissingFieldsGlobal(r).length > 0; }).length;
+
+    // ── ASSISTANCE ───────────────────────────────────────────
+    var ASST_TYPES = ['E-CLIP','NOT QUALIFIED FOR E-CLIP','FEA REMUNERATION','LIVELIHOOD','MEDICAL','EDUCATIONAL','ISSUANCE OF CREDENTIALS','PHILHEALTH','ISSUANCE OF SAFE CONDUCT PASS','APPLIED FOR AMNESTY','OTHERS'];
+    var asstCounts = {}; ASST_TYPES.forEach(function(t){ asstCounts[t] = 0; });
+    records.forEach(function(r){
+      (r.assistance||[]).forEach(function(a){
+        var k = a.indexOf('OTHERS') === 0 ? 'OTHERS' : a;
+        if (asstCounts[k] !== undefined) asstCounts[k]++;
+      });
+    });
+    var totalBeneficiaries = records.filter(function(r){ return r.assistance && r.assistance.length > 0; }).length;
+
+    // ── TRIBAL ───────────────────────────────────────────────
+    var TRIBAL_TYPES = TRIBAL_GROUP_TYPES.slice();
+    var tribalCounts = {}; TRIBAL_TYPES.forEach(function(t){ tribalCounts[t] = 0; });
+    records.forEach(function(r){ var k = normalizeTribalGroup(r.tribalGroup); if (k && tribalCounts[k] !== undefined) tribalCounts[k]++; });
+    var withTribal   = TRIBAL_TYPES.reduce(function(s,t){ return s + tribalCounts[t]; }, 0);
+    var ipCount      = TRIBAL_TYPES.filter(function(t){ return t !== 'NO TRIBAL GROUP'; }).reduce(function(s,t){ return s + tribalCounts[t]; }, 0);
+    var nonIpCount   = tribalCounts['NO TRIBAL GROUP'];
+    var noTribalData = total - withTribal;
+
+    // ── AGE BRACKETS ─────────────────────────────────────────
+    var BRACKETS = [
+      {label:'18 & BELOW', min:0,  max:18},
+      {label:'19-24',      min:19, max:24},
+      {label:'25-30',      min:25, max:30},
+      {label:'31-40',      min:31, max:40},
+      {label:'41-59',      min:41, max:59},
+      {label:'60 & ABOVE', min:60, max:999}
+    ];
+    var ageCounts = BRACKETS.map(function(){ return 0; });
+    var withAge = 0;
+    records.forEach(function(r){
+      var age = parseInt(calcAgeFromDob(r.dob)); if (isNaN(age)) return; withAge++;
+      for (var i = 0; i < BRACKETS.length; i++) {
+        if (age >= BRACKETS[i].min && age <= BRACKETS[i].max) { ageCounts[i]++; break; }
+      }
+    });
+    // Find peak age bracket
+    var peakAgeIdx = ageCounts.indexOf(Math.max.apply(null, ageCounts));
+
+    // ── 4Ps ──────────────────────────────────────────────────
+    var fourPsYes  = records.filter(function(r){ return r.fourPs === 'YES'; }).length;
+    var fourPsNo   = records.filter(function(r){ return r.fourPs === 'NO';  }).length;
+    var fourPsNone = total - fourPsYes - fourPsNo;
+
+    // ── SECTORS ──────────────────────────────────────────────
+    var SECTORS = ['FARMER','FISHERFOLK','WOMEN','PWD','CHILDREN AND YOUTH','SENIOR CITIZEN','SOLO PARENT','INDIGENOUS PEOPLE','URBAN POOR','OTHERS'];
+    var secCounts = {}; SECTORS.forEach(function(s){ secCounts[s] = 0; });
+    records.forEach(function(r){
+      (r.sector||[]).forEach(function(s){
+        if (s === 'FARMER/FISHERFOLK'){ secCounts['FARMER']++; secCounts['FISHERFOLK']++; return; }
+        var k = s.indexOf('OTHERS') === 0 ? 'OTHERS' : s;
+        if (secCounts[k] !== undefined) secCounts[k]++;
+      });
+    });
+    var topSectors = SECTORS.slice().sort(function(a,b){ return secCounts[b]-secCounts[a]; }).slice(0,3);
+
+    // ── MUNICIPALITY ─────────────────────────────────────────
+    var OCC_MUN = MUNICIPALITIES_BY_PROVINCE['OCCIDENTAL MINDORO'];
+    var ORI_MUN = MUNICIPALITIES_BY_PROVINCE['ORIENTAL MINDORO'];
+    var ALL_MUN = OCC_MUN.concat(ORI_MUN);
+    var munCounts = {}; ALL_MUN.forEach(function(m){ munCounts[m] = 0; });
+    var noMunCount = 0, outsideMindoroCount = 0;
+    records.forEach(function(r){
+      if (r.addressProvince === 'OUTSIDE MINDORO'){ outsideMindoroCount++; return; }
+      var m = r.addressMunicipality || '';
+      if (m && munCounts[m] !== undefined) munCounts[m]++;
+      else if (m) munCounts[m] = 1;
+      else noMunCount++;
+    });
+    // Top 3 municipalities
+    var topMun = ALL_MUN.slice().sort(function(a,b){ return (munCounts[b]||0)-(munCounts[a]||0); }).slice(0,3).filter(function(m){ return (munCounts[m]||0) > 0; });
+
+    // ── ADDRESS AREAS (MAPSA / SAMARICA) ─────────────────────
+    var mapsaCount = 0, samaricaCount = 0;
+    records.forEach(function(r){
+      var area = classifyAddressArea(r);
+      if (area === 'MAPSA') mapsaCount++;
+      else if (area === 'SAMARICA') samaricaCount++;
+    });
+
+    // ── REFERRING UNITS ──────────────────────────────────────
+    var KNOWN_UNITS = ['102nd SAC','1st Infantry "Always First" Battalion','1st OMPMFC','203rd Infantry "Bantay Kapayapaan" Brigade','23MICO','2CMO Battalion','2nd OMPMFC','402nd B MC RMFB 4B','405th B MC RMFB 4B','4th Infantry "Scorpion" Battalion','68th Infantry "Kaagapay" Battalion','76th Infantry "Victrix" Battalion','ISAFP','PIU','PIT Occidental Mindoro RIU 4B','OTHERS'];
+    var unitCounts = {}; KNOWN_UNITS.forEach(function(u){ unitCounts[u] = 0; }); var noUnitCount = 0;
+    records.forEach(function(r){
+      var u = r.referringUnit || '';
+      if (!u){ noUnitCount++; return; }
+      var k = u.indexOf('OTHERS') === 0 ? 'OTHERS' : u;
+      if (unitCounts[k] !== undefined) unitCounts[k]++;
+      else noUnitCount++;
+    });
+    var topUnits = KNOWN_UNITS.slice().sort(function(a,b){ return unitCounts[b]-unitCounts[a]; }).slice(0,3).filter(function(u){ return unitCounts[u] > 0; });
+
+    // ── SURRENDER BY YEAR ────────────────────────────────────
+    var START_YEAR = 2016, thisYear = new Date().getFullYear();
+    var yrCounts = {}; for (var yy = START_YEAR; yy <= thisYear; yy++) yrCounts[yy] = 0;
+    var noDateCount = 0;
+    records.forEach(function(r){
+      if (!r.dateSurrendered){ noDateCount++; return; }
+      var yr = new Date(r.dateSurrendered).getFullYear();
+      if (yrCounts[yr] !== undefined) yrCounts[yr]++;
+      else yrCounts[yr] = 1;
+    });
+    var peakYear = START_YEAR, peakYearCount = 0;
+    for (var yy2 = START_YEAR; yy2 <= thisYear; yy2++) {
+      if ((yrCounts[yy2]||0) > peakYearCount){ peakYearCount = yrCounts[yy2]; peakYear = yy2; }
+    }
+
+    // ── PENDING CASE ─────────────────────────────────────────
+    var pendingYes = records.filter(function(r){ return r.pendingCase === 'YES'; }).length;
+
+    // ── HELPERS ──────────────────────────────────────────────
+    function articleNum(n) {
+      // "a"/"an" for leading digit
+      var s = String(n); return /^[18]/.test(s) ? 'an' : 'a';
+    }
+    function pluralRecords(n) { return n === 1 ? 'record' : 'records'; }
+
+    // ── STAT BOXES ───────────────────────────────────────────
+    function statBox(num, label, cls) {
+      return '<div class="stat-box' + (cls ? ' ' + cls : '') + '"><span class="num">' + fmt(num) + '</span><span class="lbl">' + label + '</span></div>';
+    }
+
+    // ── TABLE BUILDER ────────────────────────────────────────
+    function buildTable(headers, rows) {
+      var th = headers.map(function(h, i){ return '<th' + (i > 0 ? ' class="num"':'') + '>' + h + '</th>'; }).join('');
+      var tr = rows.map(function(row){
+        return '<tr>' + row.map(function(c, i){ return '<td' + (i > 0 ? ' class="num"' : '') + '>' + c + '</td>'; }).join('') + '</tr>';
+      }).join('');
+      return '<table><thead><tr>' + th + '</tr></thead><tbody>' + tr + '</tbody></table>';
+    }
+
+    // ══════════════════════════════════════════════════════════
+    // BUILD THE NARRATIVE HTML
+    // ══════════════════════════════════════════════════════════
+
+    // ── 1. EXECUTIVE SUMMARY ─────────────────────────────────
+    var topUnitText = topUnits.length
+      ? topUnits.map(function(u){ return u + ' (' + unitCounts[u] + ')'; }).join(', ')
+      : 'no referring unit recorded';
+
+    var ipPctText   = withTribal > 0 ? pct(ipCount) + '%' : 'an unspecified percentage';
+    var eclipPctText = pct(withEclip) + '%';
+    var japicPctText = pct(withJapic) + '%';
+
+    var execSummary =
+      '<p>As of <span class="highlight">' + reportDate + '</span>, the Former Rebel Database Management and JAPIC Repository System ' +
+      'of the Province of Occidental Mindoro maintains a total of <span class="highlight">' + fmt(total) + ' registered former rebel (FR) ' +
+      pluralRecords(total) + '</span>. ' +
+      'Of these, <span class="highlight">' + fmt(male) + '</span> (' + pct(male) + '%) are male and <span class="highlight">' + fmt(female) + '</span> (' + pct(female) + '%) are female. ' +
+      'The majority of registrants (' + pct(activeCount) + '%) remain active in the reintegration program, while ' +
+      fmt(cannotLocate) + ' (' + pct(cannotLocate) + '%) cannot be located, ' +
+      fmt(deceased) + ' (' + pct(deceased) + '%) are deceased, and ' +
+      fmt(incarcerated) + ' (' + pct(incarcerated) + '%) are currently incarcerated.</p>';
+
+    // ── 2. MEMBERSHIP PROFILE ────────────────────────────────
+    var memberPara =
+      '<p>In terms of movement classification, <span class="highlight">' + fmt(regularNpa) + '</span> registrants (' + pct(regularNpa) + '%) were identified as <span class="highlight">Regular NPA</span> members, ' +
+      'while <span class="highlight">' + fmt(milisyang) + '</span> (' + pct(milisyang) + '%) belonged to the <span class="highlight">Milisyang Bayan</span>. ' +
+      (noMemType > 0 ? 'The remaining ' + fmt(noMemType) + ' (' + pct(noMemType) + '%) have no membership type specified in the system.' : 'All records have a membership type on file.') + ' ' +
+      (pendingYes > 0
+        ? fmt(pendingYes) + ' (' + pct(pendingYes) + '%) of the registrants have a pending legal case.'
+        : 'No pending cases are recorded among the current registrants.') +
+      '</p>';
+
+    // ── 3. REFERRING UNITS ───────────────────────────────────
+    var unitPara;
+    if (topUnits.length) {
+      unitPara = '<p>Former rebels were referred to the system primarily by ' + topUnitText + '. ' +
+        (noUnitCount > 0 ? fmt(noUnitCount) + ' (' + pct(noUnitCount) + '%) of the registrants have no referring unit on record.' : 'All registrants have a referring unit on file.') + '</p>';
+    } else {
+      unitPara = '<p>Referring unit information is not yet fully populated in the database.</p>';
+    }
+
+    // ── 4. GEOGRAPHIC DISTRIBUTION ───────────────────────────
+    var munTopText = topMun.length
+      ? topMun.map(function(m){ return m + ' (' + (munCounts[m]||0) + ')'; }).join(', ')
+      : 'not yet recorded';
+
+    var geoPara =
+      '<p>Geographically, most registrants reside within Occidental Mindoro. ' +
+      'The top municipalities by number of registrants are <span class="highlight">' + munTopText + '</span>. ' +
+      (mapsaCount > 0 ? fmt(mapsaCount) + ' (' + pct(mapsaCount) + '%) are from the <span class="highlight">MAPSA area</span> (Mamburao, Abra de Ilog, Paluan, Sablayan, Sta. Cruz) ' : '') +
+      (samaricaCount > 0 ? 'and ' + fmt(samaricaCount) + ' (' + pct(samaricaCount) + '%) from the <span class="highlight">SAMARICA area</span> (San Jose, Magsaysay, Rizal, Calintaan). ' : '') +
+      (outsideMindoroCount > 0 ? fmt(outsideMindoroCount) + ' (' + pct(outsideMindoroCount) + '%) are from outside Mindoro. ' : '') +
+      (noMunCount > 0 ? fmt(noMunCount) + ' (' + pct(noMunCount) + '%) have no municipality recorded.' : '') +
+      '</p>';
+
+    // ── 5. TRIBAL GROUP ──────────────────────────────────────
+    var tribalPara;
+    var largestTribal = TRIBAL_TYPES.filter(function(t){ return t !== 'NO TRIBAL GROUP'; })
+      .sort(function(a,b){ return tribalCounts[b]-tribalCounts[a]; })[0];
+    tribalPara =
+      '<p>Regarding ethnicity, <span class="highlight">' + fmt(ipCount) + '</span> (' + ipPctText + ') of all registrants belong to an <span class="highlight">Indigenous People (IP) tribal group</span>, ' +
+      'while <span class="highlight">' + fmt(nonIpCount) + '</span> (' + pct(nonIpCount) + '%) have no tribal affiliation. ' +
+      (noTribalData > 0 ? fmt(noTribalData) + ' (' + pct(noTribalData) + '%) have no tribal group data on file. ' : '') +
+      (largestTribal && tribalCounts[largestTribal] > 0
+        ? 'The largest IP group is the <span class="highlight">' + largestTribal + '</span> with ' + fmt(tribalCounts[largestTribal]) + ' (' + pct(tribalCounts[largestTribal]) + '%) registrants.'
+        : '') +
+      '</p>';
+
+    // ── 6. AGE DISTRIBUTION ──────────────────────────────────
+    var agePara;
+    var noAgeCount = total - withAge;
+    agePara =
+      '<p>Age data is available for <span class="highlight">' + fmt(withAge) + '</span> out of ' + fmt(total) + ' registrants. ' +
+      'The most populous age bracket is <span class="highlight">' + BRACKETS[peakAgeIdx].label + '</span>, ' +
+      'accounting for ' + fmt(ageCounts[peakAgeIdx]) + ' (' + (withAge > 0 ? ((ageCounts[peakAgeIdx]/withAge)*100).toFixed(1) : '0.0') + '%) of those with recorded ages. ' +
+      (noAgeCount > 0 ? fmt(noAgeCount) + ' registrant' + (noAgeCount===1?'':' records') + ' have no date of birth on file.' : 'All registrants have a date of birth on file.') +
+      '</p>';
+
+    // ── 7. 4Ps BENEFICIARIES ─────────────────────────────────
+    var fourPsPara =
+      '<p>On the Pantawid Pamilyang Pilipino Program (4Ps) front, <span class="highlight">' + fmt(fourPsYes) + '</span> (' + pct(fourPsYes) + '%) of registrants are 4Ps beneficiaries, ' +
+      'while <span class="highlight">' + fmt(fourPsNo) + '</span> (' + pct(fourPsNo) + '%) are not. ' +
+      (fourPsNone > 0 ? 'The 4Ps status of ' + fmt(fourPsNone) + ' (' + pct(fourPsNone) + '%) registrants is not yet recorded.' : '') +
+      '</p>';
+
+    // ── 8. SECTOR BREAKDOWN ──────────────────────────────────
+    var sectorPara =
+      '<p>In terms of sector classification, the most represented groups among registrants are ' +
+      topSectors.map(function(s){ return '<span class="highlight">' + s + '</span> (' + fmt(secCounts[s]) + ')'; }).join(', ') +
+      '. This reflects the predominantly rural and agricultural background of the FR population in the province.</p>';
+
+    // ── 9. REINTEGRATION & ASSISTANCE ────────────────────────
+    var asstLed = ASST_TYPES.filter(function(t){ return t !== 'NOT QUALIFIED FOR E-CLIP'; })
+      .sort(function(a,b){ return asstCounts[b]-asstCounts[a]; });
+    var topAsst = asstLed.slice(0,3).filter(function(t){ return asstCounts[t] > 0; });
+
+    var asstPara =
+      '<p>A total of <span class="highlight">' + fmt(totalBeneficiaries) + '</span> (' + pct(totalBeneficiaries) + '%) registrants have received at least one form of government assistance. ' +
+      (topAsst.length
+        ? 'The top assistance programs rendered are: ' + topAsst.map(function(t){ return '<span class="highlight">' + t + '</span> (' + asstCounts[t] + ')'; }).join(', ') + '. '
+        : '') +
+      '<span class="highlight">' + fmt(withEclip) + '</span> (' + eclipPctText + '%) have received <span class="highlight">E-CLIP</span> benefits, ' +
+      fmt(notQualEclip) + ' (' + pct(notQualEclip) + '%) are marked as not qualified for E-CLIP, and ' +
+      '<span class="highlight">' + fmt(noEclipCount) + '</span> (' + pct(noEclipCount) + '%) have yet to be assessed or processed for E-CLIP. ' +
+      (noAssistanceNarr > 0
+        ? '<span class="highlight">' + fmt(noAssistanceNarr) + '</span> (' + pct(noAssistanceNarr) + '%) registrants have <span class="highlight">no assistance of any kind on record</span> and require immediate follow-up.'
+        : 'All registrants have at least one assistance type recorded.') +
+      '</p>';
+
+    // ── 10. JAPIC STATUS ─────────────────────────────────────
+    var japicPara =
+      '<p>Regarding the Joint AFP-PNP Intelligence Committee (JAPIC) Certificate, <span class="highlight">' + fmt(withJapic) + '</span> (' + japicPctText + '%) of registrants have a JAPIC certificate on file. ' +
+      '<span class="highlight">' + fmt(noJapic) + '</span> (' + pct(noJapic) + '%) still lack a JAPIC certificate in the repository, requiring follow-up from the respective referring units.</p>';
+
+    // ── 11. SURRENDER TIMELINE ───────────────────────────────
+    var yrPara;
+    var recentThreeYrs = [];
+    for (var yy3 = thisYear; yy3 >= Math.max(START_YEAR, thisYear-2); yy3--) recentThreeYrs.push(yy3);
+    var recentText = recentThreeYrs.filter(function(y){ return (yrCounts[y]||0) > 0; })
+      .map(function(y){ return y + ' (' + (yrCounts[y]||0) + ')'; }).join(', ');
+
+    yrPara =
+      '<p>Surrender records span from ' + START_YEAR + ' to ' + thisYear + '. ' +
+      'The year with the highest number of surrenderees on record is <span class="highlight">' + peakYear + '</span> with <span class="highlight">' + fmt(peakYearCount) + '</span> (' + pct(peakYearCount) + '%) registrants. ' +
+      (recentText ? 'In the most recent years, the surrender figures are: ' + recentText + '. ' : '') +
+      (noDateCount > 0 ? fmt(noDateCount) + ' (' + pct(noDateCount) + '%) registrants have no surrender date recorded.' : 'All registrants have a surrender date on file.') +
+      '</p>';
+
+    // ── 12. DATA QUALITY ─────────────────────────────────────
+    var dataPara =
+      '<p>Data completeness review shows that <span class="highlight">' + fmt(incomplete) + '</span> (' + pct(incomplete) + '%) of all profiles are missing one or more required fields. ' +
+      'Immediate data clean-up is recommended for these records to ensure accurate reporting and eligibility assessment.</p>';
+
+    // ══════════════════════════════════════════════════════════
+    // SUMMARY TABLES
+    // ══════════════════════════════════════════════════════════
+
+    // Stat boxes row
+    var statBoxRow =
+      '<div class="stat-row">' +
+        statBox(total,        'TOTAL RECORDS') +
+        statBox(male,         'MALE') +
+        statBox(female,       'FEMALE') +
+        statBox(regularNpa,   'REGULAR NPA') +
+        statBox(milisyang,    'MILISYANG BAYAN') +
+        statBox(withEclip,    'WITH E-CLIP') +
+        statBox(withJapic,    'JAPIC ON FILE') +
+        statBox(totalBeneficiaries, 'WITH ASSISTANCE') +
+        statBox(noAssistanceNarr,   'NO ASSISTANCE', 'warn') +
+      '</div>' +
+      '<div class="stat-row">' +
+        statBox(activeCount,    'ACTIVE') +
+        statBox(cannotLocate,   'CANNOT BE LOCATED',  'warn') +
+        statBox(deceased,       'DECEASED',            'danger') +
+        statBox(incarcerated,   'INCARCERATED',        'purple') +
+        statBox(noEclipCount,   'NO E-CLIP',           'warn') +
+        statBox(noJapic,        'NO JAPIC',            'warn') +
+        statBox(incomplete,     'INCOMPLETE DATA',     'danger') +
+        statBox(pendingYes,     'PENDING CASE',        'warn') +
+      '</div>';
+
+    // Assistance table
+    var asstTableRows = ASST_TYPES.map(function(t){
+      return [t, fmt(asstCounts[t]), pct(asstCounts[t]) + '%'];
+    });
+    var asstTable = buildTable(['TYPE OF ASSISTANCE','COUNT','% OF TOTAL'], asstTableRows);
+
+    // Membership table
+    var memTable = buildTable(['MEMBERSHIP TYPE','COUNT','% OF TOTAL'], [
+      ['REGULAR NPA',    fmt(regularNpa),  pct(regularNpa)  + '%'],
+      ['MILISYANG BAYAN',fmt(milisyang),   pct(milisyang)   + '%'],
+      ['NOT SPECIFIED',  fmt(noMemType),   pct(noMemType)   + '%'],
+      ['TOTAL',          fmt(total),       '100%']
+    ]);
+
+    // Tribal table
+    var tribalTableRows = TRIBAL_TYPES.map(function(t){
+      return [t, fmt(tribalCounts[t]), pct(tribalCounts[t]) + '%'];
+    });
+    if (noTribalData > 0) tribalTableRows.push(['NOT SPECIFIED', fmt(noTribalData), pct(noTribalData) + '%']);
+    var tribalTable = buildTable(['TRIBAL GROUP','COUNT','% OF TOTAL'], tribalTableRows);
+
+    // Age table
+    var ageTableRows = BRACKETS.map(function(b, i){
+      return [b.label, fmt(ageCounts[i]), pct(ageCounts[i]) + '%'];
+    });
+    if (total - withAge > 0) ageTableRows.push(['NO AGE DATA', fmt(total - withAge), pct(total - withAge) + '%']);
+    var ageTable = buildTable(['AGE BRACKET','COUNT','% OF TOTAL'], ageTableRows);
+
+    // Sector table
+    var sectorTableRows = SECTORS.map(function(s){ return [s, fmt(secCounts[s]), pct(secCounts[s]) + '%']; });
+    var sectorTable = buildTable(['SECTOR','COUNT','% OF TOTAL'], sectorTableRows);
+
+    // Municipality table (top Occidental Mindoro only for brevity in narrative)
+    var munTableRows = OCC_MUN.concat(ORI_MUN).map(function(m){
+      return [m, fmt(munCounts[m]||0), pct(munCounts[m]||0) + '%'];
+    });
+    if (outsideMindoroCount > 0) munTableRows.push(['OUTSIDE MINDORO', fmt(outsideMindoroCount), pct(outsideMindoroCount) + '%']);
+    if (noMunCount > 0) munTableRows.push(['NOT SPECIFIED', fmt(noMunCount), pct(noMunCount) + '%']);
+    var munTable = buildTable(['MUNICIPALITY','COUNT','% OF TOTAL'], munTableRows);
+
+    // Year table
+    var yrTableRows = [];
+    for (var yy4 = START_YEAR; yy4 <= thisYear; yy4++) {
+      yrTableRows.push([yy4, fmt(yrCounts[yy4]||0), pct(yrCounts[yy4]||0) + '%']);
+    }
+    if (noDateCount > 0) yrTableRows.push(['NO DATE RECORDED', fmt(noDateCount), pct(noDateCount) + '%']);
+    var yrTable = buildTable(['YEAR','COUNT','% OF TOTAL'], yrTableRows);
+
+    // Unit table
+    var unitTableRows = KNOWN_UNITS.filter(function(u){ return unitCounts[u] > 0; }).map(function(u){
+      return [u, fmt(unitCounts[u]), pct(unitCounts[u]) + '%'];
+    });
+    if (noUnitCount > 0) unitTableRows.push(['NOT SPECIFIED', fmt(noUnitCount), pct(noUnitCount) + '%']);
+    var unitTable = buildTable(['REFERRING UNIT','COUNT','% OF TOTAL'], unitTableRows);
+
+    // ══════════════════════════════════════════════════════════
+    // ASSEMBLE BODY
+    // ══════════════════════════════════════════════════════════
+    var body =
+      '<h1>FORMER REBEL DATABASE MANAGEMENT AND JAPIC REPOSITORY SYSTEM</h1>' +
+      '<p class="sub-title">PROVINCE OF OCCIDENTAL MINDORO</p>' +
+      '<p class="sub-title">NARRATIVE DASHBOARD SUMMARY REPORT</p>' +
+      '<p class="meta">Date of Report: ' + reportDate + ' &nbsp;|&nbsp; Generated by: ' + printedBy + ' &nbsp;|&nbsp; Printed: ' + printed + '</p>' +
+      '<hr/>' +
+
+      '<h2>I. EXECUTIVE SUMMARY</h2>' +
+      execSummary + statBoxRow +
+
+      '<h2>II. MEMBERSHIP PROFILE</h2>' +
+      memberPara + memTable +
+
+      '<h2>III. REFERRING UNITS</h2>' +
+      unitPara + unitTable +
+
+      '<h2>IV. SURRENDER TIMELINE</h2>' +
+      yrPara + yrTable +
+
+      '<h2>V. GEOGRAPHIC DISTRIBUTION</h2>' +
+      geoPara + munTable +
+
+      '<h2>VI. TRIBAL GROUP / ETHNICITY</h2>' +
+      tribalPara + tribalTable +
+
+      '<h2>VII. AGE DISTRIBUTION</h2>' +
+      agePara + ageTable +
+
+      '<h2>VIII. SECTOR CLASSIFICATION</h2>' +
+      sectorPara + sectorTable +
+
+      '<h2>IX. 4Ps BENEFICIARIES</h2>' +
+      fourPsPara +
+
+      '<h2>X. REINTEGRATION AND ASSISTANCE</h2>' +
+      asstPara + asstTable +
+
+      '<h2>XI. JAPIC CERTIFICATE STATUS</h2>' +
+      japicPara +
+
+      '<h2>XII. DATA QUALITY</h2>' +
+      dataPara +
+
+      '<div class="footer">' +
+        'This report was system-generated from the FR Database Management and JAPIC Repository System. &nbsp;|&nbsp; ' +
+        'CONFIDENTIAL &mdash; FOR AUTHORIZED PERSONNEL ONLY &nbsp;|&nbsp; PSWDO &bull; Province of Occidental Mindoro' +
+      '</div>';
+
+    if (mode === 'download') {
+      // Build the full self-contained HTML string (same for both paths)
+      var styles   = NARRATIVE_REPORT_STYLES + CONFIDENTIAL_WATERMARK_STYLE;
+      var fullHtml =
+        '<!DOCTYPE html><html><head><meta charset="UTF-8">' +
+        '<title>FR Narrative Report</title>' +
+        '<style>' + styles + '</style></head>' +
+        '<body><div class="confidential-watermark">CONFIDENTIAL</div>' +
+        body +
+        '</body></html>';
+
+      if (window.electronAPI && window.electronAPI.printNarrativePDF) {
+        // ── Electron path: use printToPDF via IPC → native Save dialog ──
+        showToast('PREPARING PDF...', 'info');
+        window.electronAPI.printNarrativePDF(fullHtml)
+          .then(function(result) {
+            if (result && result.success) {
+              showToast('NARRATIVE REPORT SAVED AS PDF', 'success');
+            } else if (result && result.reason === 'cancelled') {
+              showToast('PDF SAVE CANCELLED', 'info');
+            } else {
+              showToast('PDF ERROR: ' + (result ? result.reason : 'UNKNOWN'), 'error');
+            }
+          })
+          .catch(function(err) {
+            showToast('PDF ERROR: ' + err.message, 'error');
+          });
+      } else {
+        // ── Browser fallback: download as .html ──────────────────────────
+        var blob    = new Blob([fullHtml], { type: 'text/html' });
+        var url     = URL.createObjectURL(blob);
+        var a       = document.createElement('a');
+        a.href      = url;
+        a.download  = 'FR_NARRATIVE_REPORT_' + new Date().toISOString().slice(0, 10) + '.html';
+        a.click();
+        setTimeout(function() { URL.revokeObjectURL(url); }, 3000);
+        showToast('NARRATIVE REPORT DOWNLOADED (HTML)', 'success');
+      }
+    } else {
+      openPrintDocument('FR Narrative Dashboard Report', body, NARRATIVE_REPORT_STYLES + CONFIDENTIAL_WATERMARK_STYLE);
+      showToast('NARRATIVE REPORT GENERATED', 'success');
+    }
+}
+
+function generateNarrativeReport() {
+  if (allRecordsCache.length) _runNarrative(allRecordsCache, 'print');
+  else dbGetAll().then(function(records){ allRecordsCache = records; _runNarrative(records, 'print'); })
+    .catch(function(err){ showToast('ERROR: ' + err.message, 'error'); });
+}
+
+function downloadNarrativeReport() {
+  if (allRecordsCache.length) _runNarrative(allRecordsCache, 'download');
+  else dbGetAll().then(function(records){ allRecordsCache = records; _runNarrative(records, 'download'); })
+    .catch(function(err){ showToast('ERROR: ' + err.message, 'error'); });
+}
+
+// -- POWERPOINT REPORT GENERATOR (EXECUTIVE SUMMARY BASED) ---
+function generatePptxReport() {
+  function run(records) {
+    if (!records.length) { showToast('NO RECORDS TO GENERATE PPTX', 'info'); return; }
+    showToast('GENERATING PRESENTATION...', 'info');
+
+    // ── Reuse the exact same stat computations as _runNarrative ──
+    var total        = records.length;
+    var male         = records.filter(function(r){ return r.sex==='MALE'; }).length;
+    var female       = records.filter(function(r){ return r.sex==='FEMALE'; }).length;
+    var regularNpa   = records.filter(function(r){ return r.membershipType==='REGULAR NPA'; }).length;
+    var milisyang    = records.filter(function(r){ return r.membershipType==='MILISYANG BAYAN'; }).length;
+    var noMemType    = total - regularNpa - milisyang;
+    var cannotLocate = records.filter(function(r){ return r.recordStatus==='CANNOT BE LOCATED'; }).length;
+    var deceased     = records.filter(function(r){ return r.recordStatus==='DECEASED'; }).length;
+    var incarcerated = records.filter(function(r){ return r.recordStatus==='INCARCERATED'; }).length;
+    var activeCount  = total - cannotLocate - deceased - incarcerated;
+    var withJapic    = records.filter(function(r){ return r.japic&&(r.japic.url||r.japic.dataUrl||r.japic.fileName); }).length;
+    var noJapic      = total - withJapic;
+    var withEclip    = records.filter(function(r){ return (r.assistance||[]).indexOf('E-CLIP')!==-1; }).length;
+    var notQualEclip = records.filter(function(r){ return (r.assistance||[]).indexOf('NOT QUALIFIED FOR E-CLIP')!==-1; }).length;
+    var noEclipCount = records.filter(function(r){ var a=r.assistance||[]; return a.indexOf('E-CLIP')===-1&&a.indexOf('NOT QUALIFIED FOR E-CLIP')===-1; }).length;
+    var noAssist     = records.filter(function(r){ return !r.assistance||r.assistance.length===0; }).length;
+    var withPhil     = records.filter(function(r){ return (r.assistance||[]).indexOf('PHILHEALTH')!==-1; }).length;
+    var fourPsYes    = records.filter(function(r){ return r.fourPs==='YES'; }).length;
+    var fourPsNo     = records.filter(function(r){ return r.fourPs==='NO'; }).length;
+    var fourPsNone   = total - fourPsYes - fourPsNo;
+    var pendingYes   = records.filter(function(r){ return r.pendingCase==='YES'; }).length;
+    var incomplete   = records.filter(function(r){ return getMissingFieldsGlobal(r).length>0; }).length;
+    var totalBenef   = records.filter(function(r){ return r.assistance&&r.assistance.length>0; }).length;
+
+    function pct(n){ return total>0?((n/total)*100).toFixed(1):'0.0'; }
+    function fmt(n){ return Number(n).toLocaleString(); }
+
+    var reportDate  = new Date().toLocaleDateString('en-PH',{year:'numeric',month:'long',day:'numeric'});
+    var generatedBy = currentUser ? currentUser.username+' ('+currentUser.role+')' : 'UNKNOWN';
+
+    // ── Assistance ───────────────────────────────────────────
+    var ASST_TYPES = ['E-CLIP','NOT QUALIFIED FOR E-CLIP','FEA REMUNERATION','LIVELIHOOD',
+      'MEDICAL','EDUCATIONAL','ISSUANCE OF CREDENTIALS','PHILHEALTH',
+      'ISSUANCE OF SAFE CONDUCT PASS','APPLIED FOR AMNESTY','OTHERS'];
+    var asstCounts = {}; ASST_TYPES.forEach(function(t){ asstCounts[t]=0; });
+    records.forEach(function(r){
+      (r.assistance||[]).forEach(function(a){
+        var k=a.indexOf('OTHERS')===0?'OTHERS':a; if(asstCounts[k]!==undefined)asstCounts[k]++;
+      });
+    });
+    var topAsst = ASST_TYPES.filter(function(t){ return t!=='NOT QUALIFIED FOR E-CLIP'; })
+      .sort(function(a,b){ return asstCounts[b]-asstCounts[a]; }).slice(0,3)
+      .filter(function(t){ return asstCounts[t]>0; });
+
+    // ── Tribal ───────────────────────────────────────────────
+    var TRIBAL_TYPES = TRIBAL_GROUP_TYPES.slice();
+    var tribalCounts = {}; TRIBAL_TYPES.forEach(function(t){ tribalCounts[t]=0; });
+    records.forEach(function(r){ var k=normalizeTribalGroup(r.tribalGroup); if(k&&tribalCounts[k]!==undefined)tribalCounts[k]++; });
+    var withTribal  = TRIBAL_TYPES.reduce(function(s,t){ return s+tribalCounts[t]; },0);
+    var ipCount     = TRIBAL_TYPES.filter(function(t){ return t!=='NO TRIBAL GROUP'; }).reduce(function(s,t){ return s+tribalCounts[t]; },0);
+    var nonIpCount  = tribalCounts['NO TRIBAL GROUP'];
+    var noTribalData= total - withTribal;
+    var largestTribal = TRIBAL_TYPES.filter(function(t){ return t!=='NO TRIBAL GROUP'; })
+      .sort(function(a,b){ return tribalCounts[b]-tribalCounts[a]; })[0];
+
+    // ── Age ──────────────────────────────────────────────────
+    var BRACKETS=[{label:'18 & BELOW',min:0,max:18},{label:'19-24',min:19,max:24},
+      {label:'25-30',min:25,max:30},{label:'31-40',min:31,max:40},
+      {label:'41-59',min:41,max:59},{label:'60 & ABOVE',min:60,max:999}];
+    var ageCounts=BRACKETS.map(function(){ return 0; }), withAge=0;
+    records.forEach(function(r){
+      var age=parseInt(calcAgeFromDob(r.dob)); if(isNaN(age))return; withAge++;
+      for(var i=0;i<BRACKETS.length;i++){ if(age>=BRACKETS[i].min&&age<=BRACKETS[i].max){ageCounts[i]++;break;} }
+    });
+    var peakAgeIdx = ageCounts.indexOf(Math.max.apply(null,ageCounts));
+    var noAgeCount = total - withAge;
+
+    // ── Sectors ──────────────────────────────────────────────
+    var SECTORS=['FARMER','FISHERFOLK','WOMEN','PWD','CHILDREN AND YOUTH',
+      'SENIOR CITIZEN','SOLO PARENT','INDIGENOUS PEOPLE','URBAN POOR','OTHERS'];
+    var secCounts={}; SECTORS.forEach(function(s){ secCounts[s]=0; });
+    records.forEach(function(r){
+      (r.sector||[]).forEach(function(s){
+        if(s==='FARMER/FISHERFOLK'){secCounts['FARMER']++;secCounts['FISHERFOLK']++;return;}
+        var k=s.indexOf('OTHERS')===0?'OTHERS':s; if(secCounts[k]!==undefined)secCounts[k]++;
+      });
+    });
+    var topSectors = SECTORS.slice().sort(function(a,b){ return secCounts[b]-secCounts[a]; }).slice(0,3);
+
+    // ── Municipality ─────────────────────────────────────────
+    var munCounts={}, noMunCount=0, outsideMindoroCount=0, mapsaCount=0, samaricaCount=0;
+    records.forEach(function(r){
+      if(r.addressProvince==='OUTSIDE MINDORO'){outsideMindoroCount++;return;}
+      var m=r.addressMunicipality||'';
+      if(m) munCounts[m]=(munCounts[m]||0)+1; else noMunCount++;
+      var area=classifyAddressArea(r);
+      if(area==='MAPSA')mapsaCount++; else if(area==='SAMARICA')samaricaCount++;
+    });
+    var topMun = Object.keys(munCounts).sort(function(a,b){ return munCounts[b]-munCounts[a]; }).slice(0,3);
+
+    // ── Units ────────────────────────────────────────────────
+    var unitCounts={}, noUnitCount=0;
+    records.forEach(function(r){
+      var u=r.referringUnit||''; if(!u){noUnitCount++;return;}
+      var k=u.indexOf('OTHERS')===0?'OTHERS':u; unitCounts[k]=(unitCounts[k]||0)+1;
+    });
+    var topUnits = Object.keys(unitCounts).sort(function(a,b){ return unitCounts[b]-unitCounts[a]; }).slice(0,3);
+
+    // ── Surrender timeline ───────────────────────────────────
+    var START_YEAR=2016, thisYear=new Date().getFullYear();
+    var yrCounts={}, noDateCount=0, peakYear=START_YEAR, peakYearCount=0;
+    for(var yy=START_YEAR;yy<=thisYear;yy++) yrCounts[yy]=0;
+    records.forEach(function(r){
+      if(!r.dateSurrendered){noDateCount++;return;}
+      var yr=new Date(r.dateSurrendered).getFullYear(); yrCounts[yr]=(yrCounts[yr]||0)+1;
+    });
+    for(var yy2=START_YEAR;yy2<=thisYear;yy2++){
+      if((yrCounts[yy2]||0)>peakYearCount){peakYearCount=yrCounts[yy2];peakYear=yy2;}
+    }
+    var recentYrs=[];
+    for(var yy3=thisYear;yy3>=Math.max(START_YEAR,thisYear-2);yy3--) recentYrs.push(yy3);
+    var recentText=recentYrs.filter(function(y){return(yrCounts[y]||0)>0;})
+      .map(function(y){return y+' ('+( yrCounts[y]||0)+')';}).join(', ');
+
+    // ══════════════════════════════════════════════════════════
+    // PptxGenJS setup
+    // ══════════════════════════════════════════════════════════
+    var pptx         = new PptxGenJS();
+    pptx.layout      = 'LAYOUT_WIDE';   // 13.33" × 7.5"
+    pptx.author      = 'FRDB System';
+    pptx.title       = 'FR Dashboard Executive Summary';
+    pptx.subject     = 'Former Rebel Database — Executive Summary Report';
+
+    // ── Design tokens ────────────────────────────────────────
+    var C = {
+      bg:     '0D1117', card:   '161B22', accent: '1F6FEB',
+      text:   'E6EDF3', sub:    '8B949E', border: '30363D',
+      green:  '3FB950', red:    'F85149', yell:   'D29922',
+      purp:   'A371F7', dim:    '21262D', stripe: '0D2340'
+    };
+    var FONT = 'Segoe UI';
+
+    // ── Shared helpers ───────────────────────────────────────
+    function bg(slide){ slide.background = { fill: C.bg }; }
+
+    function header(slide, sectionNum, title) {
+      // Left accent stripe
+      slide.addShape(pptx.ShapeType.rect,
+        { x:0, y:0, w:0.08, h:7.5, fill:{ color:C.accent } });
+      // Section number pill
+      slide.addShape(pptx.ShapeType.roundRect,
+        { x:0.22, y:0.2, w:0.5, h:0.5, fill:{ color:C.accent }, rectRadius:0.06 });
+      slide.addText(String(sectionNum),
+        { x:0.22, y:0.2, w:0.5, h:0.5, fontSize:16, bold:true, color:C.text, fontFace:FONT, align:'center', valign:'middle' });
+      // Title
+      slide.addText(title,
+        { x:0.88, y:0.22, w:12.2, h:0.46, fontSize:20, bold:true, color:C.text, fontFace:FONT, charSpacing:1.5, valign:'middle' });
+      // Divider
+      slide.addShape(pptx.ShapeType.line,
+        { x:0.22, y:0.76, w:12.9, h:0, line:{ color:C.border, width:1 } });
+    }
+
+    function footer(slide, n) {
+      slide.addShape(pptx.ShapeType.rect,
+        { x:0, y:7.32, w:13.33, h:0.18, fill:{ color:C.dim } });
+      slide.addText(
+        'FRDB — PROVINCE OF OCCIDENTAL MINDORO  |  CONFIDENTIAL  |  '+reportDate+'  |  '+generatedBy,
+        { x:0.22, y:7.33, w:12.5, h:0.16, fontSize:5.5, color:'6E7681', fontFace:FONT });
+      slide.addText(String(n)+' / 14',
+        { x:12.8, y:7.33, w:0.4, h:0.16, fontSize:5.5, color:'6E7681', fontFace:FONT, align:'right' });
+    }
+
+    // Stat box — coloured number + label
+    function stat(slide, x, y, w, h, val, lbl, col) {
+      slide.addShape(pptx.ShapeType.roundRect,
+        { x:x, y:y, w:w, h:h, fill:{ color:C.card }, line:{ color:C.border, width:0.75 }, rectRadius:0.07 });
+      slide.addText(String(val),
+        { x:x, y:y+0.04, w:w, h:h*0.55, fontSize:Math.min(30, Math.max(18, 26-String(val).length*1.5)),
+          bold:true, color:col||C.accent, fontFace:FONT, align:'center', valign:'middle' });
+      slide.addText(lbl,
+        { x:x+0.04, y:y+h*0.58, w:w-0.08, h:h*0.38,
+          fontSize:6.5, color:C.sub, fontFace:FONT, align:'center', charSpacing:0.5, wrap:true });
+    }
+
+    // Narrative text block (the "prose" from the executive summary)
+    function prose(slide, x, y, w, h, text) {
+      slide.addShape(pptx.ShapeType.roundRect,
+        { x:x, y:y, w:w, h:h, fill:{ color:C.stripe }, line:{ color:C.accent, width:0.75 }, rectRadius:0.07 });
+      slide.addText(text,
+        { x:x+0.15, y:y+0.1, w:w-0.3, h:h-0.2,
+          fontSize:10.5, color:C.text, fontFace:FONT, valign:'top',
+          paraSpaceAfter:4, lineSpacingMultiple:1.3 });
+    }
+
+    // Horizontal mini-bar row
+    function barRow(slide, x, y, w, label, value, maxVal, col) {
+      var barMaxW = w - 2.2;
+      var fillW   = maxVal > 0 ? Math.max((value/maxVal)*barMaxW, value>0?0.05:0) : 0;
+      slide.addText(label,
+        { x:x, y:y, w:1.6, h:0.28, fontSize:7.5, color:C.sub, fontFace:FONT, align:'right', valign:'middle' });
+      slide.addShape(pptx.ShapeType.roundRect,
+        { x:x+1.65, y:y+0.04, w:barMaxW, h:0.2, fill:{ color:C.dim }, line:{ color:C.border, width:0.5 }, rectRadius:0.03 });
+      if(fillW > 0) {
+        slide.addShape(pptx.ShapeType.roundRect,
+          { x:x+1.65, y:y+0.04, w:fillW, h:0.2, fill:{ color:col||C.accent }, line:{ color:col||C.accent, width:0 }, rectRadius:0.03 });
+      }
+      slide.addText(String(value)+' ('+pct(value)+'%)',
+        { x:x+1.65+fillW+0.06, y:y, w:0.7, h:0.28, fontSize:7, bold:true, color:col||C.accent, fontFace:FONT, valign:'middle' });
+    }
+
+    // Section label (small caps above a chart area)
+    function sectionLabel(slide, x, y, txt) {
+      slide.addText(txt,
+        { x:x, y:y, w:12.5, h:0.25, fontSize:7.5, bold:true, color:C.sub, fontFace:FONT, charSpacing:2 });
+    }
+
+    // ══════════════════════════════════════════════════════════
+    // SLIDE 1 — COVER
+    // ══════════════════════════════════════════════════════════
+    var sl = pptx.addSlide();
+    sl.background = { fill: C.bg };
+    sl.addShape(pptx.ShapeType.rect,  { x:0, y:0,    w:13.33, h:0.12, fill:{ color:C.accent } });
+    sl.addShape(pptx.ShapeType.rect,  { x:0, y:0.12, w:0.08,  h:7.38, fill:{ color:C.accent } });
+    sl.addText('FORMER REBEL DATABASE', { x:0.3, y:1.3,  w:12.8, h:0.9, fontSize:38, bold:true, color:C.text,   fontFace:FONT, align:'center', charSpacing:3 });
+    sl.addText('Management and JAPIC Repository System', { x:0.3, y:2.1, w:12.8, h:0.45, fontSize:16, color:C.sub, fontFace:FONT, align:'center' });
+    sl.addShape(pptx.ShapeType.rect,  { x:3.8, y:2.7, w:5.7, h:0.05, fill:{ color:C.accent } });
+    sl.addText('EXECUTIVE SUMMARY REPORT', { x:0.3, y:2.85, w:12.8, h:0.45, fontSize:14, bold:true, color:C.accent, fontFace:FONT, align:'center', charSpacing:4 });
+    sl.addText('Province of Occidental Mindoro', { x:0.3, y:3.4,  w:12.8, h:0.32, fontSize:11, color:C.sub, fontFace:FONT, align:'center', italic:true });
+    sl.addText(String(total), { x:4.8, y:4.1, w:3.7, h:1.2, fontSize:80, bold:true, color:C.accent, fontFace:FONT, align:'center' });
+    sl.addText('REGISTERED FORMER REBELS', { x:4.8, y:5.2, w:3.7, h:0.3, fontSize:9, color:C.sub, fontFace:FONT, align:'center', charSpacing:2 });
+    sl.addText('As of '+reportDate+'  |  Generated by: '+generatedBy, { x:0.3, y:6.95, w:12.8, h:0.22, fontSize:8, color:'6E7681', fontFace:FONT, align:'center', italic:true });
+    sl.addText('CONFIDENTIAL — FOR AUTHORIZED PERSONNEL ONLY', { x:0.3, y:7.22, w:12.8, h:0.18, fontSize:6.5, color:'6E7681', fontFace:FONT, align:'center', charSpacing:1 });
+
+    // ══════════════════════════════════════════════════════════
+    // SLIDE 2 — I. EXECUTIVE SUMMARY (overview)
+    // ══════════════════════════════════════════════════════════
+    sl = pptx.addSlide(); bg(sl);
+    header(sl, 'I', 'EXECUTIVE SUMMARY');
+    // Prose block
+    var execText =
+      'As of '+reportDate+', the FRDB maintains a total of '+fmt(total)+' registered former rebel records. '+
+      fmt(male)+' ('+pct(male)+'%) are male and '+fmt(female)+' ('+pct(female)+'%) are female. '+
+      'The majority ('+pct(activeCount)+'%) remain active in the reintegration program, while '+
+      fmt(cannotLocate)+' ('+pct(cannotLocate)+'%) cannot be located, '+
+      fmt(deceased)+' ('+pct(deceased)+'%) are deceased, and '+
+      fmt(incarcerated)+' ('+pct(incarcerated)+'%) are incarcerated.';
+    prose(sl, 0.22, 0.9, 13.0, 1.5, execText);
+    // 8 key stat cards in two rows
+    var cW=2.85, cH=1.3, cG=0.18, row1y=2.55, row2y=row1y+cH+0.14;
+    stat(sl, 0.22,             row1y, cW, cH, total,       'TOTAL RECORDS',      C.accent);
+    stat(sl, 0.22+cW+cG,       row1y, cW, cH, male,        'MALE',               '58A6FF');
+    stat(sl, 0.22+(cW+cG)*2,   row1y, cW, cH, female,      'FEMALE',             'F778BA');
+    stat(sl, 0.22+(cW+cG)*3,   row1y, cW, cH, activeCount, 'ACTIVE',             C.green);
+    stat(sl, 0.22,             row2y, cW, cH, cannotLocate,'CANNOT BE LOCATED',  C.yell);
+    stat(sl, 0.22+cW+cG,       row2y, cW, cH, deceased,    'DECEASED',           C.red);
+    stat(sl, 0.22+(cW+cG)*2,   row2y, cW, cH, incarcerated,'INCARCERATED',       C.purp);
+    stat(sl, 0.22+(cW+cG)*3,   row2y, cW, cH, pendingYes,  'PENDING CASE',       C.yell);
+    footer(sl, 2);
+
+    // ══════════════════════════════════════════════════════════
+    // SLIDE 3 — II. MEMBERSHIP PROFILE
+    // ══════════════════════════════════════════════════════════
+    sl = pptx.addSlide(); bg(sl);
+    header(sl, 'II', 'MEMBERSHIP PROFILE');
+    var memText =
+      fmt(regularNpa)+' ('+pct(regularNpa)+'%) were Regular NPA members and '+
+      fmt(milisyang)+' ('+pct(milisyang)+'%) belonged to the Milisyang Bayan. '+
+      (noMemType>0 ? 'The remaining '+fmt(noMemType)+' ('+pct(noMemType)+'%) have no membership type specified.' : 'All records have a membership type on file.')+' '+
+      (pendingYes>0 ? fmt(pendingYes)+' ('+pct(pendingYes)+'%) have a pending legal case.' : 'No pending cases recorded.');
+    prose(sl, 0.22, 0.9, 13.0, 1.3, memText);
+    // Stat boxes
+    stat(sl, 0.22,           2.35, 3.9, 1.6, regularNpa, 'REGULAR NPA',    C.red);
+    stat(sl, 4.32,           2.35, 3.9, 1.6, milisyang,  'MILISYANG BAYAN',C.yell);
+    stat(sl, 8.42,           2.35, 2.3, 1.6, noMemType,  'NOT SPECIFIED',  C.sub);
+    stat(sl, 10.92,          2.35, 2.18, 1.6, pendingYes, 'PENDING CASE',  C.yell);
+    // Bar chart
+    sectionLabel(sl, 0.22, 4.12, 'MEMBERSHIP BREAKDOWN');
+    var maxMem = Math.max(regularNpa, milisyang, noMemType, 1);
+    barRow(sl, 0.22, 4.42, 9.5, 'REGULAR NPA',    regularNpa, maxMem, C.red);
+    barRow(sl, 0.22, 4.76, 9.5, 'MILISYANG BAYAN',milisyang,  maxMem, C.yell);
+    barRow(sl, 0.22, 5.10, 9.5, 'NOT SPECIFIED',  noMemType,  maxMem, C.sub);
+    footer(sl, 3);
+
+    // ══════════════════════════════════════════════════════════
+    // SLIDE 4 — III. REFERRING UNITS
+    // ══════════════════════════════════════════════════════════
+    sl = pptx.addSlide(); bg(sl);
+    header(sl, 'III', 'REFERRING UNITS');
+    var topUnitText = topUnits.length
+      ? topUnits.map(function(u){ return u+' ('+unitCounts[u]+')'; }).join(', ')
+      : 'not yet recorded';
+    var unitText =
+      'Former rebels were referred primarily by: '+topUnitText+'. '+
+      (noUnitCount>0 ? fmt(noUnitCount)+' ('+pct(noUnitCount)+'%) have no referring unit on record.' : 'All registrants have a referring unit on file.');
+    prose(sl, 0.22, 0.9, 13.0, 1.2, unitText);
+    // Top unit bars
+    sectionLabel(sl, 0.22, 2.25, 'TOP REFERRING UNITS BY COUNT');
+    var allUnitKeys = Object.keys(unitCounts).sort(function(a,b){ return unitCounts[b]-unitCounts[a]; }).slice(0,8);
+    var maxUnit = allUnitKeys.length ? unitCounts[allUnitKeys[0]] : 1;
+    var uy = 2.55;
+    allUnitKeys.forEach(function(u) {
+      var shortU = u.replace('Infantry','Inf.').replace('Battalion','Bn').replace('Brigade','Bde').replace(/ "/g,' "');
+      barRow(sl, 0.22, uy, 12.8, shortU, unitCounts[u], maxUnit, C.yell);
+      uy += 0.34;
+    });
+    // Not specified note
+    if (noUnitCount > 0) {
+      sl.addText('Not specified: '+fmt(noUnitCount)+' ('+pct(noUnitCount)+'%)',
+        { x:0.22, y:uy+0.05, w:6, h:0.25, fontSize:8, color:C.sub, fontFace:FONT, italic:true });
+    }
+    footer(sl, 4);
+
+    // ══════════════════════════════════════════════════════════
+    // SLIDE 5 — IV. SURRENDER TIMELINE
+    // ══════════════════════════════════════════════════════════
+    sl = pptx.addSlide(); bg(sl);
+    header(sl, 'IV', 'SURRENDER TIMELINE ('+START_YEAR+'–'+thisYear+')');
+    var yrText =
+      'Surrender records span from '+START_YEAR+' to '+thisYear+'. '+
+      'The peak year is '+peakYear+' with '+fmt(peakYearCount)+' ('+pct(peakYearCount)+'%) surrenderees. '+
+      (recentText ? 'Recent years: '+recentText+'. ' : '')+
+      (noDateCount>0 ? fmt(noDateCount)+' ('+pct(noDateCount)+'%) have no surrender date on record.' : 'All registrants have a surrender date on file.');
+    prose(sl, 0.22, 0.9, 13.0, 1.2, yrText);
+    // Year bars
+    sectionLabel(sl, 0.22, 2.25, 'SURRENDEREES PER YEAR');
+    var maxYr = 1;
+    for(var yy4=START_YEAR;yy4<=thisYear;yy4++) if((yrCounts[yy4]||0)>maxYr) maxYr=yrCounts[yy4];
+    var yBarY = 2.52;
+    for(var yy5=START_YEAR;yy5<=thisYear;yy5++){
+      barRow(sl, 0.22, yBarY, 12.8, String(yy5), yrCounts[yy5]||0, maxYr, C.accent);
+      yBarY += 0.31;
+    }
+    footer(sl, 5);
+
+    // ══════════════════════════════════════════════════════════
+    // SLIDE 6 — V. GEOGRAPHIC DISTRIBUTION
+    // ══════════════════════════════════════════════════════════
+    sl = pptx.addSlide(); bg(sl);
+    header(sl, 'V', 'GEOGRAPHIC DISTRIBUTION');
+    var munTopText = topMun.length
+      ? topMun.map(function(m){ return m+' ('+(munCounts[m]||0)+')'; }).join(', ')
+      : 'not yet recorded';
+    var geoText =
+      'Most registrants reside within Occidental Mindoro. '+
+      'Top municipalities: '+munTopText+'. '+
+      (mapsaCount>0 ? fmt(mapsaCount)+' ('+pct(mapsaCount)+'%) from MAPSA. ' : '')+
+      (samaricaCount>0 ? fmt(samaricaCount)+' ('+pct(samaricaCount)+'%) from SAMARICA. ' : '')+
+      (outsideMindoroCount>0 ? fmt(outsideMindoroCount)+' ('+pct(outsideMindoroCount)+'%) from outside Mindoro. ' : '')+
+      (noMunCount>0 ? fmt(noMunCount)+' ('+pct(noMunCount)+'%) have no municipality recorded.' : '');
+    prose(sl, 0.22, 0.9, 13.0, 1.35, geoText);
+    // Area summary stats
+    stat(sl, 0.22,  2.4, 3.0, 1.3, mapsaCount,          'MAPSA AREA',              C.green);
+    stat(sl, 3.42,  2.4, 3.0, 1.3, samaricaCount,       'SAMARICA AREA',           '388BFD');
+    stat(sl, 6.62,  2.4, 3.0, 1.3, outsideMindoroCount, 'OUTSIDE MINDORO',         C.yell);
+    stat(sl, 9.82,  2.4, 3.0, 1.3, noMunCount,          'NO MUNICIPALITY ON FILE', C.red);
+    // Top municipality bars
+    sectionLabel(sl, 0.22, 3.9, 'TOP MUNICIPALITIES');
+    var allMunKeys = Object.keys(munCounts).sort(function(a,b){ return munCounts[b]-munCounts[a]; }).slice(0,8);
+    var maxMun = allMunKeys.length ? munCounts[allMunKeys[0]] : 1;
+    var muBarY = 4.17;
+    allMunKeys.forEach(function(m){
+      barRow(sl, 0.22, muBarY, 12.8, m, munCounts[m], maxMun, '388BFD');
+      muBarY += 0.34;
+    });
+    footer(sl, 6);
+
+    // ══════════════════════════════════════════════════════════
+    // SLIDE 7 — VI. TRIBAL GROUP / ETHNICITY
+    // ══════════════════════════════════════════════════════════
+    sl = pptx.addSlide(); bg(sl);
+    header(sl, 'VI', 'TRIBAL GROUP / ETHNICITY');
+    var tribalText =
+      fmt(ipCount)+' ('+(withTribal>0?pct(ipCount):'0.0')+'%) belong to an IP tribal group, while '+
+      fmt(nonIpCount)+' ('+pct(nonIpCount)+'%) have no tribal affiliation. '+
+      (noTribalData>0 ? fmt(noTribalData)+' ('+pct(noTribalData)+'%) have no tribal data on file. ' : '')+
+      (largestTribal&&tribalCounts[largestTribal]>0
+        ? 'Largest IP group: '+largestTribal+' with '+fmt(tribalCounts[largestTribal])+' ('+pct(tribalCounts[largestTribal])+'%).' : '');
+    prose(sl, 0.22, 0.9, 13.0, 1.25, tribalText);
+    // IP vs Non-IP stats
+    stat(sl, 0.22,  2.3, 4.1, 1.3, ipCount,     'INDIGENOUS PEOPLE (IP)', C.green);
+    stat(sl, 4.52,  2.3, 4.1, 1.3, nonIpCount,  'NON-IP',                 '6E7681');
+    stat(sl, 8.82,  2.3, 4.1, 1.3, noTribalData,'NOT SPECIFIED',          C.sub);
+    // Tribal group bars
+    sectionLabel(sl, 0.22, 3.78, 'TRIBAL GROUP BREAKDOWN');
+    var maxTri = Math.max.apply(null, TRIBAL_TYPES.map(function(t){ return tribalCounts[t]; }).concat([1]));
+    var triY = 4.05;
+    TRIBAL_TYPES.forEach(function(t){
+      barRow(sl, 0.22, triY, 12.8, t, tribalCounts[t], maxTri, C.green);
+      triY += 0.31;
+    });
+    footer(sl, 7);
+
+    // ══════════════════════════════════════════════════════════
+    // SLIDE 8 — VII. AGE DISTRIBUTION
+    // ══════════════════════════════════════════════════════════
+    sl = pptx.addSlide(); bg(sl);
+    header(sl, 'VII', 'AGE DISTRIBUTION');
+    var ageText =
+      'Age data available for '+fmt(withAge)+' of '+fmt(total)+' registrants. '+
+      'Most populous bracket: '+BRACKETS[peakAgeIdx].label+' with '+fmt(ageCounts[peakAgeIdx])+
+      ' ('+(withAge>0?((ageCounts[peakAgeIdx]/withAge)*100).toFixed(1):'0.0')+'% of those with recorded ages). '+
+      (noAgeCount>0 ? fmt(noAgeCount)+' registrants have no date of birth on file.' : 'All registrants have a date of birth on file.');
+    prose(sl, 0.22, 0.9, 13.0, 1.2, ageText);
+    stat(sl, 0.22, 2.25, 3.0, 1.3, withAge,    'WITH AGE DATA',  C.accent);
+    stat(sl, 3.42, 2.25, 3.0, 1.3, noAgeCount, 'NO AGE DATA',    C.red);
+    stat(sl, 6.62, 2.25, 3.0, 1.3, BRACKETS[peakAgeIdx].label, 'PEAK BRACKET', C.green);
+    stat(sl, 9.82, 2.25, 3.0, 1.3, ageCounts[peakAgeIdx], 'COUNT IN PEAK', C.green);
+    sectionLabel(sl, 0.22, 3.72, 'AGE BRACKET DISTRIBUTION');
+    var maxAge = Math.max.apply(null, ageCounts.concat([1]));
+    var agY = 3.99;
+    BRACKETS.forEach(function(b, i){
+      barRow(sl, 0.22, agY, 12.8, b.label, ageCounts[i], maxAge, '388BFD');
+      agY += 0.4;
+    });
+    footer(sl, 8);
+
+    // ══════════════════════════════════════════════════════════
+    // SLIDE 9 — VIII. SECTOR CLASSIFICATION
+    // ══════════════════════════════════════════════════════════
+    sl = pptx.addSlide(); bg(sl);
+    header(sl, 'VIII', 'SECTOR CLASSIFICATION');
+    var secText =
+      'The most represented sectors are '+
+      topSectors.map(function(s){ return s+' ('+fmt(secCounts[s])+')'; }).join(', ')+
+      '. This reflects the predominantly rural and agricultural background of the FR population.';
+    prose(sl, 0.22, 0.9, 13.0, 1.1, secText);
+    sectionLabel(sl, 0.22, 2.15, 'ALL SECTORS');
+    var maxSec = Math.max.apply(null, SECTORS.map(function(s){ return secCounts[s]; }).concat([1]));
+    var secY = 2.42;
+    SECTORS.forEach(function(s){
+      barRow(sl, 0.22, secY, 12.8, s, secCounts[s], maxSec, C.green);
+      secY += 0.37;
+    });
+    footer(sl, 9);
+
+    // ══════════════════════════════════════════════════════════
+    // SLIDE 10 — IX. 4Ps BENEFICIARIES
+    // ══════════════════════════════════════════════════════════
+    sl = pptx.addSlide(); bg(sl);
+    header(sl, 'IX', '4Ps BENEFICIARIES');
+    var fourPsText =
+      fmt(fourPsYes)+' ('+pct(fourPsYes)+'%) are 4Ps beneficiaries, while '+
+      fmt(fourPsNo)+' ('+pct(fourPsNo)+'%) are not. '+
+      (fourPsNone>0 ? '4Ps status of '+fmt(fourPsNone)+' ('+pct(fourPsNone)+'%) is not yet recorded.' : '');
+    prose(sl, 0.22, 0.9, 13.0, 1.1, fourPsText);
+    stat(sl, 0.22, 2.15, 4.1, 1.5, fourPsYes,  '4Ps BENEFICIARIES', C.green);
+    stat(sl, 4.52, 2.15, 4.1, 1.5, fourPsNo,   'NON-4Ps',           C.red);
+    stat(sl, 8.82, 2.15, 4.1, 1.5, fourPsNone, 'NOT SPECIFIED',     C.sub);
+    sectionLabel(sl, 0.22, 3.85, '4Ps STATUS BREAKDOWN');
+    var max4ps = Math.max(fourPsYes, fourPsNo, fourPsNone, 1);
+    barRow(sl, 0.22, 4.12, 12.8, 'YES (4Ps BENEFICIARY)', fourPsYes,  max4ps, C.green);
+    barRow(sl, 0.22, 4.50, 12.8, 'NO (NON-4Ps)',          fourPsNo,   max4ps, C.red);
+    barRow(sl, 0.22, 4.88, 12.8, 'NOT SPECIFIED',         fourPsNone, max4ps, C.sub);
+    footer(sl, 10);
+
+    // ══════════════════════════════════════════════════════════
+    // SLIDE 11 — X. REINTEGRATION & ASSISTANCE
+    // ══════════════════════════════════════════════════════════
+    sl = pptx.addSlide(); bg(sl);
+    header(sl, 'X', 'REINTEGRATION & ASSISTANCE');
+    var asstText =
+      fmt(totalBenef)+' ('+pct(totalBenef)+'%) received at least one form of assistance. '+
+      (topAsst.length ? 'Top programs: '+topAsst.map(function(t){ return t+' ('+asstCounts[t]+')'; }).join(', ')+'. ' : '')+
+      fmt(withEclip)+' ('+pct(withEclip)+'%) received E-CLIP; '+
+      fmt(notQualEclip)+' ('+pct(notQualEclip)+'%) are not qualified; '+
+      fmt(noEclipCount)+' ('+pct(noEclipCount)+'%) not yet assessed. '+
+      (noAssist>0 ? fmt(noAssist)+' ('+pct(noAssist)+'%) have NO assistance on record — requires immediate follow-up.' : 'All registrants have at least one assistance recorded.');
+    prose(sl, 0.22, 0.9, 13.0, 1.45, asstText);
+    // Key assistance stats
+    stat(sl, 0.22,  2.5, 2.85, 1.2, totalBenef,   'WITH ANY ASSISTANCE',         C.accent);
+    stat(sl, 3.27,  2.5, 2.85, 1.2, withEclip,    'WITH E-CLIP',                 C.green);
+    stat(sl, 6.32,  2.5, 2.85, 1.2, notQualEclip, 'NOT QUALIFIED FOR E-CLIP',    C.yell);
+    stat(sl, 9.37,  2.5, 2.85, 1.2, noAssist,     'NO ASSISTANCE ON RECORD',     C.red);
+    // PhilHealth note
+    stat(sl, 0.22,  3.88, 2.85, 1.15, withPhil,  'WITH PHILHEALTH',   C.green);
+    stat(sl, 3.27,  3.88, 2.85, 1.15, total-withPhil, 'WITHOUT PHILHEALTH', C.red);
+    // All assistance bars
+    sectionLabel(sl, 6.62, 3.88, 'ALL ASSISTANCE TYPES');
+    var maxAsst = Math.max.apply(null, ASST_TYPES.map(function(t){ return asstCounts[t]; }).concat([1]));
+    var asY = 4.15;
+    ASST_TYPES.forEach(function(t){
+      var shortT = t.replace('ISSUANCE OF ','').replace('APPLIED FOR ','');
+      barRow(sl, 6.62, asY, 6.6, shortT, asstCounts[t], maxAsst, C.accent);
+      asY += 0.29;
+    });
+    footer(sl, 11);
+
+    // ══════════════════════════════════════════════════════════
+    // SLIDE 12 — XI. JAPIC CERTIFICATE STATUS
+    // ══════════════════════════════════════════════════════════
+    sl = pptx.addSlide(); bg(sl);
+    header(sl, 'XI', 'JAPIC CERTIFICATE STATUS');
+    var japicText =
+      fmt(withJapic)+' ('+pct(withJapic)+'%) have a JAPIC certificate on file. '+
+      fmt(noJapic)+' ('+pct(noJapic)+'%) still lack a JAPIC certificate, requiring follow-up from referring units.';
+    prose(sl, 0.22, 0.9, 13.0, 1.1, japicText);
+    stat(sl, 0.22,  2.2, 6.2, 2.2, withJapic, 'WITH JAPIC CERTIFICATE',    C.green);
+    stat(sl, 6.72,  2.2, 6.2, 2.2, noJapic,   'WITHOUT JAPIC CERTIFICATE', C.red);
+    var maxJapic = Math.max(withJapic, noJapic, 1);
+    sectionLabel(sl, 0.22, 4.6, 'JAPIC FILING STATUS');
+    barRow(sl, 0.22, 4.87, 12.8, 'WITH JAPIC',    withJapic, maxJapic, C.green);
+    barRow(sl, 0.22, 5.25, 12.8, 'WITHOUT JAPIC', noJapic,   maxJapic, C.red);
+    footer(sl, 12);
+
+    // ══════════════════════════════════════════════════════════
+    // SLIDE 13 — XII. DATA QUALITY
+    // ══════════════════════════════════════════════════════════
+    sl = pptx.addSlide(); bg(sl);
+    header(sl, 'XII', 'DATA QUALITY');
+
+    // ── Compute field-level missing counts ───────────────────
+    var ALL_FIELDS = [
+      'LAST NAME','FIRST NAME','MIDDLE NAME','SEX','CIVIL STATUS','RELIGION',
+      'MEDICAL CONDITION','4Ps','ADDRESS','BARANGAY','MUNICIPALITY','PROVINCE',
+      'TRIBAL GROUP','SECTOR','UNIT','POSITION','MEMBERSHIP TYPE',
+      'AREA OF OPERATION','YEARS IN MOVEMENT','DATE SURRENDERED',
+      'PENDING CASE','REFERRING UNIT'
+    ];
+    var fieldMissCounts = {};
+    ALL_FIELDS.forEach(function(f){ fieldMissCounts[f] = 0; });
+    records.forEach(function(r){
+      getMissingFieldsGlobal(r).forEach(function(f){
+        if (fieldMissCounts[f] !== undefined) fieldMissCounts[f]++;
+        else fieldMissCounts[f] = 1;
+      });
+    });
+    // Sort by most missing, take top 10
+    var topMissingFields = ALL_FIELDS.slice()
+      .filter(function(f){ return fieldMissCounts[f] > 0; })
+      .sort(function(a,b){ return fieldMissCounts[b] - fieldMissCounts[a]; })
+      .slice(0, 10);
+
+    var completeCount = total - incomplete;
+    var completePct   = total > 0 ? ((completeCount/total)*100).toFixed(1) : '0.0';
+
+    // ── Prose ────────────────────────────────────────────────
+    var dataText =
+      fmt(incomplete)+' ('+pct(incomplete)+'%) profiles are missing one or more required fields. '+
+      fmt(completeCount)+' ('+completePct+'%) profiles are fully complete. '+
+      'Immediate data clean-up is recommended to ensure accurate reporting and eligibility assessment.';
+    prose(sl, 0.22, 0.9, 13.0, 1.0, dataText);
+
+    // ── Completeness progress bar ────────────────────────────
+    var pbY = 2.05, pbX = 0.22, pbW = 13.0, pbH = 0.32;
+    var fillFrac = total > 0 ? completeCount / total : 0;
+    // Track
+    sl.addShape(pptx.ShapeType.roundRect,
+      { x:pbX, y:pbY, w:pbW, h:pbH,
+        fill:{ color:C.dim }, line:{ color:C.border, width:0.5 }, rectRadius:0.06 });
+    // Fill (green = complete)
+    if (fillFrac > 0) {
+      sl.addShape(pptx.ShapeType.roundRect,
+        { x:pbX, y:pbY, w:pbW * fillFrac, h:pbH,
+          fill:{ color:C.green }, line:{ color:C.green, width:0 }, rectRadius:0.06 });
+    }
+    // Fill (red = incomplete, stacked right)
+    if (fillFrac < 1) {
+      sl.addShape(pptx.ShapeType.roundRect,
+        { x:pbX + pbW * fillFrac, y:pbY, w:pbW * (1 - fillFrac), h:pbH,
+          fill:{ color:C.red }, line:{ color:C.red, width:0 }, rectRadius:0.06 });
+    }
+    sl.addText(completePct+'% COMPLETE',
+      { x:pbX+0.1, y:pbY, w:pbW*fillFrac - 0.1, h:pbH,
+        fontSize:8, bold:true, color:C.bg, fontFace:FONT, valign:'middle' });
+    sl.addText(pct(incomplete)+'% INCOMPLETE',
+      { x:pbX + pbW*fillFrac + 0.1, y:pbY, w:pbW*(1-fillFrac) - 0.1, h:pbH,
+        fontSize:8, bold:true, color:C.bg, fontFace:FONT, valign:'middle', align:'right' });
+
+    // ── Alert stat cards (top row) ───────────────────────────
+    var alerts = [
+      { v:incomplete,   l:'INCOMPLETE PROFILES',  c:C.red  },
+      { v:noJapic,      l:'NO JAPIC ON FILE',      c:C.yell },
+      { v:noEclipCount, l:'NO E-CLIP',             c:C.yell },
+      { v:noAssist,     l:'NO ASSISTANCE',         c:C.red  },
+      { v:cannotLocate, l:'CANNOT BE LOCATED',     c:C.yell },
+      { v:deceased,     l:'DECEASED',              c:C.red  },
+      { v:incarcerated, l:'INCARCERATED',          c:C.purp },
+      { v:pendingYes,   l:'PENDING CASE',          c:C.purp }
+    ];
+    var aW = 2.97, aH = 1.2, aG = 0.18;
+    alerts.forEach(function(a, i){
+      var col = i % 4, row = Math.floor(i / 4);
+      var ax  = 0.22 + col * (aW + aG);
+      var ay  = 2.52 + row * (aH + 0.14);
+      stat(sl, ax, ay, aW, aH, a.v, a.l, a.c);
+    });
+
+    // ── Most missing fields bar chart ────────────────────────
+    sectionLabel(sl, 0.22, 5.08, 'MOST COMMONLY MISSING FIELDS (TOP '+topMissingFields.length+')');
+    if (topMissingFields.length === 0) {
+      sl.addText('✓  ALL REQUIRED FIELDS ARE COMPLETE ACROSS ALL PROFILES',
+        { x:0.22, y:5.35, w:13.0, h:0.4,
+          fontSize:11, bold:true, color:C.green, fontFace:FONT, align:'center', valign:'middle' });
+    } else {
+      var maxMissing = fieldMissCounts[topMissingFields[0]] || 1;
+      // Two columns of bars to fit 10 fields in the space
+      var colWidth   = 6.3;
+      var colGap     = 0.25;
+      var bStartY    = 5.35;
+      var bRowH      = 0.3;
+      var half       = Math.ceil(topMissingFields.length / 2);
+      topMissingFields.forEach(function(f, i) {
+        var col  = Math.floor(i / half);
+        var row  = i % half;
+        var bx   = 0.22 + col * (colWidth + colGap);
+        var by   = bStartY + row * bRowH;
+        barRow(sl, bx, by, colWidth, f, fieldMissCounts[f], maxMissing, C.red);
+      });
+    }
+    footer(sl, 13);
+
+    // ══════════════════════════════════════════════════════════
+    // SLIDE 14 — CLOSING / KEY TAKEAWAYS
+    // ══════════════════════════════════════════════════════════
+    sl = pptx.addSlide(); bg(sl);
+    sl.addShape(pptx.ShapeType.rect, { x:0, y:0, w:13.33, h:0.12, fill:{ color:C.accent } });
+    sl.addShape(pptx.ShapeType.rect, { x:0, y:0.12, w:0.08, h:7.38, fill:{ color:C.accent } });
+    sl.addText('KEY TAKEAWAYS', { x:0.3, y:0.65, w:12.8, h:0.55, fontSize:24, bold:true, color:C.accent, fontFace:FONT, align:'center', charSpacing:4 });
+    sl.addShape(pptx.ShapeType.line, { x:1.5, y:1.28, w:10.3, h:0, line:{ color:C.border, width:1 } });
+    var takeaways = [
+      fmt(total)+' registered FRs | '+fmt(male)+' male ('+pct(male)+'%) | '+fmt(female)+' female ('+pct(female)+'%)',
+      fmt(regularNpa)+' Regular NPA ('+pct(regularNpa)+'%) | '+fmt(milisyang)+' Milisyang Bayan ('+pct(milisyang)+'%)',
+      fmt(withJapic)+' with JAPIC ('+pct(withJapic)+'%) | '+fmt(withEclip)+' with E-CLIP ('+pct(withEclip)+'%)',
+      'Peak surrender year: '+peakYear+' with '+fmt(peakYearCount)+' surrenderees ('+pct(peakYearCount)+'%)',
+      fmt(ipCount)+' Indigenous People ('+pct(ipCount)+'%) | Largest group: '+(largestTribal||'—')+' ('+fmt(tribalCounts[largestTribal]||0)+')',
+      fmt(fourPsYes)+' 4Ps beneficiaries ('+pct(fourPsYes)+'%) | '+fmt(withPhil)+' with PhilHealth ('+pct(withPhil)+'%)',
+      fmt(totalBenef)+' with any assistance ('+pct(totalBenef)+'%) | '+fmt(noAssist)+' with NO assistance ('+pct(noAssist)+'%)',
+      fmt(incomplete)+' incomplete profiles ('+pct(incomplete)+'%) | '+fmt(noJapic)+' without JAPIC ('+pct(noJapic)+'%)'
+    ];
+    takeaways.forEach(function(line, i){
+      sl.addShape(pptx.ShapeType.roundRect,
+        { x:0.55, y:1.42+i*0.66, w:12.2, h:0.58, fill:{ color:i%2===0?C.card:C.dim }, line:{ color:C.border, width:0.5 }, rectRadius:0.05 });
+      sl.addText('◆  '+line,
+        { x:0.75, y:1.42+i*0.66, w:11.8, h:0.58, fontSize:9.5, color:i%2===0?C.text:C.sub, fontFace:FONT, valign:'middle' });
+    });
+    sl.addText('As of '+reportDate+'  |  '+generatedBy+'  |  CONFIDENTIAL',
+      { x:0.3, y:7.18, w:12.8, h:0.2, fontSize:7, color:'6E7681', fontFace:FONT, align:'center', italic:true });
+    footer(sl, 14);
+
+    // ── Download ─────────────────────────────────────────────
+    var dateStr  = new Date().toISOString().slice(0, 10);
+    var filename = 'FR_EXECUTIVE_SUMMARY_'+dateStr;
+    pptx.writeFile({ fileName: filename })
+      .then(function(){ showToast('PRESENTATION DOWNLOADED — '+filename+'.pptx', 'success'); })
+      .catch(function(err){ showToast('PPTX ERROR: '+err.message, 'error'); });
+  }
+
+  if (allRecordsCache.length) run(allRecordsCache);
+  else dbGetAll().then(function(records){ allRecordsCache = records; run(records); })
+    .catch(function(err){ showToast('ERROR: '+err.message, 'error'); });
+}
+
 
 // -- BOOT (Firebase Auth state) -------------------------------
 auth.onAuthStateChanged(function(user) {

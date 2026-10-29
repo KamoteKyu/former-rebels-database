@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>FORMER REBELS DATABASE MANAGEMENT SYSTEM</title>
+  <title>FORMER REBEL DATABASE MANAGEMENT AND JAPIC REPOSITORY SYSTEM</title>
   <link rel="stylesheet" href="style.css"/>
 </head>
 <body>
@@ -12,7 +12,7 @@
 <div id="titleBar" class="title-bar">
   <div class="title-bar-drag">
     <img src="Province_of_Occidental_Mindoro_seal.svg.png" class="title-bar-icon" alt=""/>
-    <span class="title-bar-text">FORMER REBELS DATABASE MANAGEMENT SYSTEM</span>
+    <span class="title-bar-text">FORMER REBEL DATABASE MANAGEMENT AND JAPIC REPOSITORY SYSTEM</span>
   </div>
   <div class="title-bar-controls">
     <button class="tb-btn tb-refresh" onclick="tbRefresh()" title="Refresh">&#8635;</button>
@@ -24,10 +24,11 @@
 
 <!-- LOGIN SCREEN -->
 <div id="loginScreen" class="login-screen">
+  <div class="holiday-decor" id="holidayDecor"></div>
   <div class="login-card">
     <div class="login-logo">
       <div class="shield-icon"><img src="Province_of_Occidental_Mindoro_seal.svg.png" class="login-logo-img" alt="Logo"/></div>
-      <h1>FORMER REBELS<br>DATABASE MANAGEMENT SYSTEM</h1>
+      <h1>FORMER REBEL<br>DATABASE MANAGEMENT AND JAPIC REPOSITORY SYSTEM</h1>
       <p class="login-subtitle">AUTHORIZED PERSONNEL ONLY</p>
     </div>
     <div class="login-form">
@@ -172,35 +173,22 @@
             📄 GENERATE REPORT <span class="report-dropdown-arrow">▾</span>
           </button>
           <div class="report-dropdown-menu" id="reportDropdownMenu">
+            <div class="report-dropdown-label">NARRATIVE REPORT</div>
+            <button class="report-dropdown-item" onclick="generateNarrativeReport();closeReportDropdown()">
+              <span>📝</span><span>NARRATIVE SUMMARY — PRINT / VIEW PDF</span>
+            </button>
+            <button class="report-dropdown-item" onclick="downloadNarrativeReport();closeReportDropdown()">
+              <span>⬇</span><span>NARRATIVE SUMMARY — DOWNLOAD HTML</span>
+            </button>
+            <button class="report-dropdown-item" onclick="generatePptxReport();closeReportDropdown()">
+              <span>📊</span><span>DASHBOARD SUMMARY — DOWNLOAD PPTX</span>
+            </button>
+            <div class="report-dropdown-divider"></div>
             <div class="report-dropdown-label">DASHBOARD SUMMARY</div>
             <button class="report-dropdown-item" onclick="generateReport();closeReportDropdown()">
               <span>🖨</span><span>PRINT / VIEW PDF</span>
             </button>
             <button class="report-dropdown-item" onclick="downloadReportCSV('summary');closeReportDropdown()">
-              <span>⬇</span><span>DOWNLOAD CSV</span>
-            </button>
-            <div class="report-dropdown-divider"></div>
-            <div class="report-dropdown-label">PROFILES WITH NO E-CLIP</div>
-            <button class="report-dropdown-item" onclick="printNoEclipList();closeReportDropdown()">
-              <span>🖨</span><span>PRINT / VIEW PDF</span>
-            </button>
-            <button class="report-dropdown-item" onclick="downloadReportCSV('noeclip');closeReportDropdown()">
-              <span>⬇</span><span>DOWNLOAD CSV</span>
-            </button>
-            <div class="report-dropdown-divider"></div>
-            <div class="report-dropdown-label">PROFILES WITH NO JAPIC</div>
-            <button class="report-dropdown-item" onclick="printNoJapicList();closeReportDropdown()">
-              <span>🖨</span><span>PRINT / VIEW PDF</span>
-            </button>
-            <button class="report-dropdown-item" onclick="downloadReportCSV('nojapic');closeReportDropdown()">
-              <span>⬇</span><span>DOWNLOAD CSV</span>
-            </button>
-            <div class="report-dropdown-divider"></div>
-            <div class="report-dropdown-label">PROFILES WITH INCOMPLETE DATA</div>
-            <button class="report-dropdown-item" onclick="printIncompleteList();closeReportDropdown()">
-              <span>🖨</span><span>PRINT / VIEW PDF</span>
-            </button>
-            <button class="report-dropdown-item" onclick="downloadReportCSV('incomplete');closeReportDropdown()">
               <span>⬇</span><span>DOWNLOAD CSV</span>
             </button>
             <div class="report-dropdown-divider"></div>
@@ -210,46 +198,6 @@
             </button>
             <button class="report-dropdown-item" onclick="downloadReportCSV('fulllist');closeReportDropdown()">
               <span>⬇</span><span>DOWNLOAD CSV</span>
-            </button>
-            <div class="report-dropdown-divider"></div>
-            <div class="report-dropdown-label">NON-4Ps MEMBERS</div>
-            <button class="report-dropdown-item" onclick="printNon4PsList();closeReportDropdown()">
-              <span>🖨</span><span>PRINT / VIEW PDF</span>
-            </button>
-            <button class="report-dropdown-item" onclick="downloadReportCSV('non4ps');closeReportDropdown()">
-              <span>⬇</span><span>DOWNLOAD CSV</span>
-            </button>
-            <div class="report-dropdown-divider"></div>
-            <div class="report-dropdown-label">PROFILES WITH PHILHEALTH</div>
-            <button class="report-dropdown-item" onclick="printPhilhealthList(true);closeReportDropdown()">
-              <span>🖨</span><span>PRINT / VIEW PDF</span>
-            </button>
-            <button class="report-dropdown-item" onclick="downloadReportCSV('philhealth');closeReportDropdown()">
-              <span>⬇</span><span>DOWNLOAD CSV</span>
-            </button>
-            <div class="report-dropdown-divider"></div>
-            <div class="report-dropdown-label">PROFILES WITHOUT PHILHEALTH</div>
-            <button class="report-dropdown-item" onclick="printPhilhealthList(false);closeReportDropdown()">
-              <span>🖨</span><span>PRINT / VIEW PDF</span>
-            </button>
-            <button class="report-dropdown-item" onclick="downloadReportCSV('nophilhealth');closeReportDropdown()">
-              <span>⬇</span><span>DOWNLOAD CSV</span>
-            </button>
-            <div class="report-dropdown-divider"></div>
-            <div class="report-dropdown-label">ASSISTANCE PROVIDED</div>
-            <button class="report-dropdown-item" onclick="printAssistanceList();closeReportDropdown()">
-              <span>&#128424;</span><span>PRINT / VIEW PDF</span>
-            </button>
-            <button class="report-dropdown-item" onclick="downloadReportCSV('assistance');closeReportDropdown()">
-              <span>&#8595;</span><span>DOWNLOAD CSV</span>
-            </button>
-            <div class="report-dropdown-divider"></div>
-            <div class="report-dropdown-label">FRs PER REFERRING UNIT</div>
-            <button class="report-dropdown-item" onclick="printUnitSummaryReport();closeReportDropdown()">
-              <span>&#128424;</span><span>PRINT / VIEW PDF</span>
-            </button>
-            <button class="report-dropdown-item" onclick="downloadReportCSV('unitsummary');closeReportDropdown()">
-              <span>&#8595;</span><span>DOWNLOAD CSV</span>
             </button>
           </div>
         </div>
@@ -273,58 +221,137 @@
       <div class="no-eclip-widget">
         <!-- Row 1: NO E-CLIP -->
         <div class="no-eclip-header" onclick="toggleNoEclipList('noEclipList','noEclipBadge')" style="cursor:pointer">
-          <span class="no-eclip-title">⚠ PROFILES WITH NO E-CLIP</span>
-          <span id="noEclipBadge" class="no-eclip-badge">0</span>
+          <span class="no-eclip-title">⚠ PROFILES WITH NO E-CLIP <span class="no-eclip-arrow" style="font-size:0.65rem;transition:transform 0.2s;display:inline-block">▾</span></span>
+          <div style="display:flex;align-items:center;gap:8px" onclick="event.stopPropagation()">
+            <span id="noEclipBadge" class="no-eclip-badge" onclick="toggleNoEclipList('noEclipList','noEclipBadge')" style="cursor:pointer">0</span>
+            <div class="report-dropdown" id="eclipReportDropdown" style="position:relative">
+              <button class="btn-print report-dropdown-btn" style="padding:3px 10px;font-size:0.65rem" onclick="toggleCardDropdown('eclipReportDropdown')">
+                &#128424; REPORT <span class="report-dropdown-arrow">&#9660;</span>
+              </button>
+              <div class="report-dropdown-menu" style="right:0;left:auto;min-width:260px">
+                <div class="report-dropdown-label">PROFILES WITH NO E-CLIP</div>
+                <button class="report-dropdown-item" onclick="printNoEclipList();closeCardDropdown('eclipReportDropdown')">
+                  <span>&#128424;</span><span>PRINT / VIEW PDF</span>
+                </button>
+                <button class="report-dropdown-item" onclick="downloadReportCSV('noeclip');closeCardDropdown('eclipReportDropdown')">
+                  <span>&#8595;</span><span>DOWNLOAD CSV</span>
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
         <div id="noEclipList" class="no-eclip-list" style="display:none">
           <div class="no-eclip-empty">LOADING...</div>
         </div>
         <!-- Row 2: NOT QUALIFIED FOR E-CLIP -->
         <div class="no-eclip-header no-eclip-header--second" onclick="toggleNoEclipList('notQualList','notQualBadge')" style="cursor:pointer; margin-top:8px;">
-          <span class="no-eclip-title">📋 PROFILES — NOT QUALIFIED FOR E-CLIP</span>
-          <span id="notQualBadge" class="no-eclip-badge no-eclip-badge--blue">0</span>
+          <span class="no-eclip-title">📋 PROFILES — NOT QUALIFIED FOR E-CLIP <span class="no-eclip-arrow" style="font-size:0.65rem;transition:transform 0.2s;display:inline-block">▾</span></span>
+          <span id="notQualBadge" class="no-eclip-badge no-eclip-badge--blue" style="cursor:pointer">0</span>
         </div>
         <div id="notQualList" class="no-eclip-list" style="display:none">
           <div class="no-eclip-empty">LOADING...</div>
         </div>
         <!-- Row 3: NO JAPIC -->
         <div class="no-eclip-header no-eclip-header--second" onclick="toggleNoEclipList('noJapicList','noJapicBadge')" style="cursor:pointer; margin-top:8px;">
-          <span class="no-eclip-title">📄 PROFILES WITH NO JAPIC</span>
-          <span id="noJapicBadge" class="no-eclip-badge no-eclip-badge--orange">0</span>
+          <span class="no-eclip-title">📄 PROFILES WITH NO JAPIC <span class="no-eclip-arrow" style="font-size:0.65rem;transition:transform 0.2s;display:inline-block">▾</span></span>
+          <div style="display:flex;align-items:center;gap:8px" onclick="event.stopPropagation()">
+            <span id="noJapicBadge" class="no-eclip-badge no-eclip-badge--orange" onclick="toggleNoEclipList('noJapicList','noJapicBadge')" style="cursor:pointer">0</span>
+            <div class="report-dropdown" id="japicReportDropdown" style="position:relative">
+              <button class="btn-print report-dropdown-btn" style="padding:3px 10px;font-size:0.65rem" onclick="toggleCardDropdown('japicReportDropdown')">
+                &#128424; REPORT <span class="report-dropdown-arrow">&#9660;</span>
+              </button>
+              <div class="report-dropdown-menu" style="right:0;left:auto;min-width:260px">
+                <div class="report-dropdown-label">JAPIC CERTIFICATE</div>
+                <button class="report-dropdown-item" onclick="printNoJapicList();closeCardDropdown('japicReportDropdown')">
+                  <span>&#128424;</span><span>NO JAPIC — PRINT</span>
+                </button>
+                <button class="report-dropdown-item" onclick="downloadReportCSV('nojapic');closeCardDropdown('japicReportDropdown')">
+                  <span>&#8595;</span><span>NO JAPIC — CSV</span>
+                </button>
+                <div class="report-dropdown-divider"></div>
+                <button class="report-dropdown-item" onclick="printWithJapicList();closeCardDropdown('japicReportDropdown')">
+                  <span>&#128424;</span><span>WITH JAPIC — PRINT</span>
+                </button>
+                <button class="report-dropdown-item" onclick="downloadReportCSV('withjapic');closeCardDropdown('japicReportDropdown')">
+                  <span>&#8595;</span><span>WITH JAPIC — CSV</span>
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
         <div id="noJapicList" class="no-eclip-list" style="display:none">
           <div class="no-eclip-empty">LOADING...</div>
         </div>
         <!-- Row 4: INCOMPLETE DATA -->
         <div class="no-eclip-header no-eclip-header--second" onclick="toggleNoEclipList('incompleteList','incompleteBadge')" style="cursor:pointer; margin-top:8px;">
-          <span class="no-eclip-title">🔴 PROFILES WITH INCOMPLETE DATA</span>
-          <span id="incompleteBadge" class="no-eclip-badge no-eclip-badge--red">0</span>
+          <span class="no-eclip-title">🔴 PROFILES WITH INCOMPLETE DATA <span class="no-eclip-arrow" style="font-size:0.65rem;transition:transform 0.2s;display:inline-block">▾</span></span>
+          <div style="display:flex;align-items:center;gap:8px" onclick="event.stopPropagation()">
+            <span id="incompleteBadge" class="no-eclip-badge no-eclip-badge--red" onclick="toggleNoEclipList('incompleteList','incompleteBadge')" style="cursor:pointer">0</span>
+            <div class="report-dropdown" id="incompleteReportDropdown" style="position:relative">
+              <button class="btn-print report-dropdown-btn" style="padding:3px 10px;font-size:0.65rem" onclick="toggleCardDropdown('incompleteReportDropdown')">
+                &#128424; REPORT <span class="report-dropdown-arrow">&#9660;</span>
+              </button>
+              <div class="report-dropdown-menu" style="right:0;left:auto;min-width:260px">
+                <div class="report-dropdown-label">INCOMPLETE DATA</div>
+                <button class="report-dropdown-item" onclick="printIncompleteList();closeCardDropdown('incompleteReportDropdown')">
+                  <span>&#128424;</span><span>PRINT / VIEW PDF</span>
+                </button>
+                <button class="report-dropdown-item" onclick="downloadReportCSV('incomplete');closeCardDropdown('incompleteReportDropdown')">
+                  <span>&#8595;</span><span>DOWNLOAD CSV</span>
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
         <div id="incompleteList" class="no-eclip-list" style="display:none">
           <div class="no-eclip-empty">LOADING...</div>
         </div>
         <!-- Row 5: CANNOT BE LOCATED -->
         <div class="no-eclip-header no-eclip-header--second" onclick="toggleNoEclipList('cannotLocateList','cannotLocateBadge')" style="cursor:pointer; margin-top:8px;">
-          <span class="no-eclip-title">🔍 PROFILES — CANNOT BE LOCATED</span>
-          <span id="cannotLocateBadge" class="no-eclip-badge no-eclip-badge--warning">0</span>
+          <span class="no-eclip-title">🔍 PROFILES — CANNOT BE LOCATED <span class="no-eclip-arrow" style="font-size:0.65rem;transition:transform 0.2s;display:inline-block">▾</span></span>
+          <span id="cannotLocateBadge" class="no-eclip-badge no-eclip-badge--warning" style="cursor:pointer">0</span>
         </div>
         <div id="cannotLocateList" class="no-eclip-list" style="display:none">
           <div class="no-eclip-empty">LOADING...</div>
         </div>
         <!-- Row 6: DECEASED -->
         <div class="no-eclip-header no-eclip-header--second" onclick="toggleNoEclipList('deceasedList','deceasedBadge')" style="cursor:pointer; margin-top:8px;">
-          <span class="no-eclip-title">💀 PROFILES — DECEASED</span>
-          <span id="deceasedBadge" class="no-eclip-badge no-eclip-badge--red">0</span>
+          <span class="no-eclip-title">💀 PROFILES — DECEASED <span class="no-eclip-arrow" style="font-size:0.65rem;transition:transform 0.2s;display:inline-block">▾</span></span>
+          <span id="deceasedBadge" class="no-eclip-badge no-eclip-badge--red" style="cursor:pointer">0</span>
         </div>
         <div id="deceasedList" class="no-eclip-list" style="display:none">
           <div class="no-eclip-empty">LOADING...</div>
         </div>
         <!-- Row 7: INCARCERATED -->
         <div class="no-eclip-header no-eclip-header--second" onclick="toggleNoEclipList('incarceratedList','incarceratedBadge')" style="cursor:pointer; margin-top:8px;">
-          <span class="no-eclip-title">⛓️ PROFILES — INCARCERATED</span>
-          <span id="incarceratedBadge" class="no-eclip-badge no-eclip-badge--purple">0</span>
+          <span class="no-eclip-title">⛓️ PROFILES — INCARCERATED <span class="no-eclip-arrow" style="font-size:0.65rem;transition:transform 0.2s;display:inline-block">▾</span></span>
+          <span id="incarceratedBadge" class="no-eclip-badge no-eclip-badge--purple" style="cursor:pointer">0</span>
         </div>
         <div id="incarceratedList" class="no-eclip-list" style="display:none">
+          <div class="no-eclip-empty">LOADING...</div>
+        </div>
+        <!-- Row 8: NO ASSISTANCE -->
+        <div class="no-eclip-header no-eclip-header--second" onclick="toggleNoEclipList('noAssistanceList','noAssistanceBadge')" style="cursor:pointer; margin-top:8px;">
+          <span class="no-eclip-title">🚫 PROFILES WITH NO ASSISTANCE <span class="no-eclip-arrow" style="font-size:0.65rem;transition:transform 0.2s;display:inline-block">▾</span></span>
+          <div style="display:flex;align-items:center;gap:8px" onclick="event.stopPropagation()">
+            <span id="noAssistanceBadge" class="no-eclip-badge no-eclip-badge--red" onclick="toggleNoEclipList('noAssistanceList','noAssistanceBadge')" style="cursor:pointer">0</span>
+            <div class="report-dropdown" id="noAsstReportDropdown" style="position:relative">
+              <button class="btn-print report-dropdown-btn" style="padding:3px 10px;font-size:0.65rem" onclick="toggleCardDropdown('noAsstReportDropdown')">
+                &#128424; REPORT <span class="report-dropdown-arrow">&#9660;</span>
+              </button>
+              <div class="report-dropdown-menu" style="right:0;left:auto;min-width:260px">
+                <div class="report-dropdown-label">PROFILES WITH NO ASSISTANCE</div>
+                <button class="report-dropdown-item" onclick="printNoAssistanceList();closeCardDropdown('noAsstReportDropdown')">
+                  <span>&#128424;</span><span>PRINT / VIEW PDF</span>
+                </button>
+                <button class="report-dropdown-item" onclick="downloadReportCSV('noassistance');closeCardDropdown('noAsstReportDropdown')">
+                  <span>&#8595;</span><span>DOWNLOAD CSV</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div id="noAssistanceList" class="no-eclip-list" style="display:none">
           <div class="no-eclip-empty">LOADING...</div>
         </div>
       </div>
@@ -352,7 +379,25 @@
         <div class="dash-table-card" style="margin-bottom:20px">
           <div class="dash-card-header">
             <h3>📅 SURRENDER BY YEAR</h3>
-            <span id="surrenderYearTotalBadge" class="asst-total-badge">0 WITH DATE</span>
+            <div style="display:flex;align-items:center;gap:10px">
+              <span id="surrenderYearTotalBadge" class="asst-total-badge">0 WITH DATE</span>
+              <div class="report-dropdown" id="yearReportDropdown" style="position:relative">
+                <button class="btn-print report-dropdown-btn" onclick="toggleCardDropdown('yearReportDropdown')">
+                  &#128424; GENERATE REPORT <span class="report-dropdown-arrow">&#9660;</span>
+                </button>
+                <div class="report-dropdown-menu" style="right:0;left:auto;min-width:280px">
+                  <div class="report-dropdown-label">SUMMARY</div>
+                  <button class="report-dropdown-item" onclick="printSummaryReport('year');closeCardDropdown('yearReportDropdown')">
+                    <span>&#128424;</span><span>BY YEAR — COUNTS ONLY</span>
+                  </button>
+                  <div class="report-dropdown-divider"></div>
+                  <div class="report-dropdown-label">DETAIL REPORT</div>
+                  <button class="report-dropdown-item" onclick="printYearDetailReport();closeCardDropdown('yearReportDropdown')">
+                    <span>&#128424;</span><span>FRs LISTED PER YEAR</span>
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
           <div class="asst-chart-wrap">
             <div id="surrenderYearBars" class="asst-bars"></div>
@@ -375,9 +420,42 @@
         <div class="dash-table-card" style="margin-bottom:20px">
           <div class="dash-card-header">
             <h3>📊 ASSISTANCE PROVIDED — REPORT</h3>
-            <span id="asstTotalBadge" class="asst-total-badge">0 TOTAL BENEFICIARIES</span>
-            <button class="btn-secondary" style="font-size:0.65rem;padding:4px 10px" onclick="printPhilhealthList(true)">🖨 WITH PHILHEALTH</button>
-            <button class="btn-secondary" style="font-size:0.65rem;padding:4px 10px" onclick="printPhilhealthList(false)">🖨 WITHOUT PHILHEALTH</button>
+            <div style="display:flex;align-items:center;gap:10px">
+              <span id="asstTotalBadge" class="asst-total-badge">0 TOTAL BENEFICIARIES</span>
+              <div class="report-dropdown" id="asstReportDropdown" style="position:relative">
+                <button class="btn-print report-dropdown-btn" onclick="toggleCardDropdown('asstReportDropdown')">
+                  &#128424; GENERATE REPORT <span class="report-dropdown-arrow">&#9660;</span>
+                </button>
+                <div class="report-dropdown-menu" style="right:0;left:auto;min-width:280px">
+                  <div class="report-dropdown-label">SUMMARY</div>
+                  <button class="report-dropdown-item" onclick="printSummaryReport('assistance');closeCardDropdown('asstReportDropdown')">
+                    <span>&#128424;</span><span>ASSISTANCE — COUNTS ONLY</span>
+                  </button>
+                  <div class="report-dropdown-divider"></div>
+                  <div class="report-dropdown-label">ASSISTANCE PROVIDED</div>
+                  <button class="report-dropdown-item" onclick="printAssistanceList();closeCardDropdown('asstReportDropdown')">
+                    <span>&#128424;</span><span>PRINT / VIEW PDF</span>
+                  </button>
+                  <button class="report-dropdown-item" onclick="downloadReportCSV('assistance');closeCardDropdown('asstReportDropdown')">
+                    <span>&#8595;</span><span>DOWNLOAD CSV</span>
+                  </button>
+                  <div class="report-dropdown-divider"></div>
+                  <div class="report-dropdown-label">PHILHEALTH</div>
+                  <button class="report-dropdown-item" onclick="printPhilhealthList(true);closeCardDropdown('asstReportDropdown')">
+                    <span>&#128424;</span><span>WITH PHILHEALTH — PRINT</span>
+                  </button>
+                  <button class="report-dropdown-item" onclick="downloadReportCSV('philhealth');closeCardDropdown('asstReportDropdown')">
+                    <span>&#8595;</span><span>WITH PHILHEALTH — CSV</span>
+                  </button>
+                  <button class="report-dropdown-item" onclick="printPhilhealthList(false);closeCardDropdown('asstReportDropdown')">
+                    <span>&#128424;</span><span>WITHOUT PHILHEALTH — PRINT</span>
+                  </button>
+                  <button class="report-dropdown-item" onclick="downloadReportCSV('nophilhealth');closeCardDropdown('asstReportDropdown')">
+                    <span>&#8595;</span><span>WITHOUT PHILHEALTH — CSV</span>
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
           <div class="asst-chart-wrap">
             <div id="asstBars" class="asst-bars"></div>
@@ -400,7 +478,32 @@
         <div class="dash-table-card" style="margin-bottom:20px">
           <div class="dash-card-header">
             <h3>🪖 MEMBERSHIP TYPE — BREAKDOWN</h3>
-            <span id="membershipTotalBadge" class="asst-total-badge">0 WITH MEMBERSHIP TYPE</span>
+            <div style="display:flex;align-items:center;gap:10px">
+              <span id="membershipTotalBadge" class="asst-total-badge">0 WITH MEMBERSHIP TYPE</span>
+              <div class="report-dropdown" id="membershipReportDropdown" style="position:relative">
+                <button class="btn-print report-dropdown-btn" onclick="toggleCardDropdown('membershipReportDropdown')">
+                  &#128424; GENERATE REPORT <span class="report-dropdown-arrow">&#9660;</span>
+                </button>
+                <div class="report-dropdown-menu" style="right:0;left:auto;min-width:290px">
+                  <div class="report-dropdown-label">SUMMARY</div>
+                  <button class="report-dropdown-item" onclick="printSummaryReport('membership');closeCardDropdown('membershipReportDropdown')">
+                    <span>&#128424;</span><span>MEMBERSHIP TYPE — COUNTS ONLY</span>
+                  </button>
+                  <div class="report-dropdown-divider"></div>
+                  <div class="report-dropdown-label">DETAIL LISTS</div>
+                  <button class="report-dropdown-item" onclick="printSummaryReport('membership-npa');closeCardDropdown('membershipReportDropdown')">
+                    <span>&#128424;</span><span>REGULAR NPA — LIST</span>
+                  </button>
+                  <button class="report-dropdown-item" onclick="printSummaryReport('membership-mb');closeCardDropdown('membershipReportDropdown')">
+                    <span>&#128424;</span><span>MILISYANG BAYAN — LIST</span>
+                  </button>
+                  <div class="report-dropdown-divider"></div>
+                  <button class="report-dropdown-item" onclick="downloadReportCSV('fulllist');closeCardDropdown('membershipReportDropdown')">
+                    <span>&#8595;</span><span>DOWNLOAD CSV</span>
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
           <div class="membership-report-grid">
             <div class="membership-donut-wrap">
@@ -425,7 +528,28 @@
         <div class="dash-table-card" style="margin-bottom:20px">
           <div class="dash-card-header">
             <h3>🏔️ TRIBAL GROUP — BREAKDOWN</h3>
-            <span id="tribalTotalBadge" class="asst-total-badge">0 WITH TRIBAL GROUP</span>
+            <div style="display:flex;align-items:center;gap:10px">
+              <span id="tribalTotalBadge" class="asst-total-badge">0 WITH TRIBAL GROUP</span>
+              <div class="report-dropdown" id="tribalReportDropdown" style="position:relative">
+                <button class="btn-print report-dropdown-btn" onclick="toggleCardDropdown('tribalReportDropdown')">
+                  &#128424; GENERATE REPORT <span class="report-dropdown-arrow">&#9660;</span>
+                </button>
+                <div class="report-dropdown-menu" style="right:0;left:auto;min-width:280px">
+                  <div class="report-dropdown-label">SUMMARY</div>
+                  <button class="report-dropdown-item" onclick="printSummaryReport('tribal');closeCardDropdown('tribalReportDropdown')">
+                    <span>&#128424;</span><span>TRIBAL GROUP — COUNTS ONLY</span>
+                  </button>
+                  <div class="report-dropdown-divider"></div>
+                  <div class="report-dropdown-label">DETAIL REPORT</div>
+                  <button class="report-dropdown-item" onclick="printFullList();closeCardDropdown('tribalReportDropdown')">
+                    <span>&#128424;</span><span>FULL LIST (WITH TRIBAL DATA)</span>
+                  </button>
+                  <button class="report-dropdown-item" onclick="downloadReportCSV('fulllist');closeCardDropdown('tribalReportDropdown')">
+                    <span>&#8595;</span><span>DOWNLOAD CSV</span>
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
           <!-- IP vs Non-IP summary -->
           <div style="display:flex;gap:16px;margin-bottom:16px;flex-wrap:wrap">
@@ -465,7 +589,28 @@
         <div class="dash-table-card" style="margin-bottom:20px">
           <div class="dash-card-header">
             <h3>🥧 AGE BRACKET — DISTRIBUTION</h3>
-            <span id="ageTotalBadge" class="asst-total-badge">0 WITH AGE DATA</span>
+            <div style="display:flex;align-items:center;gap:10px">
+              <span id="ageTotalBadge" class="asst-total-badge">0 WITH AGE DATA</span>
+              <div class="report-dropdown" id="ageReportDropdown" style="position:relative">
+                <button class="btn-print report-dropdown-btn" onclick="toggleCardDropdown('ageReportDropdown')">
+                  &#128424; GENERATE REPORT <span class="report-dropdown-arrow">&#9660;</span>
+                </button>
+                <div class="report-dropdown-menu" style="right:0;left:auto;min-width:280px">
+                  <div class="report-dropdown-label">SUMMARY</div>
+                  <button class="report-dropdown-item" onclick="printSummaryReport('age');closeCardDropdown('ageReportDropdown')">
+                    <span>&#128424;</span><span>AGE BRACKET — COUNTS ONLY</span>
+                  </button>
+                  <div class="report-dropdown-divider"></div>
+                  <div class="report-dropdown-label">DETAIL REPORT</div>
+                  <button class="report-dropdown-item" onclick="printFullList();closeCardDropdown('ageReportDropdown')">
+                    <span>&#128424;</span><span>FULL LIST (WITH AGE DATA)</span>
+                  </button>
+                  <button class="report-dropdown-item" onclick="downloadReportCSV('fulllist');closeCardDropdown('ageReportDropdown')">
+                    <span>&#8595;</span><span>DOWNLOAD CSV</span>
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
           <div class="membership-report-grid">
             <div class="membership-donut-wrap">
@@ -491,8 +636,32 @@
         <div class="dash-table-card" style="margin-bottom:20px">
           <div class="dash-card-header">
             <h3>🏠 4Ps BENEFICIARIES — BREAKDOWN</h3>
-            <span id="fourPsTotalBadge" class="asst-total-badge">0 4Ps BENEFICIARIES</span>
-            <button class="btn-secondary" style="font-size:0.65rem;padding:4px 10px" onclick="printNon4PsList()">🖨 NON-4Ps LIST</button>
+            <div style="display:flex;align-items:center;gap:10px">
+              <span id="fourPsTotalBadge" class="asst-total-badge">0 4Ps BENEFICIARIES</span>
+              <div class="report-dropdown" id="fourPsReportDropdown" style="position:relative">
+                <button class="btn-print report-dropdown-btn" onclick="toggleCardDropdown('fourPsReportDropdown')">
+                  &#128424; GENERATE REPORT <span class="report-dropdown-arrow">&#9660;</span>
+                </button>
+                <div class="report-dropdown-menu" style="right:0;left:auto;min-width:290px">
+                  <div class="report-dropdown-label">SUMMARY</div>
+                  <button class="report-dropdown-item" onclick="printSummaryReport('4ps');closeCardDropdown('fourPsReportDropdown')">
+                    <span>&#128424;</span><span>4Ps — COUNTS ONLY</span>
+                  </button>
+                  <div class="report-dropdown-divider"></div>
+                  <div class="report-dropdown-label">DETAIL LISTS</div>
+                  <button class="report-dropdown-item" onclick="printSummaryReport('4ps-yes');closeCardDropdown('fourPsReportDropdown')">
+                    <span>&#128424;</span><span>4Ps BENEFICIARIES — LIST</span>
+                  </button>
+                  <button class="report-dropdown-item" onclick="printSummaryReport('4ps-no');closeCardDropdown('fourPsReportDropdown')">
+                    <span>&#128424;</span><span>NON-4Ps — LIST</span>
+                  </button>
+                  <div class="report-dropdown-divider"></div>
+                  <button class="report-dropdown-item" onclick="downloadReportCSV('non4ps');closeCardDropdown('fourPsReportDropdown')">
+                    <span>&#8595;</span><span>NON-4Ps — DOWNLOAD CSV</span>
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
           <div class="asst-chart-wrap">
             <div id="fourPsBars" class="asst-bars"></div>
@@ -510,11 +679,70 @@
           </table>
         </div>
 
+        <!-- PHILHEALTH BREAKDOWN REPORT -->
+        <div class="dash-table-card" style="margin-bottom:20px">
+          <div class="dash-card-header">
+            <h3>🏥 PHILHEALTH — BREAKDOWN</h3>
+            <div style="display:flex;align-items:center;gap:10px">
+              <span id="philhealthTotalBadge" class="asst-total-badge">0 WITH PHILHEALTH</span>
+              <div class="report-dropdown" id="philhealthReportDropdown" style="position:relative">
+                <button class="btn-print report-dropdown-btn" onclick="toggleCardDropdown('philhealthReportDropdown')">
+                  &#128424; GENERATE REPORT <span class="report-dropdown-arrow">&#9660;</span>
+                </button>
+                <div class="report-dropdown-menu" style="right:0;left:auto;min-width:290px">
+                  <div class="report-dropdown-label">WITH PHILHEALTH</div>
+                  <button class="report-dropdown-item" onclick="printPhilhealthList(true);closeCardDropdown('philhealthReportDropdown')">
+                    <span>&#128424;</span><span>WITH PHILHEALTH — PRINT</span>
+                  </button>
+                  <button class="report-dropdown-item" onclick="downloadReportCSV('philhealth');closeCardDropdown('philhealthReportDropdown')">
+                    <span>&#8595;</span><span>WITH PHILHEALTH — CSV</span>
+                  </button>
+                  <div class="report-dropdown-divider"></div>
+                  <div class="report-dropdown-label">WITHOUT PHILHEALTH</div>
+                  <button class="report-dropdown-item" onclick="printPhilhealthList(false);closeCardDropdown('philhealthReportDropdown')">
+                    <span>&#128424;</span><span>WITHOUT PHILHEALTH — PRINT</span>
+                  </button>
+                  <button class="report-dropdown-item" onclick="downloadReportCSV('nophilhealth');closeCardDropdown('philhealthReportDropdown')">
+                    <span>&#8595;</span><span>WITHOUT PHILHEALTH — CSV</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="asst-chart-wrap">
+            <div id="philhealthBars" class="asst-bars"></div>
+          </div>
+          <table class="data-table asst-summary-table" style="margin-top:16px">
+            <thead>
+              <tr>
+                <th>PHILHEALTH STATUS</th>
+                <th style="text-align:center">COUNT</th>
+                <th style="text-align:center">% OF TOTAL</th>
+                <th style="text-align:center">BREAKDOWN BAR</th>
+              </tr>
+            </thead>
+            <tbody id="philhealthTableBody"></tbody>
+          </table>
+        </div>
+
         <!-- SECTOR BREAKDOWN REPORT -->
         <div class="dash-table-card" style="margin-bottom:20px">
           <div class="dash-card-header">
             <h3>👥 SECTOR — BREAKDOWN</h3>
-            <span id="sectorTotalBadge" class="asst-total-badge">0 WITH SECTOR</span>
+            <div style="display:flex;align-items:center;gap:10px">
+              <span id="sectorTotalBadge" class="asst-total-badge">0 WITH SECTOR</span>
+              <div class="report-dropdown" id="sectorReportDropdown" style="position:relative">
+                <button class="btn-print report-dropdown-btn" onclick="toggleCardDropdown('sectorReportDropdown')">
+                  &#128424; GENERATE REPORT <span class="report-dropdown-arrow">&#9660;</span>
+                </button>
+                <div class="report-dropdown-menu" style="right:0;left:auto;min-width:260px">
+                  <div class="report-dropdown-label">SUMMARY</div>
+                  <button class="report-dropdown-item" onclick="printSummaryReport('sector');closeCardDropdown('sectorReportDropdown')">
+                    <span>&#128424;</span><span>SECTOR — COUNTS ONLY</span>
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
           <div class="asst-chart-wrap">
             <div id="sectorBars" class="asst-bars"></div>
@@ -537,7 +765,38 @@
         <div class="dash-table-card" style="margin-bottom:20px">
           <div class="dash-card-header">
             <h3>📍 MUNICIPALITY — BREAKDOWN</h3>
-            <span id="municipalityTotalBadge" class="asst-total-badge">0 WITH MUNICIPALITY</span>
+            <div style="display:flex;align-items:center;gap:10px">
+              <span id="municipalityTotalBadge" class="asst-total-badge">0 WITH MUNICIPALITY</span>
+              <div class="report-dropdown" id="addrReportDropdown" style="position:relative">
+                <button class="btn-print report-dropdown-btn" onclick="toggleAddrReportDropdown()" title="Generate FR Address Report by Area">
+                  &#128424; GENERATE REPORT <span class="report-dropdown-arrow">&#9660;</span>
+                </button>
+                <div class="report-dropdown-menu" id="addrReportDropdownMenu" style="right:0;left:auto;min-width:320px">
+                  <div class="report-dropdown-label">SUMMARY</div>
+                  <button class="report-dropdown-item" onclick="printAddressReport('SUMMARY');closeAddrReportDropdown()">
+                    <span>&#128424;</span><span>SUMMARY BY AREA (COUNTS ONLY)</span>
+                  </button>
+                  <div class="report-dropdown-divider"></div>
+                  <div class="report-dropdown-label">FR ADDRESSES — BY AREA</div>
+                  <button class="report-dropdown-item" onclick="printAddressReport('MAPSA');closeAddrReportDropdown()">
+                    <span>&#128424;</span><span>MAPSA (Mamburao, Abra de Ilog, Paluan, Sablayan, Sta. Cruz)</span>
+                  </button>
+                  <button class="report-dropdown-item" onclick="printAddressReport('SAMARICA');closeAddrReportDropdown()">
+                    <span>&#128424;</span><span>SAMARICA (San Jose, Magsaysay, Rizal, Calintaan)</span>
+                  </button>
+                  <button class="report-dropdown-item" onclick="printAddressReport('OUTSIDE');closeAddrReportDropdown()">
+                    <span>&#128424;</span><span>OUTSIDE OF OCCIDENTAL MINDORO</span>
+                  </button>
+                  <button class="report-dropdown-item" onclick="printAddressReport('NOADDRESS');closeAddrReportDropdown()">
+                    <span>&#128424;</span><span>NO ADDRESS ON RECORD</span>
+                  </button>
+                  <div class="report-dropdown-divider"></div>
+                  <button class="report-dropdown-item" onclick="printAddressReport('ALL');closeAddrReportDropdown()">
+                    <span>&#128424;</span><span>ALL AREAS (FULL ADDRESS REPORT)</span>
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
           <div class="asst-chart-wrap">
             <div id="municipalityBars" class="asst-bars"></div>
@@ -560,7 +819,28 @@
         <div class="dash-table-card" style="margin-bottom:20px">
           <div class="dash-card-header">
             <h3>🏛️ REFERRING UNIT — BREAKDOWN</h3>
-            <span id="referringUnitTotalBadge" class="asst-total-badge">0 WITH REFERRING UNIT</span>
+            <div style="display:flex;align-items:center;gap:10px">
+              <span id="referringUnitTotalBadge" class="asst-total-badge">0 WITH REFERRING UNIT</span>
+              <div class="report-dropdown" id="unitReportDropdown" style="position:relative">
+                <button class="btn-print report-dropdown-btn" onclick="toggleCardDropdown('unitReportDropdown')">
+                  &#128424; GENERATE REPORT <span class="report-dropdown-arrow">&#9660;</span>
+                </button>
+                <div class="report-dropdown-menu" style="right:0;left:auto;min-width:280px">
+                  <div class="report-dropdown-label">SUMMARY</div>
+                  <button class="report-dropdown-item" onclick="printUnitSummaryReport();closeCardDropdown('unitReportDropdown')">
+                    <span>&#128424;</span><span>FRs PER UNIT — COUNTS ONLY</span>
+                  </button>
+                  <button class="report-dropdown-item" onclick="downloadReportCSV('unitsummary');closeCardDropdown('unitReportDropdown')">
+                    <span>&#8595;</span><span>DOWNLOAD CSV</span>
+                  </button>
+                  <div class="report-dropdown-divider"></div>
+                  <div class="report-dropdown-label">DETAIL REPORT</div>
+                  <button class="report-dropdown-item" onclick="printUnitDetailReport();closeCardDropdown('unitReportDropdown')">
+                    <span>&#128424;</span><span>FRs LISTED PER UNIT</span>
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
           <div class="asst-chart-wrap">
             <div id="referringUnitBars" class="asst-bars"></div>
@@ -590,6 +870,9 @@
           <option value="">ALL MEMBERSHIP TYPES</option>
           <option value="MILISYANG BAYAN">MILISYANG BAYAN</option>
           <option value="REGULAR NPA">REGULAR NPA</option>
+        </select>
+        <select id="yearFilterSelect" class="unit-filter-select" onchange="filterRecords()">
+          <option value="">ALL YEARS</option>
         </select>
         <select id="unitFilterSelect" class="unit-filter-select" onchange="filterRecords()">
           <option value="">ALL REFERRING UNITS</option>
@@ -1227,6 +1510,8 @@
 <script src="lib/firebase-storage.js"></script>
 <!-- SheetJS — xlsx export with auto column widths -->
 <script src="lib/xlsx.full.min.js"></script>
+<!-- PptxGenJS — PowerPoint generation -->
+<script src="lib/pptxgen.bundle.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
