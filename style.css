@@ -932,6 +932,61 @@ textarea { resize: vertical; min-height: 120px; }
 /* Floating-decoration layer */
 .holiday-decor { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 0; }
 
+/* === FLOATING EMOJI DECORATIONS === */
+.holiday-emoji {
+  position: absolute;
+  bottom: -50px;
+  left: var(--left, 50%);
+  font-size: var(--size, 24px);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 1;
+  animation: holidayFloat var(--duration, 12s) linear infinite;
+  animation-delay: var(--delay, 0s);
+  will-change: bottom, transform, opacity;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+}
+@keyframes holidayFloat {
+  0%   { bottom: -50px; opacity: 0; transform: translateX(0) rotate(0deg); }
+  8%   { opacity: 0.9; }
+  25%  { transform: translateX(calc(var(--drift, 0px) * 0.3)) rotate(calc(var(--spin, 360deg) * 0.25)); }
+  50%  { transform: translateX(calc(var(--drift, 0px) * -0.2)) rotate(calc(var(--spin, 360deg) * 0.5)); }
+  75%  { transform: translateX(calc(var(--drift, 0px) * 0.6)) rotate(calc(var(--spin, 360deg) * 0.75)); }
+  92%  { opacity: 0.9; }
+  100% { bottom: 105%; opacity: 0; transform: translateX(var(--drift, 0px)) rotate(var(--spin, 360deg)); }
+}
+
+/* === HOLIDAY BANNER === */
+.holiday-banner {
+  position: absolute; top: 0; left: 0; right: 0;
+  text-align: center; padding: 14px 20px;
+  z-index: 10; font-size: 1.1rem; font-weight: 700;
+  letter-spacing: 2px; color: #fff;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.7);
+  pointer-events: none;
+  animation: bannerSlide 0.7s ease-out;
+}
+@keyframes bannerSlide {
+  from { transform: translateY(-100%); opacity: 0; }
+  to   { transform: translateY(0); opacity: 1; }
+}
+
+/* Per-holiday banner backgrounds */
+.login-screen[data-holiday="christmas"] .holiday-banner     { background: linear-gradient(90deg, rgba(207,34,46,0.88), rgba(46,160,67,0.88)); }
+.login-screen[data-holiday="newyear"] .holiday-banner        { background: linear-gradient(90deg, rgba(210,153,34,0.88), rgba(176,136,0,0.88)); }
+.login-screen[data-holiday="valentines"] .holiday-banner    { background: linear-gradient(90deg, rgba(227,52,92,0.88), rgba(255,107,157,0.88)); }
+.login-screen[data-holiday="halloween"] .holiday-banner      { background: linear-gradient(90deg, rgba(255,117,24,0.88), rgba(138,43,226,0.88)); }
+.login-screen[data-holiday="arawatan"] .holiday-banner        { background: linear-gradient(90deg, rgba(255,193,7,0.88), rgba(0,200,150,0.88)); color: #1a1a00; text-shadow: 0 1px 4px rgba(255,255,255,0.4); }
+.login-screen[data-holiday="jacobs"] .holiday-banner          { background: linear-gradient(90deg, rgba(168,85,247,0.88), rgba(255,215,0,0.88)); }
+.login-screen[data-holiday="independence"] .holiday-banner   { background: linear-gradient(90deg, rgba(0,56,168,0.88), rgba(206,17,38,0.88)); }
+.login-screen[data-holiday="eidalfitr"] .holiday-banner      { background: linear-gradient(90deg, rgba(0,150,70,0.88), rgba(212,175,55,0.88)); }
+.login-screen[data-holiday="maundy"] .holiday-banner          { background: linear-gradient(90deg, rgba(106,13,173,0.88), rgba(147,112,219,0.88)); }
+.login-screen[data-holiday="goodfriday"] .holiday-banner      { background: linear-gradient(90deg, rgba(74,10,10,0.88), rgba(139,0,0,0.88)); }
+.login-screen[data-holiday="kagitingan"] .holiday-banner     { background: linear-gradient(90deg, rgba(0,40,104,0.88), rgba(191,10,48,0.88)); }
+.login-screen[data-holiday="labor"] .holiday-banner           { background: linear-gradient(90deg, rgba(226,88,34,0.88), rgba(204,41,54,0.88)); }
+.login-screen[data-holiday="heroes"] .holiday-banner          { background: linear-gradient(90deg, rgba(0,56,168,0.88), rgba(212,175,55,0.88)); }
+.login-screen[data-holiday="bonifacio"] .holiday-banner      { background: linear-gradient(90deg, rgba(206,17,38,0.88), rgba(0,40,104,0.88)); }
+
 /* --- CHRISTMAS (Dec 1–31) --- */
 .login-screen[data-holiday="christmas"] {
   background: linear-gradient(135deg, #0b1f12 0%, #0d1117 60%, #1a0a0a 100%);
@@ -1255,6 +1310,167 @@ textarea { resize: vertical; min-height: 120px; }
   border-color: #a855f7; box-shadow: 0 0 0 3px rgba(168,85,247,0.2);
 }
 
+/* --- EID'L FITR (Mar 19-21) --- */
+.login-screen[data-holiday="eidalfitr"] {
+  background: linear-gradient(135deg, #0a1f0a 0%, #0d1117 55%, #1a2a00 100%);
+}
+.login-screen[data-holiday="eidalfitr"]::before {
+  background: radial-gradient(circle, rgba(0,150,70,0.32) 0%, transparent 70%);
+}
+.login-screen[data-holiday="eidalfitr"]::after {
+  background: radial-gradient(circle, rgba(212,175,55,0.25) 0%, transparent 70%);
+}
+.login-screen[data-holiday="eidalfitr"] .login-card {
+  box-shadow: var(--shadow), 0 0 60px rgba(0,150,70,0.22);
+}
+.login-screen[data-holiday="eidalfitr"] .btn-login {
+  background: linear-gradient(135deg, #009646 0%, #d4af37 100%);
+}
+.login-screen[data-holiday="eidalfitr"] .btn-login:hover {
+  box-shadow: 0 0 16px rgba(0,150,70,0.4);
+}
+.login-screen[data-holiday="eidalfitr"] .login-form input:focus {
+  border-color: #009646; box-shadow: 0 0 0 3px rgba(0,150,70,0.2);
+}
+
+/* --- MAUNDY THURSDAY (Apr 1-2) --- */
+.login-screen[data-holiday="maundy"] {
+  background: linear-gradient(135deg, #1a0a2e 0%, #0d1117 55%, #150a20 100%);
+}
+.login-screen[data-holiday="maundy"]::before {
+  background: radial-gradient(circle, rgba(128,0,128,0.30) 0%, transparent 70%);
+}
+.login-screen[data-holiday="maundy"]::after {
+  background: radial-gradient(circle, rgba(186,85,211,0.22) 0%, transparent 70%);
+}
+.login-screen[data-holiday="maundy"] .login-card {
+  box-shadow: var(--shadow), 0 0 60px rgba(128,0,128,0.22);
+}
+.login-screen[data-holiday="maundy"] .btn-login {
+  background: linear-gradient(135deg, #6a0dad 0%, #9370db 100%);
+}
+.login-screen[data-holiday="maundy"] .btn-login:hover {
+  box-shadow: 0 0 16px rgba(128,0,128,0.4);
+}
+.login-screen[data-holiday="maundy"] .login-form input:focus {
+  border-color: #6a0dad; box-shadow: 0 0 0 3px rgba(128,0,128,0.2);
+}
+
+/* --- GOOD FRIDAY (Apr 3-4) --- */
+.login-screen[data-holiday="goodfriday"] {
+  background: linear-gradient(135deg, #0a0a0a 0%, #0d1117 50%, #1a0505 100%);
+}
+.login-screen[data-holiday="goodfriday"]::before {
+  background: radial-gradient(circle, rgba(139,0,0,0.28) 0%, transparent 70%);
+}
+.login-screen[data-holiday="goodfriday"]::after {
+  background: radial-gradient(circle, rgba(75,0,0,0.22) 0%, transparent 70%);
+}
+.login-screen[data-holiday="goodfriday"] .login-card {
+  box-shadow: var(--shadow), 0 0 60px rgba(139,0,0,0.20);
+}
+.login-screen[data-holiday="goodfriday"] .btn-login {
+  background: linear-gradient(135deg, #4a0a0a 0%, #8b0000 100%);
+}
+.login-screen[data-holiday="goodfriday"] .btn-login:hover {
+  box-shadow: 0 0 16px rgba(139,0,0,0.4);
+}
+.login-screen[data-holiday="goodfriday"] .login-form input:focus {
+  border-color: #8b0000; box-shadow: 0 0 0 3px rgba(139,0,0,0.2);
+}
+
+/* --- DAY OF VALOR / ARAW NG KAGITINGAN (Apr 8-10) --- */
+.login-screen[data-holiday="kagitingan"] {
+  background: linear-gradient(135deg, #0a1428 0%, #0d1117 50%, #1a0505 100%);
+}
+.login-screen[data-holiday="kagitingan"]::before {
+  background: radial-gradient(circle, rgba(0,56,168,0.30) 0%, transparent 70%);
+}
+.login-screen[data-holiday="kagitingan"]::after {
+  background: radial-gradient(circle, rgba(206,17,38,0.25) 0%, transparent 70%);
+}
+.login-screen[data-holiday="kagitingan"] .login-card {
+  box-shadow: var(--shadow), 0 0 60px rgba(0,56,168,0.20);
+}
+.login-screen[data-holiday="kagitingan"] .btn-login {
+  background: linear-gradient(135deg, #002868 0%, #bf0a30 100%);
+}
+.login-screen[data-holiday="kagitingan"] .btn-login:hover {
+  box-shadow: 0 0 16px rgba(0,56,168,0.4);
+}
+.login-screen[data-holiday="kagitingan"] .login-form input:focus {
+  border-color: #002868; box-shadow: 0 0 0 3px rgba(0,56,168,0.2);
+}
+
+/* --- LABOR DAY (Apr 30-May 2) --- */
+.login-screen[data-holiday="labor"] {
+  background: linear-gradient(135deg, #2a1505 0%, #0d1117 55%, #1a0a0a 100%);
+}
+.login-screen[data-holiday="labor"]::before {
+  background: radial-gradient(circle, rgba(255,140,0,0.30) 0%, transparent 70%);
+}
+.login-screen[data-holiday="labor"]::after {
+  background: radial-gradient(circle, rgba(220,50,50,0.25) 0%, transparent 70%);
+}
+.login-screen[data-holiday="labor"] .login-card {
+  box-shadow: var(--shadow), 0 0 60px rgba(255,140,0,0.22);
+}
+.login-screen[data-holiday="labor"] .btn-login {
+  background: linear-gradient(135deg, #e25822 0%, #cc2936 100%);
+}
+.login-screen[data-holiday="labor"] .btn-login:hover {
+  box-shadow: 0 0 16px rgba(255,140,0,0.4);
+}
+.login-screen[data-holiday="labor"] .login-form input:focus {
+  border-color: #e25822; box-shadow: 0 0 0 3px rgba(255,140,0,0.2);
+}
+
+/* --- NATIONAL HEROES DAY (Aug 30-31) --- */
+.login-screen[data-holiday="heroes"] {
+  background: linear-gradient(135deg, #0a1428 0%, #0d1117 50%, #2a1505 100%);
+}
+.login-screen[data-holiday="heroes"]::before {
+  background: radial-gradient(circle, rgba(0,56,168,0.30) 0%, transparent 70%);
+}
+.login-screen[data-holiday="heroes"]::after {
+  background: radial-gradient(circle, rgba(212,175,55,0.25) 0%, transparent 70%);
+}
+.login-screen[data-holiday="heroes"] .login-card {
+  box-shadow: var(--shadow), 0 0 60px rgba(0,56,168,0.22);
+}
+.login-screen[data-holiday="heroes"] .btn-login {
+  background: linear-gradient(135deg, #0038a8 0%, #d4af37 100%);
+}
+.login-screen[data-holiday="heroes"] .btn-login:hover {
+  box-shadow: 0 0 16px rgba(0,56,168,0.4);
+}
+.login-screen[data-holiday="heroes"] .login-form input:focus {
+  border-color: #0038a8; box-shadow: 0 0 0 3px rgba(0,56,168,0.2);
+}
+
+/* --- BONIFACIO DAY (Nov 29-30) --- */
+.login-screen[data-holiday="bonifacio"] {
+  background: linear-gradient(135deg, #1a0505 0%, #0d1117 50%, #0a1428 100%);
+}
+.login-screen[data-holiday="bonifacio"]::before {
+  background: radial-gradient(circle, rgba(206,17,38,0.30) 0%, transparent 70%);
+}
+.login-screen[data-holiday="bonifacio"]::after {
+  background: radial-gradient(circle, rgba(212,175,55,0.25) 0%, transparent 70%);
+}
+.login-screen[data-holiday="bonifacio"] .login-card {
+  box-shadow: var(--shadow), 0 0 60px rgba(206,17,38,0.22);
+}
+.login-screen[data-holiday="bonifacio"] .btn-login {
+  background: linear-gradient(135deg, #ce1126 0%, #002868 100%);
+}
+.login-screen[data-holiday="bonifacio"] .btn-login:hover {
+  box-shadow: 0 0 16px rgba(206,17,38,0.4);
+}
+.login-screen[data-holiday="bonifacio"] .login-form input:focus {
+  border-color: #ce1126; box-shadow: 0 0 0 3px rgba(206,17,38,0.2);
+}
+
 /* Light-theme holiday adjustments (softer pastel backgrounds) */
 [data-theme="light"] .login-screen[data-holiday="christmas"] {
   background: linear-gradient(135deg, #e8f5e9 0%, #f0f2f5 60%, #fdecea 100%);
@@ -1276,6 +1492,27 @@ textarea { resize: vertical; min-height: 120px; }
 }
 [data-theme="light"] .login-screen[data-holiday="jacobs"] {
   background: linear-gradient(135deg, #f3e5f5 0%, #f0f2f5 50%, #fff8e1 100%);
+}
+[data-theme="light"] .login-screen[data-holiday="eidalfitr"] {
+  background: linear-gradient(135deg, #e8f5e9 0%, #f0f2f5 55%, #fff8e1 100%);
+}
+[data-theme="light"] .login-screen[data-holiday="maundy"] {
+  background: linear-gradient(135deg, #f3e5f5 0%, #f0f2f5 55%, #ede7f6 100%);
+}
+[data-theme="light"] .login-screen[data-holiday="goodfriday"] {
+  background: linear-gradient(135deg, #efebe9 0%, #f0f2f5 50%, #ffebee 100%);
+}
+[data-theme="light"] .login-screen[data-holiday="kagitingan"] {
+  background: linear-gradient(135deg, #e3f2fd 0%, #f0f2f5 50%, #ffebee 100%);
+}
+[data-theme="light"] .login-screen[data-holiday="labor"] {
+  background: linear-gradient(135deg, #fff3e0 0%, #f0f2f5 55%, #ffebee 100%);
+}
+[data-theme="light"] .login-screen[data-holiday="heroes"] {
+  background: linear-gradient(135deg, #e3f2fd 0%, #f0f2f5 50%, #fff8e1 100%);
+}
+[data-theme="light"] .login-screen[data-holiday="bonifacio"] {
+  background: linear-gradient(135deg, #ffebee 0%, #f0f2f5 50%, #e3f2fd 100%);
 }
 
 /* ===== SCROLLBAR ===== */

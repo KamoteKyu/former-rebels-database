@@ -5437,13 +5437,20 @@ function toggleTheme() {
 
 // -- HOLIDAY DYNAMIC THEMES (login page only) ----------------
 var HOLIDAY_CONFIG = {
-  christmas:   { emojis: ['\u2744\uFE0F','\uD83C\uDF84','\u26C4','\uD83D\uDD14','\uD83C\uDF81','\uD83E\uDD8C','\u2B50'], count: 18 },
-  newyear:     { emojis: ['\uD83C\uDF86','\uD83C\uDF87','\u2728','\uD83C\uDF89','\uD83E\uDD42','\uD83C\uDF1F'], count: 14 },
-  valentines:  { emojis: ['\u2764\uFE0F','\uD83D\uDC95','\uD83D\uDC9E','\uD83C\uDF39','\uD83D\uDC9D','\uD83D\uDC98'], count: 16 },
-  halloween:   { emojis: ['\uD83C\uDF83','\uD83D\uDC7B','\uD83E\uDE87','\uD83D\uDD78\uFE0F','\uD83D\uDD78','\uD83D\uDC80','\uD83E\uDD89'], count: 8 },
-  arawatan:    { emojis: ['\uD83C\uDF34','\u2600\uFE0F','\uD83C\uDF3A','\uD83C\uDF89','\uD83C\uDFB6','\uD83C\uDFBA','\uD83E\uDD41','\uD83E\uDE95'], count: 16 },
-  jacobs:      { emojis: ['\uD83C\uDF82','\uD83C\uDF88','\uD83C\uDF89','\uD83C\uDF81','\uD83E\uDD73','\uD83C\uDF8A','\uD83E\uDDC1','\uD83C\uDF86'], count: 16 },
-  independence:{ emojis: ['\u2B50','\uD83C\uDDF5\uD83C\uDDF2','\u2600\uFE0F','\uD83E\uDD99','\uD83C\uDF3A'], count: 14 }
+  christmas:   { emojis: ['\u2744\uFE0F','\uD83C\uDF84','\u26C4','\uD83D\uDD14','\uD83C\uDF81','\uD83E\uDD8C','\u2B50'], count: 18, banner: 'Merry Christmas!' },
+  newyear:     { emojis: ['\uD83C\uDF86','\uD83C\uDF87','\u2728','\uD83C\uDF89','\uD83E\uDD42','\uD83C\uDF1F'], count: 14, banner: 'Happy New Year!' },
+  valentines:  { emojis: ['\u2764\uFE0F','\uD83D\uDC95','\uD83D\uDC9E','\uD83C\uDF39','\uD83D\uDC9D','\uD83D\uDC98'], count: 16, banner: "Happy Valentine's Day!" },
+  halloween:   { emojis: ['\uD83C\uDF83','\uD83D\uDC7B','\uD83E\uDE87','\uD83D\uDD78\uFE0F','\uD83D\uDD78','\uD83D\uDC80','\uD83E\uDD89'], count: 8, banner: 'Happy Halloween!' },
+  arawatan:    { emojis: ['\uD83C\uDF34','\u2600\uFE0F','\uD83C\uDF3A','\uD83C\uDF89','\uD83C\uDFB6','\uD83C\uDFBA','\uD83E\uDD41','\uD83E\uDE95'], count: 16, banner: 'HAPPY ARAWATAN FESTIVAL!' },
+  jacobs:      { emojis: ['\uD83C\uDF82','\uD83C\uDF88','\uD83C\uDF89','\uD83C\uDF81','\uD83E\uDD73','\uD83C\uDF8A','\uD83E\uDDC1','\uD83C\uDF86'], count: 16, banner: "Happy Birthday, Jacob!" },
+  independence:{ emojis: ['\u2B50','\uD83C\uDDF5\uD83C\uDDF2','\u2600\uFE0F','\uD83E\uDD99','\uD83C\uDF3A'], count: 14, banner: 'Happy Independence Day!' },
+  eidalfitr:   { emojis: ['\uD83C\uDF19','\u2B50','\uD83D\uDD4C','\uD83C\uDF1F','\uD83E\uDDFF','\uD83C\uDF89'], count: 14, banner: 'Eid Mubarak!' },
+  maundy:      { emojis: ['\uD83C\uDF5E','\uD83C\uDF77','\u271D\uFE0F','\uD83D\uDD6F\uFE0F','\uD83D\uDE4F','\u26EA'], count: 12, banner: 'Maundy Thursday' },
+  goodfriday:  { emojis: ['\u271D\uFE0F','\uD83D\uDD6F\uFE0F','\uD83D\uDE4F','\u26EA','\uD83E\uDE78','\uD83C\uDF39'], count: 10, banner: 'Good Friday' },
+  kagitingan:  { emojis: ['\uD83C\uDDF5\uD83C\uDDF2','\u2B50','\uD83C\uDE96\uFE0F','\uD83D\uDEE1\uFE0F','\u2600\uFE0F','\uD83D\uDDE1\uFE0F'], count: 14, banner: 'Araw ng Kagitingan' },
+  labor:       { emojis: ['\uD83D\uDD28','\uD83D\uDD27','\u2699\uFE0F','\u270A','\uD83D\uDC77','\uD83E\uDDBA'], count: 14, banner: 'Happy Labor Day!' },
+  heroes:      { emojis: ['\uD83C\uDDF5\uD83C\uDDF2','\uD83C\uDE96\uFE0F','\u2B50','\uD83D\uDDFF','\uD83D\uDEE1\uFE0F','\uD83D\uDD6F\uFE0F'], count: 14, banner: 'National Heroes Day' },
+  bonifacio:   { emojis: ['\uD83C\uDDF5\uD83C\uDDF2','\u2B50','\uD83D\uDDE1\uFE0F','\uD83D\uDD25','\uD83D\uDEE1\uFE0F','\uD83C\uDE96\uFE0F'], count: 14, banner: 'Bonifacio Day' }
 };
 
 // Returns a holiday key based on the current date, or null for none.
@@ -5454,11 +5461,19 @@ function getCurrentHoliday() {
   if (m === 12)                          return 'christmas';    // all of December
   if (m === 1 && d <= 7)                 return 'newyear';      // Jan 1-7
   if (m === 2 && d <= 15)                return 'valentines';   // Feb 1-15
+  if (m === 3 && d >= 19 && d <= 21)     return 'eidalfitr';    // Mar 19-21 Eid'l Fitr
+  if (m === 4 && d >= 1 && d <= 2)       return 'maundy';       // Apr 1-2 Maundy Thursday
+  if (m === 4 && d >= 3 && d <= 4)       return 'goodfriday';    // Apr 3-4 Good Friday
+  if (m === 4 && d >= 8 && d <= 10)      return 'kagitingan';   // Apr 8-10 Day of Valor
+  if ((m === 4 && d === 30) ||
+      (m === 5 && d <= 2))               return 'labor';        // Apr 30-May 2 Labor Day
+  if (m === 6 && d === 15)               return 'jacobs';       // Jun 15 Jacob's Birthday
+  if (m === 6 && d <= 15)                return 'independence'; // Jun 1-15 (PH Independence)
+  if (m === 8 && d >= 30)                return 'heroes';       // Aug 30-31 National Heroes Day
   if ((m === 10 && d >= 15) ||
       (m === 11 && d <= 2))              return 'halloween';    // Oct 15 - Nov 2
   if (m === 11 && d >= 10 && d <= 15)    return 'arawatan';     // Nov 10-15 Arawatan Festival
-  if (m === 6 && d === 15)               return 'jacobs';       // Jun 15 Jacob's Birthday
-  if (m === 6 && d <= 15)                return 'independence'; // Jun 1-15 (PH Independence)
+  if (m === 11 && d >= 29)               return 'bonifacio';    // Nov 29-30 Bonifacio Day
   return null;
 }
 
@@ -5469,9 +5484,36 @@ function applyHolidayTheme() {
   if (!loginScreen) return;
   if (holiday) {
     loginScreen.setAttribute('data-holiday', holiday);
+    // === HOLIDAY BANNER (sibling to login-card, above decor layer) ===
+    var oldBanner = loginScreen.querySelector('.holiday-banner');
+    if (oldBanner) oldBanner.parentNode.removeChild(oldBanner);
+    var config = HOLIDAY_CONFIG[holiday];
+    if (config && config.banner) {
+      var banner = document.createElement('div');
+      banner.className = 'holiday-banner';
+      banner.textContent = config.banner;
+      loginScreen.appendChild(banner);
+    }
+
     var decor = document.getElementById('holidayDecor');
     if (decor) {
       decor.innerHTML = '';
+
+      // === FLOATING EMOJIS ===
+      if (config && config.emojis && config.emojis.length) {
+        for (var i = 0; i < config.count; i++) {
+          var emoji = document.createElement('div');
+          emoji.className = 'holiday-emoji';
+          emoji.textContent = config.emojis[Math.floor(Math.random() * config.emojis.length)];
+          emoji.style.setProperty('--left', (Math.random() * 100) + '%');
+          emoji.style.setProperty('--size', (18 + Math.random() * 22) + 'px');
+          emoji.style.setProperty('--duration', (8 + Math.random() * 12) + 's');
+          emoji.style.setProperty('--delay', (Math.random() * 12) + 's');
+          emoji.style.setProperty('--drift', ((Math.random() - 0.5) * 140) + 'px');
+          emoji.style.setProperty('--spin', (Math.random() > 0.5 ? 360 : -360) + 'deg');
+          decor.appendChild(emoji);
+        }
+      }
 
       // === HALLOWEEN SCARY EFFECTS ===
       if (holiday === 'halloween') {
@@ -5534,6 +5576,8 @@ function applyHolidayTheme() {
     console.log('[FRDB] Holiday theme applied: ' + holiday);
   } else {
     loginScreen.removeAttribute('data-holiday');
+    var oldBanner = loginScreen.querySelector('.holiday-banner');
+    if (oldBanner) oldBanner.parentNode.removeChild(oldBanner);
     var d = document.getElementById('holidayDecor');
     if (d) d.innerHTML = '';
   }
